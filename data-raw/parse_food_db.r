@@ -33,54 +33,6 @@ food_group %<>%
 
 
 
-food_swe %>%
-  mutate(Livsmedelsnamn = gsub(" rå\b", "", Livsmedelsnamn)) %>%
-  #mutate(Livsmedelsnamn = gsub("Bouillabaisse fisksoppa", "Fisksoppa2", Livsmedelsnamn)) %>%
-  mutate(Livsmedelsnamn = gsub(" %", "%", Livsmedelsnamn)) %>%
-  select(Livsmedelsnamn, Livsmedelsnummer, Livsmedelsgrupp, contains("kcal")) %>%
-  merge(.,
-        food_swe2 %>%
-          mutate(Livsmedelsnamn = gsub(" rå\b", "", Livsmedelsnamn)) %>%
-          #mutate(Livsmedelsnamn = gsub("Bouillabaisse fisksoppa", "Fisksoppa1", Livsmedelsnamn)) %>%
-          mutate(Livsmedelsnamn = gsub("\\ %", "%", Livsmedelsnamn)) %>%
-          select(Livsmedelsnamn, Livsmedelsnummer, contains("kcal")),
-
-        by="Livsmedelsnamn", all.x = TRUE) %>%
-  as_tibble %>%
-  merge(.,
-        food_swe2 %>%
-          mutate(Livsmedelsnamn = gsub(" rå\b", "", Livsmedelsnamn)) %>%
-          #mutate(Livsmedelsnamn = gsub("Bouillabaisse fisksoppa", "Fisksoppa1", Livsmedelsnamn)) %>%
-          mutate(Livsmedelsnamn = gsub("\\ %", "%", Livsmedelsnamn)) %>%
-          select(Livsmedelsnamn, Livsmedelsnummer, contains("kcal")),
-
-        by.y="Livsmedelsnummer",
-        by.x="Livsmedelsnummer.x", all.x = TRUE) %>%
-    mutate(Livsmedelsnummer.x = Livsmedelsnummer.x %>%
-             replace(Livsmedelsnummer.x==312, 5864) %>%
-             replace(Livsmedelsnummer.x==892, 5866) %>%
-             replace(Livsmedelsnummer.x==1354, 2108)
-          ) %>%
-  as_tibble() %>%
-  #filter(Livsmedelsnamn.x != Livsmedelsnamn.y | Livsmedelsnummer.x != Livsmedelsnummer.y, `Energi (kcal)(kcal)` != `Energi (kcal).x`) %>%
-  #filter(Livsmedelsnummer.x != Livsmedelsnummer.y) %>%
-  #select(Livsmedelsnamn.x, Livsmedelsnamn.y, `Energi (kcal)(kcal)`, `Energi (kcal).x` , Livsmedelsnummer.x, Livsmedelsnummer.y ) %>% head(50)
-  rename(Livsmedelsnummer  = Livsmedelsnummer.x) %>%
-  rename(Livsmedelsnummer2 = Livsmedelsnummer.y) %>%
-  rename(Livsmedelsnamn_swe2   = Livsmedelsnamn.y) %>%
-  rename(Livsmedelsnamn_swe1   = Livsmedelsnamn.x) %>%
-  select(-`Energi (kcal).x`) %>%
-  select(-`Energi (kcal).y`) %>%
-  select(-`Energi (kcal)(kcal)`) %>%
-  merge(.,  food_eng, by.y="Livsmedelsnummer", by.x="Livsmedelsnummer", all.x = TRUE) %>%
-  as_tibble()
-
-
-
-
-
-
-
 tmp = food_swe %>% select(Livsmedelsnamn,Livsmedelsnummer,Livsmedelsgrupp, `Energi (kcal)(kcal)`)
 
 tmp$id = NULL
@@ -183,6 +135,40 @@ tmp$id %>% is.na %>% table()
 length(compteur_perfect_match)
 length(compteur_match_number)
 length(compteur_global_dist)
+
+food_swe_eng =
+  data.frame(
+    tmp,
+    Livsmedelsnamn_eng = food_eng$Livsmedelsnamn[tmp$id],
+    check.names = FALSE) %>%
+  as_tibble()
+
+
+food_swe_eng_fab =
+food_fab %>%
+  rename(
+    Livsmedelsnamn = Foodstuffs,
+    Livsmedelsgrupp = food_group,
+    Livsmedelsnummer = Code,
+
+    `Energi (kcal)(kcal)` = `Energy kcal`
+    ) %>%
+  mutate(Livsmedelsnamn_eng = Livsmedelsnamn) %>%
+  select(Livsmedelsnamn,
+         Livsmedelsnummer,
+         Livsmedelsgrupp,
+         Livsmedelsnamn_eng,
+         `Energi (kcal)(kcal)`
+         ) %>%
+  rbind(food_swe_eng %>% select(-id))
+
+
+food_swe_eng_fab %>%
+  merge(food_data, by.x = "Livsmedelsnummer", by.y="Code", all.y = TRUE) %>%
+  as_tibble() %>%
+  select(Livsmedelsnamn, Livsmedelsnamn_eng, Foodstuffs) %>%
+  unique %>%
+  write.csv2(file="food_item_mosaic.csv")
 
 
 
