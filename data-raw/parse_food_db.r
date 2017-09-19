@@ -170,6 +170,32 @@ food_swe_eng_fab %>%
   unique %>%
   write.csv2(file="food_item_mosaic.csv")
 
+grp=2
+
+food_swe %>%
+  filter(Livsmedelsgrupp == grp) %>%
+  select(
+    -Livsmedelsnamn,
+    -Livsmedelsnummer,
+    -Livsmedelsgrupp
+    -`Energi (kJ)(kJ)`,
+    -`Energi (kcal)(kcal)`
+    ) %>%
+  dist() %>%
+  ade4::quasieuclid() %>%
+  ade4::dudi.pco(scannf = F, nf=2) %>%
+  .$li %>%
+  bind_cols(
+           food_swe %>%
+           filter(Livsmedelsgrupp == grp) %>%
+           select(Livsmedelsnamn)
+         ) %>%
+  ggplot(aes(x=A1, y=A2)) +
+  ggrepel::geom_text_repel(aes(label=Livsmedelsnamn))
+
+
+
+
 
 
 
