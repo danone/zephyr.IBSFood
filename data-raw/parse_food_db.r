@@ -3,6 +3,9 @@ library(magrittr)
 library(readxl)
 library(dplyr)
 library(stringdist)
+library(magrittr)
+library(reshape2)
+library(DirichletMultinomial)
 
 food_data = read_excel("data-raw/MOSAIC_big_food_db.xlsx")
 
@@ -164,34 +167,129 @@ food_fab %>%
 
 
 food_swe_eng_fab %>%
-  merge(food_data, by.x = "Livsmedelsnummer", by.y="Code", all.y = TRUE) %>%
+  merge(food_data %>% select(Code, Foodstuffs) %>% unique %>% mutate(used = "yes"), by.x = "Livsmedelsnummer", by.y="Code", all.y = TRUE, all.x = TRUE) %>%
   as_tibble() %>%
-  select(Livsmedelsnamn, Livsmedelsnamn_eng, Foodstuffs) %>%
+  select(Livsmedelsnamn, Livsmedelsnamn_eng, Foodstuffs,used, Livsmedelsnummer, Livsmedelsgrupp) %>%
   unique %>%
   write.csv2(file="food_item_mosaic.csv")
+
+
+
+food_swe_eng_fab %>%
+  merge(food_data %>%
+      filter(Code != "Meal sum", !is.na(Code)) %>%
+      select(Code, Foodstuffs) %>%
+      unique %>%
+      mutate(used = "yes"),
+    by.x = "Livsmedelsnummer",
+    by.y="Code",
+    all.y = TRUE,
+    all.x = TRUE) %>%
+  as_tibble() %>%
+  select(Livsmedelsnamn, Livsmedelsnamn_eng, Foodstuffs,used, Livsmedelsnummer, Livsmedelsgrupp) %>%
+  unique %>%
+  mutate(used = ifelse(is.na(used), "no", "yes")) %>%
+  mutate(Foodstuffs = ifelse(is.na(Foodstuffs) & used == "yes", Livsmedelsnamn, Foodstuffs )) %>%
+  mutate(Livsmedelsnamn_eng = ifelse(used == "yes", Foodstuffs, Livsmedelsnamn_eng)) %>% # keep original english name from the study
+  merge(food_group,., by.y="Livsmedelsgrupp", by.x="num_lvl3", all.y=TRUE) -> food_group_levels
+
+
+## the code below create an html data tree
+# food_group_levels %>%
+#   merge(food_swe %>% select(Livsmedelsnummer, `Energi (kcal)(kcal)`), by="Livsmedelsnummer" ) %>%
+#   mutate(pathString=paste(`Food groups lvl0`,`Food groups lvl1`,`Food groups lvl2`,`Food groups lvl3`,Livsmedelsnamn, sep="/")) %>%
+#   data.tree::as.Node() -> food_tree
+#
+# food_html = circlepackeR::circlepackeR(food_tree, size="Energi (kcal)(kcal)")
+# htmlwidgets::saveWidget(food_html, "./data-raw/food_tree.html", selfcontained = TRUE)
+
+
+## the code below create an html data tree for mosaic study
+ # food_group_levels %>%
+ #   merge(food_swe %>% select(Livsmedelsnummer, `Energi (kcal)(kcal)`), by="Livsmedelsnummer" ) %>%
+ #     mutate(pathString=paste(`Food groups lvl0`,`Food groups lvl1`,`Food groups lvl2`,`Food groups lvl3`,Foodstuffs, sep="//")) %>%
+ #   filter(used == "yes") %>%
+ #   data.tree::as.Node(pathDelimiter = "//") -> food_tree
+ #
+ # food_html = circlepackeR::circlepackeR(food_tree, size="Energi (kcal)(kcal)")
+ # htmlwidgets::saveWidget(food_html, "food_tree_mosaic.html", selfcontained = TRUE)
+
+
+
+ ## the code below create an html data tree for mosaic study with fiber
+ # food_group_levels %>%
+ #   merge(food_swe %>% select(Livsmedelsnummer, `Fibrer(g)`), by="Livsmedelsnummer" ) %>%
+ #   #mutate(`Fibrer(g)` =  `Fibrer(g)` + 0.01 ) %>%
+ #   mutate(pathString=paste(`Food groups lvl0`,`Food groups lvl1`,`Food groups lvl2`,`Food groups lvl3`,Foodstuffs, sep="//")) %>%
+ #   filter(used == "yes", `Fibrer(g)` != 0) %>%
+ #   data.tree::as.Node(pathDelimiter = "//") -> food_tree
+ #
+ # food_html = circlepackeR::circlepackeR(food_tree, size="Fibrer(g)")
+ # htmlwidgets::saveWidget(food_html, "food_tree_mosaic_fiber.html", selfcontained = TRUE)
+
+
+
+food_fab %>%
+  rename(
+    Livsmedelsnamn = Foodstuffs,
+    Livsmedelsgrupp = food_group,
+    Livsmedelsnummer = Code
+   ) %>%
+  melt(id.vars=c("Livsmedelsnamn", "Livsmedelsgrupp", "Livsmedelsnummer", "Gram")) %>%
+  mutate(value = ifelse(is.na(value), 0, value)) %>%
+  mutate(value = (100/Gram) * value, Gram = (100/Gram) * Gram) %>%
+  select(-Gram) %>%
+  dcast(Livsmedelsnamn+Livsmedelsgrupp+Livsmedelsnummer~variable) %>%
+  as_tibble() %>%
+  colnames -> a
+
+food_eng %>% colnames ->b
+
+
+food_data %>%
+  filter(Code %in% food_group_levels$Livsmedelsnummer) %>%
+  melt(id.vars = c("Identity",  "Day", "Meal", "Code", "Foodstuffs", "Gram")) %>%
+  mutate(value = ifelse(is.na(value), 0, value)) %>%
+  group_by(variable, Foodstuffs, Code ) %>%
+  summarise(Gram = sum(Gram), value = sum(value)) %>%
+  mutate(value = (100/Gram) * value) %>%
+  select(-Gram) %>%
+  dcast(Foodstuffs+Code~variable) %>%
+  arrange(desc(`Fibers(g)`))
+
+
+
 
 grp=2
 
 food_swe %>%
   filter(Livsmedelsgrupp == grp) %>%
   select(
-    -Livsmedelsnamn,
+    #-Livsmedelsnamn,
     -Livsmedelsnummer,
-    -Livsmedelsgrupp
+    -Livsmedelsgrupp,
     -`Energi (kJ)(kJ)`,
     -`Energi (kcal)(kcal)`
     ) %>%
-  dist() %>%
-  ade4::quasieuclid() %>%
-  ade4::dudi.pco(scannf = F, nf=2) %>%
-  .$li %>%
-  bind_cols(
-           food_swe %>%
-           filter(Livsmedelsgrupp == grp) %>%
-           select(Livsmedelsnamn)
-         ) %>%
-  ggplot(aes(x=A1, y=A2)) +
-  ggrepel::geom_text_repel(aes(label=Livsmedelsnamn))
+  melt(id.vars="Livsmedelsnamn") %>%
+  mutate(value = ifelse(is.na(value), 0, value)) %>%
+  mutate(value = ifelse(grepl("(mg)",variable), value/(10^3), value)) %>%
+  mutate(value = ifelse(grepl("(µg)",variable), value/(10^6), value)) %>%
+  mutate(value = 10000000*value) %>%
+  mutate(value = round(value)) %>%
+  filter(grepl("g)", variable)) %>%
+  dcast(Livsmedelsnamn~variable) %>%
+  select(-contains("Summa")) %>%
+  tibble::column_to_rownames("Livsmedelsnamn") -> tt
+
+
+fit = mclapply(1:7, dmn, count=as.matrix(tt), verbose=TRUE)
+
+
+lplc <- sapply(fit, laplace)
+
+
+
 
 
 
