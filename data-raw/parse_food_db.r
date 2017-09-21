@@ -228,39 +228,42 @@ food_swe_eng_fab %>%
  # htmlwidgets::saveWidget(food_html, "food_tree_mosaic_fiber.html", selfcontained = TRUE)
 
 
+# fabrikanter db and Livsmedels db do not have the same nutrient....
+# food_fab %>%
+#   rename(
+#     Livsmedelsnamn = Foodstuffs,
+#     Livsmedelsgrupp = food_group,
+#     Livsmedelsnummer = Code
+#    ) %>%
+#   melt(id.vars=c("Livsmedelsnamn", "Livsmedelsgrupp", "Livsmedelsnummer", "Gram")) %>%
+#   mutate(value = ifelse(is.na(value), 0, value)) %>%
+#   mutate(value = (100/Gram) * value, Gram = (100/Gram) * Gram) %>%
+#   select(-Gram) %>%
+#   dcast(Livsmedelsnamn+Livsmedelsgrupp+Livsmedelsnummer~variable) %>%
+#   as_tibble() %>%
+#   colnames -> a
+#
+# food_eng %>% colnames ->b
 
-food_fab %>%
-  rename(
-    Livsmedelsnamn = Foodstuffs,
-    Livsmedelsgrupp = food_group,
-    Livsmedelsnummer = Code
-   ) %>%
-  melt(id.vars=c("Livsmedelsnamn", "Livsmedelsgrupp", "Livsmedelsnummer", "Gram")) %>%
-  mutate(value = ifelse(is.na(value), 0, value)) %>%
-  mutate(value = (100/Gram) * value, Gram = (100/Gram) * Gram) %>%
-  select(-Gram) %>%
-  dcast(Livsmedelsnamn+Livsmedelsgrupp+Livsmedelsnummer~variable) %>%
-  as_tibble() %>%
-  colnames -> a
-
-food_eng %>% colnames ->b
+#
+# food_data %>%
+#   filter(Code %in% food_group_levels$Livsmedelsnummer) %>%
+#   melt(id.vars = c("Identity",  "Day", "Meal", "Code", "Foodstuffs", "Gram")) %>%
+#   mutate(value = ifelse(is.na(value), 0, value)) %>%
+#   group_by(variable, Foodstuffs, Code ) %>%
+#   summarise(Gram = sum(Gram), value = sum(value)) %>%
+#   mutate(value = (100/Gram) * value) %>%
+#   select(-Gram) %>%
+#   dcast(Foodstuffs+Code~variable) %>%
+#   arrange(desc(`Fibers(g)`))
+#
 
 
-food_data %>%
-  filter(Code %in% food_group_levels$Livsmedelsnummer) %>%
-  melt(id.vars = c("Identity",  "Day", "Meal", "Code", "Foodstuffs", "Gram")) %>%
-  mutate(value = ifelse(is.na(value), 0, value)) %>%
-  group_by(variable, Foodstuffs, Code ) %>%
-  summarise(Gram = sum(Gram), value = sum(value)) %>%
-  mutate(value = (100/Gram) * value) %>%
-  select(-Gram) %>%
-  dcast(Foodstuffs+Code~variable) %>%
-  arrange(desc(`Fibers(g)`))
+food_cluster_lvl4 = NULL
 
+for(i in food_swe %>% pull(Livsmedelsgrupp) %>% unique %>% sort %>% .[1:34]) {
 
-
-
-grp=2
+  grp=i
 
 food_swe %>%
   filter(Livsmedelsgrupp == grp) %>%
@@ -283,14 +286,62 @@ food_swe %>%
   tibble::column_to_rownames("Livsmedelsnamn") -> tt
 
 
-fit = mclapply(1:7, dmn, count=as.matrix(tt), verbose=TRUE)
-
+fit = mclapply(1:7, dmn, count=as.matrix(tt/1000), verbose=TRUE) # to avoid crash need to divide by 1000
 
 lplc <- sapply(fit, laplace)
 
+cl = mixture(fit[[which.min(lplc)]], assign = TRUE)
+#
+# res = data.frame(food_swe %>%
+#              filter(Livsmedelsgrupp == grp) %>%
+#              select(
+#                Livsmedelsnamn,
+#                Livsmedelsnummer,
+#                Livsmedelsgrupp), cluster=paste(grp, cl, sep="_"))
+
+res = data.frame(Livsmedelsnamn=names(cl), cl=paste(grp, cl, sep="_"))
+
+food_cluster_lvl4 = rbind(food_cluster_lvl4,res)
+}
 
 
 
+food_group_levels %<>%
+  merge(food_cluster_lvl4, by="Livsmedelsnamn", all.x=TRUE) %>%
+  as_tibble() %>%
+  mutate(cl = as.character(cl)) %>%
+  dplyr::rename(`Food groups lvl4` = cl)
+
+
+devtools::use_data(food_group_levels, overwrite = TRUE)
+devtools::use_data(food_swe, overwrite = TRUE)
+
+food_data %<>%
+  filter(Code != "Meal sum", Meal != "Day sum")
+
+devtools::use_data(food_data, overwrite = TRUE)
+
+
+
+food_group_levels %>%
+  merge(food_swe %>% select(Livsmedelsnummer, `Energi (kcal)(kcal)`), by="Livsmedelsnummer" ) %>%
+    mutate(pathString=paste(`Food groups lvl0`,`Food groups lvl1`,`Food groups lvl2`,`Food groups lvl3`, `Food groups lvl4`, Foodstuffs, sep="//")) %>%
+  filter(used == "yes") %>%
+  data.tree::as.Node(pathDelimiter = "//") -> food_tree
+
+food_html = circlepackeR::circlepackeR(food_tree, size="Energi (kcal)(kcal)")
+htmlwidgets::saveWidget(food_html, "food_tree_subgroup_mosaic.html", selfcontained = TRUE)
+
+
+food_group_levels %>%
+  merge(food_swe %>% select(Livsmedelsnummer, `Fibrer(g)`), by="Livsmedelsnummer" ) %>%
+  #mutate(`Fibrer(g)` =  `Fibrer(g)` + 0.01 ) %>%
+  mutate(pathString=paste(`Food groups lvl0`,`Food groups lvl1`,`Food groups lvl2`,`Food groups lvl3`,`Food groups lvl4`,Foodstuffs, sep="//")) %>%
+  filter(used == "yes", `Fibrer(g)` != 0) %>%
+  data.tree::as.Node(pathDelimiter = "//") -> food_tree
+
+food_html = circlepackeR::circlepackeR(food_tree, size="Fibrer(g)")
+htmlwidgets::saveWidget(food_html, "food_tree_subgroup_mosaic_fiber.html", selfcontained = TRUE)
 
 
 
