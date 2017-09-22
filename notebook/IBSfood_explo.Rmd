@@ -1,0 +1,225 @@
+---
+title: "IBS food exploration"
+output:
+  html_notebook:
+    author: "Julien Tap"
+    code_folding: hide
+    highlight: tango
+    mathjax: null
+    theme: cerulean
+    toc: yes
+    toc_float: yes
+  html_document:
+    toc: yes
+date: '`r Sys.Date()`'
+---
+
+
+
+
+```{r}
+library(tidyr)
+library(dplyr)
+library(magrittr)
+library(reshape2)
+library(circlepackeR)
+library(vegan)
+library(ggplot2)
+library(DirichletMultinomial)
+
+library(IBSMicrobiota)
+library(ade4)
+library(phyloseq)
+data("IBSData")
+
+```
+
+
+
+
+```{r}
+devtools::load_all()
+data("food_data")
+data("food_group_levels")
+data("food_swe")
+
+```
+
+
+
+```{r}
+
+food_group_levels %>%
+  merge(food_swe %>% select(Livsmedelsnummer, `Energi (kcal)(kcal)`), by="Livsmedelsnummer" ) %>%
+    mutate(pathString=paste(`Food groups lvl0`,`Food groups lvl1`,`Food groups lvl2`,`Food groups lvl3`, `Food groups lvl4`, Foodstuffs, sep="//")) %>%
+  filter(used == "yes") %>%
+  data.tree::as.Node(pathDelimiter = "//") -> food_tree
+
+food_html = circlepackeR::circlepackeR(food_tree, size="Energi (kcal)(kcal)")
+
+food_html
+
+```
+
+
+
+
+```{r, fig.height=10, fig.width=7}
+
+
+food_data %>% 
+  mutate(Meal = ifelse(Meal == "S-1", "Snack", Meal)) %>%
+  mutate(Meal = ifelse(Meal == "S-2", "Snack", Meal)) %>%
+  mutate(Meal = ifelse(Meal == "S-3", "Snack", Meal)) %>%
+  mutate(Meal = ifelse(Meal == "S-4", "Snack", Meal)) %>%
+  mutate(Meal = ifelse(Meal == "S-5", "Snack", Meal)) %>%
+  mutate(Meal = ifelse(Meal == "S-6", "Snack", Meal)) %>%
+  merge(food_group_levels, by.x="Code",by.y="Livsmedelsnummer", all = FALSE) %>%
+  select(-Foodstuffs.y) %>%
+  dplyr::rename(Foodstuffs = Foodstuffs.x) %>%
+  group_by(Identity, Meal, `Food groups lvl1`, `Food groups lvl2`, `Food groups lvl3`,`Food groups lvl4`) %>%
+  summarise(Gram = sum(Gram)) %>%
+  filter(`Food groups lvl1` %in% c("Dairy")) %>%
+  #ggplot() + geom_tile(aes(x=paste(`Food groups lvl4`,Meal,sep="_"), y=Identity, fill=log10(Gram+1)))
+  dcast(Identity ~ `Food groups lvl4` + Meal, value.var = "Gram",fill = 0 ) %>%
+  tibble::column_to_rownames("Identity") -> tt
+
+
+  map2color<-function(x,pal,limits=NULL){
+    if(is.null(limits)) limits=range(x)
+    pal[findInterval(x,seq(limits[1],limits[2],length.out=length(pal)+1), all.inside=TRUE)]
+}
+
+
+  heatmap(as.matrix(tt), RowSideColors = map2color(tt %>% apply(.,1,function(x) length(which(x>0))), heat.colors(64)  ))
+ 
+  
+
+
+  
+  
+```
+
+
+
+```{r}
+
+food_fit = mclapply(1:7, dmn, count=as.matrix(round(tt)), verbose=TRUE)
+
+
+lplc <- sapply(food_fit, laplace); plot(lplc)
+
+
+cl =mixture(food_fit[[3]], assign = TRUE)
+
+heatmapdmn(food_fit[[1]], food_fit[[3]], count=as.matrix(round(tt)))
+
+
+cbind(cl, div=tt %>% select(-contains(c("29_1|25_"))) %>% apply(.,1,function(x) length(which(x>0)))) %>% as_tibble() %>% ggplot() + geom_boxplot(aes(x=cl %>% as.character,y=div))
+
+
+```
+
+
+
+## create phyloseq object
+```{r}
+
+food_data %>%
+  merge(food_group_levels, by.x="Code",by.y="Livsmedelsnummer", all = FALSE) %>%
+  select(-Foodstuffs.y) %>%
+  dplyr::rename(Foodstuffs = Foodstuffs.x) %>%
+  group_by(Identity, `Food groups lvl1`, `Food groups lvl2`, `Food groups lvl3`,`Food groups lvl4`) %>%
+  summarise(Gram = sum(Gram)) %>%
+  na.omit() %>%
+  dcast(Identity ~ `Food groups lvl4`, value.var = "Gram",fill = 0 ) %>%
+    tibble::column_to_rownames("Identity") %>%
+  t() %>%
+  as_tibble %>%
+  round() -> food_otu
+
+#url = system.file("biom", "food.biom", package="IBSFood")
+tre = system.file("biom", "food.tree", package="IBSFood")
+
+#physeq = phyloseq::import_biom(url, treefilename = tre)
+#phyloseq::import_biom("../inst/biom/food.biom", treefilename = tre) # this does not work
+
+#better to do it manually
+TREE=read.tree(file=tre)
+
+TREE$edge.length = rep(1, dim(TREE$edge)[1]) #important to add edge length to compute unifrac distance
+
+TAX = tax_table(food_group_levels %>%
+              select(`Food groups lvl1`, `Food groups lvl2`, `Food groups lvl3`,`Food groups lvl4`) %>%
+              unique %>%
+              na.omit() %>%
+              filter(`Food groups lvl4` %in% rownames(food_otu)) %>% tibble::column_to_rownames("Food groups lvl4")%>% as.matrix)
+
+
+OTU = otu_table(food_otu, taxa_are_rows = TRUE)
+
+
+#otu_wunifrac = phyloseq::distance(physeq, method="wunifrac")
+food_unifrac = phyloseq::distance(physeq, method="unifrac")
+
+food_wunifrac = phyloseq::distance(physeq, method="wunifrac")
+
+```
+
+```{r}
+
+
+unifrac_pco  = ade4::dudi.pco(food_unifrac %>% ade4::quasieuclid(), scannf=F, nf=3)
+wunifrac_pco = ade4::dudi.pco(food_wunifrac %>% ade4::quasieuclid(), scannf=F, nf=3)
+
+
+#ade4::scatter(unifrac_pco)
+#ade4::scatter(wunifrac_pco)
+
+
+#unifrac_pco$li
+
+
+
+
+
+IBSData$otu %>% select(IBSData$metadata %>%
+  filter(Visit == "V4", Sample_type == "Stool") %>%
+  filter(Patient_ID %in% colnames(OTU)) %>% pull(Sample_ID)
+) %>% as.matrix %>% prop.table(2) %>%
+  melt() %>% merge(IBSData$tax,by.x="Var1", by.y="row.names") %>%
+  group_by(Var2, domain, phylum, class, order, family, genus ) %>%
+  summarise(value=mean(value)) %>%
+  dcast(Var2~domain+phylum+class+order+family+genus, value.var="value") %>%
+  mutate(Var2 = gsub("V4","",Var2)) %>%
+  mutate(Var2 = gsub("bis","",Var2)) %>%
+  tibble::column_to_rownames("Var2") %>%
+  t() -> genus
+
+microbial_otu_jsd = BiotypeR::dist.JSD(genus)
+
+
+microbial_otu_pco = dudi.pco(microbial_otu_jsd, scannf=F, nf=3)
+
+
+food_unifrac %>% as.matrix %>% .[colnames(genus),colnames(genus)] %>% as.dist -> food_unifrac_select
+
+
+unifrac_pco  = dudi.pco(food_unifrac_select %>% ade4::quasieuclid(), scannf=F, nf=3)
+mic_food_coi = coinertia(dudi.pca(microbial_otu_pco$li, scannf=F, nf=10), dudi.pca(unifrac_pco$li, scannf=F, nf=10), scannf=F, nf=3)
+
+#randtest(mic_food_coi)
+
+
+
+microbial_otu_pco
+
+randtest(mic_food_coi)
+
+plot(procuste(unifrac_pco$tab, microbial_otu_pco$tab))
+procuste.randtest(df2 = microbial_otu_pco$tab,df1 = unifrac_pco$tab,nrepet=100)
+
+
+
+```
+

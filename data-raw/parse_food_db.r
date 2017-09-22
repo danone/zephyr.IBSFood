@@ -6,6 +6,7 @@ library(stringdist)
 library(magrittr)
 library(reshape2)
 library(DirichletMultinomial)
+library(biomformat)
 
 food_data = read_excel("data-raw/MOSAIC_big_food_db.xlsx")
 
@@ -342,6 +343,109 @@ food_group_levels %>%
 
 food_html = circlepackeR::circlepackeR(food_tree, size="Fibrer(g)")
 htmlwidgets::saveWidget(food_html, "food_tree_subgroup_mosaic_fiber.html", selfcontained = TRUE)
+
+
+
+
+
+# create a biom file from food data
+
+
+#create contingency table
+
+
+food_data %>%
+  merge(food_group_levels, by.x="Code",by.y="Livsmedelsnummer", all = FALSE) %>%
+  select(-Foodstuffs.y) %>%
+  dplyr::rename(Foodstuffs = Foodstuffs.x) %>%
+  group_by(Identity, `Food groups lvl1`, `Food groups lvl2`, `Food groups lvl3`,`Food groups lvl4`) %>%
+  summarise(Gram = sum(Gram)) %>%
+  na.omit() %>%
+  dcast(Identity ~ `Food groups lvl4`, value.var = "Gram",fill = 0 ) %>%
+    tibble::column_to_rownames("Identity") %>%
+  t() %>%
+  as_tibble %>%
+  round() -> food_otu
+
+b = biomformat::make_biom(data = food_otu,
+                          observation_metadata = food_group_levels %>%
+                            select(`Food groups lvl1`, `Food groups lvl2`, `Food groups lvl3`,`Food groups lvl4`) %>%
+                            unique %>%
+                            na.omit() %>%
+                            filter(`Food groups lvl4` %in% rownames(food_otu)) %>%
+                            as.data.frame,
+                          matrix_element_type = "int")
+
+
+biomformat::write_biom(b, "inst/biom/food.biom")
+
+biomformat::read_biom("inst/biom/food.biom")
+
+
+
+#create tree
+
+## recursion function
+traverse <- function(a,i,innerl){
+  if(i < (ncol(df))){
+    alevelinner <- as.character(unique(df[which(as.character(df[,i])==a),i+1]))
+    desc <- NULL
+    if(length(alevelinner) == 1) (newickout <- traverse(alevelinner,i+1,innerl))
+    else {
+      for(b in alevelinner) desc <- c(desc,traverse(b,i+1,innerl))
+      il <- NULL; if(innerl==TRUE) il <- a
+      (newickout <- paste("(",paste(paste0(desc),collapse=","),")",il,sep=""))
+    }
+  }
+  else { (newickout <- a) }
+}
+
+## data.frame to newick function
+df2newick <- function(df, innerlabel=FALSE){
+  alevel <- as.character(unique(df[,1]))
+  newick <- NULL
+  for(x in alevel) newick <- c(newick,traverse(x,1,innerlabel))
+  (newick <- paste("(",paste(newick,collapse=","),");",sep=""))
+}
+
+
+
+
+
+food_group_levels %>%
+  select(`Food groups lvl1`, `Food groups lvl2`, `Food groups lvl3`,`Food groups lvl4`) %>%
+  unique %>%
+  na.omit() %>%
+  filter(`Food groups lvl4` %in% rownames(food_otu)) %>%
+  as.data.frame %>%
+  df2newick(.) %>%
+  writeLines(con="inst/biom/food.tree")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
