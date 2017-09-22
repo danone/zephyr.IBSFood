@@ -206,20 +206,47 @@ food_unifrac %>% as.matrix %>% .[colnames(genus),colnames(genus)] %>% as.dist ->
 
 
 unifrac_pco  = dudi.pco(food_unifrac_select %>% ade4::quasieuclid(), scannf=F, nf=3)
-mic_food_coi = coinertia(dudi.pca(microbial_otu_pco$li, scannf=F, nf=10), dudi.pca(unifrac_pco$li, scannf=F, nf=10), scannf=F, nf=3)
+mic_food_coi = coinertia(microbial_otu_pco, unifrac_pco, scannf=F, nf=3)
 
 #randtest(mic_food_coi)
 
+#microbial_otu_pco
 
-
-microbial_otu_pco
-
-randtest(mic_food_coi)
+#randtest(mic_food_coi)
 
 plot(procuste(unifrac_pco$tab, microbial_otu_pco$tab))
 procuste.randtest(df2 = microbial_otu_pco$tab,df1 = unifrac_pco$tab,nrepet=100)
 
 
+```
+
+
+
+```{r}
+
+ cor(microbial_otu_pco$tab[,"A3"],unifrac_pco$tab[,"A1"])
+ 
+
+
+ cor(microbial_otu_pco$tab[,"A3"],t(genus), method="spearman")  %>% t %>% as.data.frame %>% tibble::rownames_to_column() %>% arrange(desc(abs(V1)))
+ 
+ 
+ cor(unifrac_pco$tab[,"A1"],t(OTU)[colnames(genus),], method="spearman")  %>% t %>% as.data.frame %>% tibble::rownames_to_column() %>% arrange(desc(abs(V1)))
+ 
+
+ 
+ cor(microbial_otu_pco$tab[,"A1"],unifrac_pco$tab[,"A10"])
+ 
+ 
+  cor(microbial_otu_pco$tab[,"A1"],t(genus), method="spearman")  %>% t %>% as.data.frame %>% tibble::rownames_to_column() %>% arrange(desc(abs(V1)))
+ 
+ 
+ cor(unifrac_pco$tab[,"A10"],t(OTU)[colnames(genus),], method="spearman")  %>% t %>% as.data.frame %>% tibble::rownames_to_column() %>% arrange(desc(abs(V1)))
+ 
+ 
 
 ```
+
+
+
 
