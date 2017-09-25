@@ -224,24 +224,30 @@ procuste.randtest(df2 = microbial_otu_pco$tab,df1 = unifrac_pco$tab,nrepet=100)
 
 ```{r}
 
- cor(microbial_otu_pco$tab[,"A3"],unifrac_pco$tab[,"A1"])
- 
+  cor(procuste(unifrac_pco$tab, microbial_otu_pco$tab)$scorX[,1:2],
+     t(OTU)[colnames(genus),],
+     method="spearman"
+       ) %>% t %>% as.data.frame %>% tibble::rownames_to_column() %>% arrange(desc(abs(ax1))) %>%
+ na.omit() %>% 
+   filter(abs(ax1) > 0.4 | abs(ax2) > 0.4) %>%
+   #separate(col=rowname, sep="_", into=c("domain","phylum","order","class","family","genus")) %>%
+     ggplot() + geom_point(aes(x=ax1, y=ax2)) + ggrepel::geom_text_repel(aes(x=ax1, y=ax2, label=rowname))
 
 
- cor(microbial_otu_pco$tab[,"A3"],t(genus), method="spearman")  %>% t %>% as.data.frame %>% tibble::rownames_to_column() %>% arrange(desc(abs(V1)))
- 
- 
- cor(unifrac_pco$tab[,"A1"],t(OTU)[colnames(genus),], method="spearman")  %>% t %>% as.data.frame %>% tibble::rownames_to_column() %>% arrange(desc(abs(V1)))
- 
 
+ cor(procuste(unifrac_pco$tab, microbial_otu_pco$tab)$scorY[,1:2],
+     t(genus),
+     method="spearman"
+       ) %>% t %>% as.data.frame %>% tibble::rownames_to_column() %>% arrange(desc(abs(ax1))) %>% 
+   na.omit() %>% 
+   filter(abs(ax1) > 0.4 | abs(ax2) > 0.4) %>%
+   separate(col=rowname, sep="_", into=c("domain","phylum","order","class","family","genus")) %>%
+     ggplot() + geom_point(aes(x=ax1, y=ax2)) + ggrepel::geom_text_repel(aes(x=ax1, y=ax2, label=genus))
  
- cor(microbial_otu_pco$tab[,"A1"],unifrac_pco$tab[,"A10"])
  
  
-  cor(microbial_otu_pco$tab[,"A1"],t(genus), method="spearman")  %>% t %>% as.data.frame %>% tibble::rownames_to_column() %>% arrange(desc(abs(V1)))
  
  
- cor(unifrac_pco$tab[,"A10"],t(OTU)[colnames(genus),], method="spearman")  %>% t %>% as.data.frame %>% tibble::rownames_to_column() %>% arrange(desc(abs(V1)))
  
  
 
