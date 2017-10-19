@@ -17,7 +17,7 @@ date: '`r Sys.Date()`'
 
 
 
-```{r}
+```{r, warning=FALSE}
 library(tidyr)
 library(dplyr)
 library(magrittr)
@@ -102,7 +102,7 @@ food_data %>%
 
 
 
-```{r}
+```{r, eval=FALSE, include=FALSE}
 
 food_fit = mclapply(1:7, dmn, count=as.matrix(round(tt)), verbose=TRUE)
 
@@ -135,7 +135,7 @@ food_data %>%
   dcast(Identity ~ `Food groups lvl4`, value.var = "Gram",fill = 0 ) %>%
     tibble::column_to_rownames("Identity") %>%
   t() %>%
-  as_tibble %>%
+  #as_tibble %>%
   round() -> food_otu
 
 #url = system.file("biom", "food.biom", package="IBSFood")
@@ -145,7 +145,7 @@ tre = system.file("biom", "food.tree", package="IBSFood")
 #phyloseq::import_biom("../inst/biom/food.biom", treefilename = tre) # this does not work
 
 #better to do it manually
-TREE=read.tree(file=tre)
+TREE=ape::read.tree(file=tre)
 
 TREE$edge.length = rep(1, dim(TREE$edge)[1]) #important to add edge length to compute unifrac distance
 
@@ -157,7 +157,7 @@ TAX = tax_table(food_group_levels %>%
 
 
 OTU = otu_table(food_otu, taxa_are_rows = TRUE)
-
+physeq=phyloseq::phyloseq(OTU,TAX,TREE)
 
 #otu_wunifrac = phyloseq::distance(physeq, method="wunifrac")
 food_unifrac = phyloseq::distance(physeq, method="unifrac")
@@ -229,7 +229,7 @@ procuste.randtest(df2 = microbial_otu_pco$tab,df1 = unifrac_pco$tab,nrepet=100)
      method="spearman"
        ) %>% t %>% as.data.frame %>% tibble::rownames_to_column() %>% arrange(desc(abs(ax1))) %>%
  na.omit() %>% 
-   filter(abs(ax1) > 0.4 | abs(ax2) > 0.4) %>%
+   filter(abs(ax1) > 0.3 | abs(ax2) > 0.3) %>%
    #separate(col=rowname, sep="_", into=c("domain","phylum","order","class","family","genus")) %>%
      ggplot() + geom_point(aes(x=ax1, y=ax2)) + ggrepel::geom_text_repel(aes(x=ax1, y=ax2, label=rowname))
 
@@ -240,19 +240,210 @@ procuste.randtest(df2 = microbial_otu_pco$tab,df1 = unifrac_pco$tab,nrepet=100)
      method="spearman"
        ) %>% t %>% as.data.frame %>% tibble::rownames_to_column() %>% arrange(desc(abs(ax1))) %>% 
    na.omit() %>% 
-   filter(abs(ax1) > 0.4 | abs(ax2) > 0.4) %>%
+   filter(abs(ax1) > 0.3 | abs(ax2) > 0.3) %>%
    separate(col=rowname, sep="_", into=c("domain","phylum","order","class","family","genus")) %>%
      ggplot() + geom_point(aes(x=ax1, y=ax2)) + ggrepel::geom_text_repel(aes(x=ax1, y=ax2, label=genus))
  
  
+ food_group_levels %>% 
+   select(contains(" lvl")) %>% unique() %>% 
+   merge(.,OTU, by.y="row.names", by.x="Food groups lvl4", all.y = TRUE) %>%
+   melt(id.vars=c("Food groups lvl0","Food groups lvl1","Food groups lvl2","Food groups lvl3","Food groups lvl4")) %>%
+   group_by(`Food groups lvl3`, variable) %>%
+   summarise(value=sum(value)) %>%
+   dcast(`Food groups lvl3` ~ variable) %>%
+   as.data.frame %>%
+   tibble::column_to_rownames("Food groups lvl3") -> OTU_lvl3
  
  
  
+ food_group_levels %>% 
+   select(contains(" lvl")) %>% unique() %>% 
+   merge(.,OTU, by.y="row.names", by.x="Food groups lvl4", all.y = TRUE) %>%
+   melt(id.vars=c("Food groups lvl0","Food groups lvl1","Food groups lvl2","Food groups lvl3","Food groups lvl4")) %>%
+   group_by(`Food groups lvl2`, variable) %>%
+   summarise(value=sum(value)) %>%
+   dcast(`Food groups lvl2` ~ variable) %>%
+   as.data.frame %>%
+   tibble::column_to_rownames("Food groups lvl2") -> OTU_lvl2
+ 
+ 
+ 
+ 
+ food_group_levels %>% 
+   select(contains(" lvl")) %>% unique() %>% 
+   merge(.,OTU, by.y="row.names", by.x="Food groups lvl4", all.y = TRUE) %>%
+   melt(id.vars=c("Food groups lvl0","Food groups lvl1","Food groups lvl2","Food groups lvl3","Food groups lvl4")) %>%
+   group_by(`Food groups lvl1`, variable) %>%
+   summarise(value=sum(value)) %>%
+   dcast(`Food groups lvl1` ~ variable) %>%
+   as.data.frame %>%
+   tibble::column_to_rownames("Food groups lvl1") -> OTU_lvl1
+ 
+ 
+ 
+ cor(procuste(unifrac_pco$tab, microbial_otu_pco$tab)$scorX[,1:2],
+     cbind(
+        t(OTU)[colnames(genus),], 
+        t(OTU_lvl3)[colnames(genus),], 
+        t(OTU_lvl2)[colnames(genus),], 
+        t(OTU_lvl1)[colnames(genus),]
+        ),
+     method="spearman"
+       ) %>% t %>% as.data.frame %>% tibble::rownames_to_column() %>% arrange(desc(abs(ax1))) %>%
+ na.omit() %>% 
+   filter(abs(ax1) > 0.4 | abs(ax2) > 0.4) -> a
+ 
+ 
+ cor(procuste(unifrac_pco$tab, microbial_otu_pco$tab)$scorY[,1:2],
+     t(genus),
+     method="spearman"
+       ) %>% t %>% as.data.frame %>% tibble::rownames_to_column() %>% arrange(desc(abs(ax1))) %>% 
+   na.omit() %>% 
+   filter(abs(ax1) > 0.4 | abs(ax2) > 0.4) %>%
+   separate(col=rowname, sep="_", into=c("domain","phylum","order","class","family","genus")) %>%
+     ggplot() + 
+   geom_point(aes(x=ax1, y=ax2)) + ggrepel::geom_text_repel(aes(x=ax1, y=ax2, label=genus)) + 
+   geom_point(data=a, aes(x=ax1, y=ax2)) +  ggrepel::geom_text_repel(data=a, aes(x=ax1, y=ax2, label=rowname))
  
  
 
 ```
 
+
+```{r, eval=FALSE, include=FALSE}
+
+
+merge(OTU, genus)
+
+colnames(OTU)
+colnames(genus)
+
+
+merge(t(genus), t(OTU), by="row.names") %>% 
+  tibble::column_to_rownames("Row.names") %>%
+  cor(method="spearman") -> b
+  
+idx = apply(b,1,function(x) ifelse(any(abs(x) > 0.30 & abs(x) < 1), TRUE, 0) ) %>% 
+  as.vector() %>% is.na
+
+edgebundleR::edgebundle(b[!idx,!idx],cutoff=0.30,tension=0.8,nodesize = 14)
+
+
+
+
+```
+
+
+
+
+## check correlation between CAG and 16S data
+
+```{r}
+
+
+cag = system.file("CAG", "IBS_Big_CAG_summary.csv", package="IBSFood") %>% read.csv2(row.names=1)
+
+
+
+cag %>%
+  t %>%
+  merge(t(genus), by="row.names")
+  
+
+m16S_jsd = genus[,intersect(colnames(genus), colnames(cag))] %>% as.data.frame %>% BiotypeR::dist.JSD()
+
+
+cag_jsd = cag[,intersect(colnames(genus), colnames(cag))] %>% as.data.frame %>% BiotypeR::dist.JSD()
+
+
+
+coinertia(dudi.pco(m16S_jsd, scannf=F, nf=3),
+  dudi.pco(cag_jsd, scannf=F, nf=3),
+  scannf=F, nf=3) %>% plot
+
+
+coinertia(dudi.pca(genus[,intersect(colnames(genus), colnames(cag))] %>% t %>% as.data.frame,
+scannf=F, nf=3),
+
+dudi.pca(cag[,intersect(colnames(genus), colnames(cag))] %>% t %>% as.data.frame, 
+scannf=F, nf=3),
+  scannf=F, nf=3) %>% plot()
+
+
+```
+
+coinertia analysis showed good correspondance between 16S and CAG analysis.
+
+
+
+## IBS severity signature vs Food OTU
+```{r}
+
+
+cag_severe = system.file("CAG", "IBS_severity_mgs_clades_prop.csv", package="IBSFood") %>% read.csv2(row.names=1)
+
+
+
+cag_sev_jsd = 
+  cag[,intersect(colnames(OTU), colnames(t(cag_severe)))] %>% 
+  as.data.frame %>% 
+  BiotypeR::dist.JSD()
+
+food_unifrac_select_severe = 
+food_unifrac %>% 
+  as.matrix %>%
+  .[intersect(colnames(OTU), colnames(t(cag_severe))),intersect(colnames(OTU), colnames(t(cag_severe)))] %>% 
+  as.dist
+
+
+
+cag_sev_jsd_pco = dudi.pco(cag_sev_jsd, scannf=F, nf=3)
+
+food_unifrac_select_severe_pco  = dudi.pco(food_unifrac_select_severe %>% ade4::quasieuclid(), scannf=F, nf=3)
+mic_food_coi = coinertia(cag_sev_jsd_pco, food_unifrac_select_severe_pco, scannf=F, nf=3)
+
+mic_food_coi %>% plot
+
+
+
+ cor(procuste(food_unifrac_select_severe_pco$tab, cag_sev_jsd_pco$tab)$scorX[,1:2],
+     cbind(
+       t(OTU)[colnames(cag[,intersect(colnames(OTU), colnames(t(cag_severe)))]),],
+       t(OTU_lvl3)[colnames(cag[,intersect(colnames(OTU), colnames(t(cag_severe)))]),],
+       t(OTU_lvl2)[colnames(cag[,intersect(colnames(OTU), colnames(t(cag_severe)))]),],
+       t(OTU_lvl1)[colnames(cag[,intersect(colnames(OTU), colnames(t(cag_severe)))]),]
+           
+       ),
+    
+     
+     
+      method="spearman"
+       ) %>% t %>% as.data.frame %>% tibble::rownames_to_column() %>% arrange(desc(abs(ax1))) %>%
+ na.omit() %>% 
+   filter(abs(ax1) > 0.4 | abs(ax2) > 0.4) -> b
+ 
+ 
+
+
+
+ cor(procuste(food_unifrac_select_severe_pco$tab, cag_sev_jsd_pco$tab)$scorY[,1:2],
+     t(cag[,intersect(colnames(OTU), colnames(t(cag_severe)))]),
+     method="spearman"
+       ) %>% t %>% as.data.frame %>% tibble::rownames_to_column() %>% arrange(desc(abs(ax1))) %>% 
+   na.omit() %>% 
+   filter(abs(ax1) > 0.4 | abs(ax2) > 0.4) %>%
+   #separate(col=rowname, sep="_", into=c("domain","phylum","order","class","family","genus")) %>%
+     ggplot() + 
+   geom_point(aes(x=ax1, y=ax2)) + ggrepel::geom_text_repel(aes(x=ax1, y=ax2, label=rowname)) + 
+   geom_point(data=b, aes(x=ax1, y=ax2)) +  ggrepel::geom_text_repel(data=b, aes(x=ax1, y=ax2, label=rowname))
+ 
+ 
+
+
+
+
+```
 
 
 
