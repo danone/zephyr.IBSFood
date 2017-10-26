@@ -15,9 +15,9 @@ date: '`r Sys.Date()`'
 ---
 
 
+## Introduction
 
-
-```{r, warning=FALSE}
+```{r, message=FALSE, warning=FALSE}
 library(tidyr)
 library(dplyr)
 library(magrittr)
@@ -35,17 +35,18 @@ data("IBSData")
 ```
 
 
-
+## load dataset
 
 ```{r}
 devtools::load_all()
 data("food_data")
 data("food_group_levels")
 data("food_swe")
+data("mgs_clades_prop")
 
 ```
 
-
+## food tree
 
 ```{r}
 
@@ -371,13 +372,193 @@ scannf=F, nf=3),
   scannf=F, nf=3) %>% plot()
 
 
+
+cor(
+  
+      genus[,intersect(colnames(genus), colnames(cag))] %>% t %>% as.data.frame,
+      cag[,intersect(colnames(genus), colnames(cag))] %>% t %>% as.data.frame,
+      method="spearman"
+      
+      
+      ) %>% 
+  melt %>%
+  filter(value > 0.3) %>%
+  filter(Var2 == "GU:37") %>%
+  arrange(desc(value))
+  
+
+
+
+
 ```
 
 coinertia analysis showed good correspondance between 16S and CAG analysis.
 
 
 
+## compare food OTU with mgs clades
+
+
+```{r}
+
+data(mgs_clades_prop)
+
+#merge metadata, MGS and food data
+mgs_metadata = 
+  IBSData$metadata %>%
+  filter(Visit == "V4" & Sample_type == "Stool") %>%
+  select(Patient_ID, Methanogens_qPCR, Health, SSgroup, transit.days, BMI, H2, CH4, IBS.Severity.Score, HAD.ANXIETY, HAD.DEPRES, BSF.Mean_Stoolform_total, BSF.Mean_Frequenc_StoolPerDay) %>%
+  dplyr::rename(anxiety = HAD.ANXIETY, depress = HAD.DEPRES) %>%
+  merge(.,mgs_clades_prop, all.y=TRUE, by.y="samples_id", by.x="Patient_ID") 
+
+
+
+
+food_unifrac_select=
+food_unifrac %>%
+  as.matrix %>%
+  melt %>%
+  filter(Var1 %in% mgs_metadata$Patient_ID, Var2 %in% mgs_metadata$Patient_ID) %>%
+  dcast(Var1~Var2) %>%
+  tibble::column_to_rownames("Var1") %>%
+  as.dist
+
+unifrac_select_pco  = ade4::dudi.pco(food_unifrac_select  %>% ade4::quasieuclid(), scannf=F, nf=3)
+
+mgs_metadata_food = 
+mgs_metadata %>%
+  merge(.,unifrac_select_pco$tab, by.y="row.names", by.x="Patient_ID")
+  
+mgs_clades_pco = 
+dudi.pco(
+mgs_metadata_food %>% 
+  select(Patient_ID,contains("GU")) %>%
+  tibble::column_to_rownames("Patient_ID") %>% 
+  t %>%
+  BiotypeR::dist.JSD(),
+scannf=F, nf=3)
+
+
+```
+
+### Procuste analysis
+ 
+```{r}
+
+
+
+
+
+plot(procuste(mgs_metadata_food %>% select(Patient_ID,contains("A", ignore.case = FALSE)) %>% tibble::column_to_rownames("Patient_ID"), mgs_clades_pco$tab) )
+
+procuste.randtest(df2 = mgs_clades_pco$tab,df1 = mgs_metadata_food %>% select(Patient_ID,contains("A", ignore.case = FALSE)) %>%
+  tibble::column_to_rownames("Patient_ID"),nrepet=100)
+
+
+### corr with food level
+
+cor(procuste(
+    mgs_metadata_food %>% select(Patient_ID,contains("A", ignore.case = FALSE)) %>%
+  tibble::column_to_rownames("Patient_ID"), 
+    mgs_clades_pco$tab)$scorX[,1:4],
+     cbind(
+       t(OTU)[rownames(mgs_clades_pco$tab),],
+       t(OTU_lvl3)[rownames(mgs_clades_pco$tab),],
+       t(OTU_lvl2)[rownames(mgs_clades_pco$tab),],
+       t(OTU_lvl1)[rownames(mgs_clades_pco$tab),]
+           
+       ),
+    
+     
+     
+      method="spearman"
+       ) %>% t %>% as.data.frame %>% tibble::rownames_to_column() %>% arrange(desc(abs(ax1))) %>%
+ na.omit() %>% 
+   filter(abs(ax1) > 0.3 | abs(ax2) > 0.3 | abs(ax3) > 0.3 | abs(ax4) > 0.3 ) %>%
+  data.frame(.,item="food")-> a
+
+
+
+#### corr with mgs clade
+
+cor(procuste(
+    mgs_metadata_food %>% select(Patient_ID,contains("A", ignore.case = FALSE)) %>%
+  tibble::column_to_rownames("Patient_ID"), 
+    mgs_clades_pco$tab)$scorY[,1:4],
+  
+  
+  mgs_clades_prop %>% 
+    tibble::rownames_to_column() %>%
+    tibble::column_to_rownames("samples_id") %>%
+    select(-rowname) %>%
+    as.matrix %>%
+    .[rownames(mgs_clades_pco$tab),]) %>% 
+  t %>% as.data.frame %>% tibble::rownames_to_column() %>% 
+  arrange(desc(abs(ax1))) %>%
+ na.omit() %>% 
+  filter(abs(ax1) > 0.3 | abs(ax2) > 0.3 | abs(ax3) > 0.3 | abs(ax4) > 0.3 ) %>%
+  data.frame(.,item="mgs")-> b
+
+
+rbind(a,b) %>%
+  filter(abs(ax1) > 0.3| abs(ax2) > 0.3  ) %>%
+  ggplot() + geom_point(aes(x=ax1, y=ax2, col=item)) + ggrepel::geom_text_repel(aes(x=ax1, y=ax2, label=rowname), size = 2)
+
+
+
+rbind(a,b) %>%
+  filter(abs(ax1) > 0.3| abs(ax3) > 0.3  ) %>%
+  ggplot() + geom_point(aes(x=ax1, y=ax3, col=item)) + ggrepel::geom_text_repel(aes(x=ax1, y=ax3, label=rowname), size = 2)
+
+
+
+
+```
+
+
+### link with metadata
+```{r, message=FALSE, warning=FALSE}
+
+
+
+procuste(mgs_metadata_food %>% select(Patient_ID,contains("A", ignore.case = FALSE)) %>%
+  tibble::column_to_rownames("Patient_ID"), 
+    mgs_clades_pco$tab)$scorY %>%
+  merge(mgs_metadata_food[1:12],.,by.x="Patient_ID", by.y="row.names") %>%
+  melt(id.vars=c("ax1","ax2","ax3","ax4","Patient_ID","Health","SSgroup")) %>%
+  melt(id.vars=c("Patient_ID","Health","SSgroup","variable","value"), variable.name = "axis", value.name = "coord") %>%       
+  group_by(variable,axis) %>%
+  na.omit %>% do(broom::tidy(cor.test(.$value, .$coord, method="spearman")))
+
+
+
+
+procuste(mgs_metadata_food %>% select(Patient_ID,contains("A", ignore.case = FALSE)) %>%
+  tibble::column_to_rownames("Patient_ID"), 
+    mgs_clades_pco$tab)$scorY %>%
+  merge(mgs_metadata_food[1:5],.,by.x="Patient_ID", by.y="row.names") %>%
+  ggplot() + geom_point(aes(x=ax1, y=ax3, color=transit.days), size=4)
+
+
+procuste(mgs_metadata_food %>% select(Patient_ID,contains("A", ignore.case = FALSE)) %>%
+  tibble::column_to_rownames("Patient_ID"), 
+    mgs_clades_pco$tab)$scorY %>%
+  merge(mgs_metadata_food[1:5],.,by.x="Patient_ID", by.y="row.names") %>%
+  ggplot() + geom_point(aes(x=transit.days, y=ax3, color=transit.days), size=4)
+
+
+
+
+
+
+```
+
+
+
 ## IBS severity signature vs Food OTU
+
+
+
 ```{r}
 
 
@@ -386,8 +567,9 @@ cag_severe = system.file("CAG", "IBS_severity_mgs_clades_prop.csv", package="IBS
 
 
 cag_sev_jsd = 
-  cag[,intersect(colnames(OTU), colnames(t(cag_severe)))] %>% 
+  cag_severe[intersect(colnames(OTU), colnames(t(cag_severe))),-1] %>% 
   as.data.frame %>% 
+  t %>%
   BiotypeR::dist.JSD()
 
 food_unifrac_select_severe = 
@@ -407,7 +589,7 @@ mic_food_coi %>% plot
 
 
 
- cor(procuste(food_unifrac_select_severe_pco$tab, cag_sev_jsd_pco$tab)$scorX[,1:2],
+ cor(procuste(food_unifrac_select_severe_pco$tab, cag_sev_jsd_pco$tab)$scorX[,1:4],
      cbind(
        t(OTU)[colnames(cag[,intersect(colnames(OTU), colnames(t(cag_severe)))]),],
        t(OTU_lvl3)[colnames(cag[,intersect(colnames(OTU), colnames(t(cag_severe)))]),],
@@ -421,29 +603,90 @@ mic_food_coi %>% plot
       method="spearman"
        ) %>% t %>% as.data.frame %>% tibble::rownames_to_column() %>% arrange(desc(abs(ax1))) %>%
  na.omit() %>% 
-   filter(abs(ax1) > 0.4 | abs(ax2) > 0.4) -> b
+   filter(abs(ax1) > 0.3 | abs(ax2) > 0.3) -> b
  
  
 
 
 
- cor(procuste(food_unifrac_select_severe_pco$tab, cag_sev_jsd_pco$tab)$scorY[,1:2],
-     t(cag[,intersect(colnames(OTU), colnames(t(cag_severe)))]),
+ cor(procuste(food_unifrac_select_severe_pco$tab, cag_sev_jsd_pco$tab)$scorY[,1:4],
+     t(cag_severe[intersect(colnames(OTU), colnames(t(cag_severe))),-1] %>% 
+  as.data.frame %>% 
+  t),
      method="spearman"
        ) %>% t %>% as.data.frame %>% tibble::rownames_to_column() %>% arrange(desc(abs(ax1))) %>% 
    na.omit() %>% 
-   filter(abs(ax1) > 0.4 | abs(ax2) > 0.4) %>%
+   filter(abs(ax1) > 0.3 | abs(ax2) > 0.3) %>%
    #separate(col=rowname, sep="_", into=c("domain","phylum","order","class","family","genus")) %>%
      ggplot() + 
    geom_point(aes(x=ax1, y=ax2)) + ggrepel::geom_text_repel(aes(x=ax1, y=ax2, label=rowname)) + 
    geom_point(data=b, aes(x=ax1, y=ax2)) +  ggrepel::geom_text_repel(data=b, aes(x=ax1, y=ax2, label=rowname))
  
  
+procuste.randtest(food_unifrac_select_severe_pco$tab, cag_sev_jsd_pco$tab)
+
+
+```
+
+
+### link with metadata
+```{r, message=FALSE, warning=FALSE}
+
+
+
+procuste(mgs_metadata_food %>% select(Patient_ID,contains("A", ignore.case = FALSE)) %>%
+  tibble::column_to_rownames("Patient_ID"), 
+    cag_sev_jsd_pco$tab)$scorY %>%
+  merge(mgs_metadata_food[1:12],.,by.x="Patient_ID", by.y="row.names") %>%
+  melt(id.vars=c("ax1","ax2","ax3","ax4","Patient_ID","Health","SSgroup")) %>%
+  melt(id.vars=c("Patient_ID","Health","SSgroup","variable","value"), variable.name = "axis", value.name = "coord") %>%       
+  group_by(variable,axis) %>%
+  na.omit %>% do(broom::tidy(cor.test(.$value, .$coord, method="spearman")))
+
+
+
+ cor(procuste(food_unifrac_select_severe_pco$tab, cag_sev_jsd_pco$tab)$scorX[,1:4],
+     cbind(
+       t(OTU)[colnames(cag[,intersect(colnames(OTU), colnames(t(cag_severe)))]),],
+       t(OTU_lvl3)[colnames(cag[,intersect(colnames(OTU), colnames(t(cag_severe)))]),],
+       t(OTU_lvl2)[colnames(cag[,intersect(colnames(OTU), colnames(t(cag_severe)))]),],
+       t(OTU_lvl1)[colnames(cag[,intersect(colnames(OTU), colnames(t(cag_severe)))]),]
+           
+       ),
+    
+     
+     
+      method="spearman"
+       ) %>% t %>% as.data.frame %>% tibble::rownames_to_column() %>% arrange(desc(abs(ax1))) %>%
+ na.omit() %>% 
+   filter(abs(ax1) > 0.3 | abs(ax3) > 0.3) -> b
+ 
+ 
+
+
+
+
+ cor(procuste(food_unifrac_select_severe_pco$tab, cag_sev_jsd_pco$tab)$scorY[,1:4],
+     t(cag_severe[intersect(colnames(OTU), colnames(t(cag_severe))),-1] %>% 
+  as.data.frame %>% 
+  t),
+     method="spearman"
+       ) %>% t %>% as.data.frame %>% tibble::rownames_to_column() %>% arrange(desc(abs(ax1))) %>% 
+   na.omit() %>% 
+   filter(abs(ax1) > 0.3 | abs(ax3) > 0.3) %>%
+   #separate(col=rowname, sep="_", into=c("domain","phylum","order","class","family","genus")) %>%
+     ggplot() + 
+   geom_point(aes(x=ax1, y=ax3)) + ggrepel::geom_text_repel(aes(x=ax1, y=ax3, label=rowname)) + 
+   geom_point(data=b, aes(x=ax1, y=ax3)) +  ggrepel::geom_text_repel(data=b, aes(x=ax1, y=ax3, label=rowname))
+ 
+ 
+
 
 
 
 
 ```
+
 
 
 
