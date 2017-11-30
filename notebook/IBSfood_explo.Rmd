@@ -44,6 +44,12 @@ data("food_group_levels")
 data("food_swe")
 data("mgs_clades_prop")
 
+beta = system.file("beta/beta_mgs.csv", package = "IBSFood") %>% read.csv2(row.names = 1)
+
+
+
+
+
 ```
 
 ## food tree
@@ -163,7 +169,7 @@ physeq=phyloseq::phyloseq(OTU,TAX,TREE)
 #otu_wunifrac = phyloseq::distance(physeq, method="wunifrac")
 food_unifrac = phyloseq::distance(physeq, method="unifrac")
 
-food_wunifrac = phyloseq::distance(physeq, method="wunifrac")
+#food_wunifrac = phyloseq::distance(physeq, method="wunifrac")
 
 ```
 
@@ -171,7 +177,7 @@ food_wunifrac = phyloseq::distance(physeq, method="wunifrac")
 
 
 unifrac_pco  = ade4::dudi.pco(food_unifrac %>% ade4::quasieuclid(), scannf=F, nf=3)
-wunifrac_pco = ade4::dudi.pco(food_wunifrac %>% ade4::quasieuclid(), scannf=F, nf=3)
+#wunifrac_pco = ade4::dudi.pco(food_wunifrac %>% ade4::quasieuclid(), scannf=F, nf=3)
 
 
 #ade4::scatter(unifrac_pco)
@@ -403,6 +409,9 @@ coinertia analysis showed good correspondance between 16S and CAG analysis.
 
 data(mgs_clades_prop)
 
+
+#mgs_clades_prop[-1] %>% t %>% as.data.frame() %>% tibble::rownames_to_column() %>% tidyr::separate("rowname",into=c("gu","cl"), sep="_") %>% select(gu,cl) %>% filter(cl=="cl2") %>% dim
+
 #merge metadata, MGS and food data
 mgs_metadata = 
   IBSData$metadata %>%
@@ -471,7 +480,7 @@ cor(procuste(
     
      
      
-      method="spearman"
+      method="pearson"
        ) %>% t %>% as.data.frame %>% tibble::rownames_to_column() %>% arrange(desc(abs(ax1))) %>%
  na.omit() %>% 
    filter(abs(ax1) > 0.3 | abs(ax2) > 0.3 | abs(ax3) > 0.3 | abs(ax4) > 0.3 ) %>%
@@ -492,7 +501,7 @@ cor(procuste(
     tibble::column_to_rownames("samples_id") %>%
     select(-rowname) %>%
     as.matrix %>%
-    .[rownames(mgs_clades_pco$tab),]) %>% 
+    .[rownames(mgs_clades_pco$tab),], method="pearson") %>% 
   t %>% as.data.frame %>% tibble::rownames_to_column() %>% 
   arrange(desc(abs(ax1))) %>%
  na.omit() %>% 
@@ -510,6 +519,20 @@ rbind(a,b) %>%
   filter(abs(ax1) > 0.3| abs(ax3) > 0.3  ) %>%
   ggplot() + geom_point(aes(x=ax1, y=ax3, col=item)) + ggrepel::geom_text_repel(aes(x=ax1, y=ax3, label=rowname), size = 2)
 
+beta
+
+
+rbind(a,b) %>%
+  mutate(rowname = rowname %>% gsub("\\.",":", .)) %>%
+  merge(., beta, by.x="rowname", by.y = "mgs_clades_names", all.x=TRUE) %>%
+  ggplot() + geom_boxplot(aes(x=ax1 %>% cut(2), y=m))
+  
+  
+rbind(a,b) %>%
+  mutate(rowname = rowname %>% gsub("\\.",":", .)) %>%
+  merge(., beta, by.x="rowname", by.y = "mgs_clades_names", all.x=TRUE) %>%
+  do(cor.test(.$m,.$ax1, method="spearman") %>% broom::tidy())
+
 
 
 
@@ -521,31 +544,61 @@ rbind(a,b) %>%
 
 
 
+procuste(
+  mgs_metadata_food %>% 
+    select(Patient_ID,contains("A", ignore.case = FALSE)) %>%
+    tibble::column_to_rownames("Patient_ID"), 
+    mgs_clades_pco$tab, 
+  nf=10
+)$scorY %>%
+  merge(mgs_metadata_food[1:12],.,by.x="Patient_ID", by.y="row.names") %>%
+  melt(id.vars=c(paste0("ax",1:10),"Patient_ID","Health","SSgroup")) %>%
+  melt(id.vars=c("Patient_ID","Health","SSgroup","variable","value"), variable.name = "axis", value.name = "coord") %>%       
+  group_by(variable,axis) %>%
+  na.omit %>% do(broom::tidy(cor.test(.$value, .$coord, method="spearman"))) %>%
+  arrange(p.value)
+
+
+# 
+# 
+# procuste(mgs_metadata_food %>% select(Patient_ID,contains("A", ignore.case = FALSE)) %>%
+#   tibble::column_to_rownames("Patient_ID"), 
+#     mgs_clades_pco$tab)$scorY %>%
+#   merge(mgs_metadata_food[1:12],.,by.x="Patient_ID", by.y="row.names") %>%
+#   ggplot() + geom_point(aes(x=ax1, y=ax3, color=transit.days, size=CH4))
+# 
+# 
+# procuste(mgs_metadata_food %>% select(Patient_ID,contains("A", ignore.case = FALSE)) %>%
+#   tibble::column_to_rownames("Patient_ID"), 
+#     mgs_clades_pco$tab)$scorY %>%
+#   merge(mgs_metadata_food[1:5],.,by.x="Patient_ID", by.y="row.names") %>%
+#   ggplot() + geom_point(aes(x=transit.days, y=ax3, color=transit.days), size=4)
+# 
+
+
+
 procuste(mgs_metadata_food %>% select(Patient_ID,contains("A", ignore.case = FALSE)) %>%
   tibble::column_to_rownames("Patient_ID"), 
     mgs_clades_pco$tab)$scorY %>%
   merge(mgs_metadata_food[1:12],.,by.x="Patient_ID", by.y="row.names") %>%
-  melt(id.vars=c("ax1","ax2","ax3","ax4","Patient_ID","Health","SSgroup")) %>%
-  melt(id.vars=c("Patient_ID","Health","SSgroup","variable","value"), variable.name = "axis", value.name = "coord") %>%       
-  group_by(variable,axis) %>%
-  na.omit %>% do(broom::tidy(cor.test(.$value, .$coord, method="spearman")))
+  select(CH4,ax1) %>%
+  na.omit %>%
+  ggplot() + geom_histogram(aes(x=ax1, fill=CH4 %>% cut(b=c(-1,1,5,50))), bins = 3, position = "fill", color="black") +
+  scale_fill_brewer("CH4 (ppm)", label = c("less than 1","from 1 to 5", "more than 5")) + scale_y_continuous(labels = scales::percent_format())
+  
 
 
 
-
+  
 procuste(mgs_metadata_food %>% select(Patient_ID,contains("A", ignore.case = FALSE)) %>%
   tibble::column_to_rownames("Patient_ID"), 
     mgs_clades_pco$tab)$scorY %>%
-  merge(mgs_metadata_food[1:5],.,by.x="Patient_ID", by.y="row.names") %>%
-  ggplot() + geom_point(aes(x=ax1, y=ax3, color=transit.days), size=4)
-
-
-procuste(mgs_metadata_food %>% select(Patient_ID,contains("A", ignore.case = FALSE)) %>%
-  tibble::column_to_rownames("Patient_ID"), 
-    mgs_clades_pco$tab)$scorY %>%
-  merge(mgs_metadata_food[1:5],.,by.x="Patient_ID", by.y="row.names") %>%
-  ggplot() + geom_point(aes(x=transit.days, y=ax3, color=transit.days), size=4)
-
+  merge(mgs_metadata_food[1:12],.,by.x="Patient_ID", by.y="row.names") %>%
+  select(transit.days,ax3) %>%
+  na.omit %>%
+  ggplot() + 
+  geom_histogram(aes(x=ax3,  fill=transit.days %>% cut(b=c(0,1,2,3,6))), bins = 3, position = "fill", color="black") +
+  scale_fill_brewer("transit (days)", label = c("less than 1","from 1 to 2", "from 2 to 3", "more than 3"), palette = 3) + scale_y_continuous(labels = scales::percent_format())
 
 
 
@@ -636,12 +689,13 @@ procuste.randtest(food_unifrac_select_severe_pco$tab, cag_sev_jsd_pco$tab)
 
 procuste(mgs_metadata_food %>% select(Patient_ID,contains("A", ignore.case = FALSE)) %>%
   tibble::column_to_rownames("Patient_ID"), 
-    cag_sev_jsd_pco$tab)$scorY %>%
+    cag_sev_jsd_pco$tab, nf = 10)$scorY %>%
   merge(mgs_metadata_food[1:12],.,by.x="Patient_ID", by.y="row.names") %>%
-  melt(id.vars=c("ax1","ax2","ax3","ax4","Patient_ID","Health","SSgroup")) %>%
+  melt(id.vars=c(paste0("ax",1:10),"Patient_ID","Health","SSgroup")) %>%
   melt(id.vars=c("Patient_ID","Health","SSgroup","variable","value"), variable.name = "axis", value.name = "coord") %>%       
   group_by(variable,axis) %>%
-  na.omit %>% do(broom::tidy(cor.test(.$value, .$coord, method="spearman")))
+  na.omit %>% do(broom::tidy(cor.test(.$value, .$coord, method="spearman"))) %>%
+  arrange((p.value))
 
 
 
