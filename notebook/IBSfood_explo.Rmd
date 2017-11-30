@@ -166,6 +166,10 @@ TAX = tax_table(food_group_levels %>%
 OTU = otu_table(food_otu, taxa_are_rows = TRUE)
 physeq=phyloseq::phyloseq(OTU,TAX,TREE)
 
+
+phy_tree(physeq) <- ape::root(phy=phy_tree(physeq), outgroup="28_3", resolve.root=TRUE, interactive=FALSE)
+
+
 #otu_wunifrac = phyloseq::distance(physeq, method="wunifrac")
 food_unifrac = phyloseq::distance(physeq, method="unifrac")
 
@@ -450,6 +454,10 @@ scannf=F, nf=3)
 
 ```
 
+
+
+
+
 ### Procuste analysis
  
 ```{r}
@@ -501,7 +509,10 @@ cor(procuste(
     tibble::column_to_rownames("samples_id") %>%
     select(-rowname) %>%
     as.matrix %>%
-    .[rownames(mgs_clades_pco$tab),], method="pearson") %>% 
+    .[rownames(mgs_clades_pco$tab),], 
+  
+  
+  method="pearson") %>% 
   t %>% as.data.frame %>% tibble::rownames_to_column() %>% 
   arrange(desc(abs(ax1))) %>%
  na.omit() %>% 
@@ -519,7 +530,7 @@ rbind(a,b) %>%
   filter(abs(ax1) > 0.3| abs(ax3) > 0.3  ) %>%
   ggplot() + geom_point(aes(x=ax1, y=ax3, col=item)) + ggrepel::geom_text_repel(aes(x=ax1, y=ax3, label=rowname), size = 2)
 
-beta
+#beta
 
 
 rbind(a,b) %>%
@@ -531,8 +542,7 @@ rbind(a,b) %>%
 rbind(a,b) %>%
   mutate(rowname = rowname %>% gsub("\\.",":", .)) %>%
   merge(., beta, by.x="rowname", by.y = "mgs_clades_names", all.x=TRUE) %>%
-  do(cor.test(.$m,.$ax1, method="spearman") %>% broom::tidy())
-
+  wilcox.test(m ~ ax1 > 0, data = .)
 
 
 
