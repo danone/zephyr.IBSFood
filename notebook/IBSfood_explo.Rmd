@@ -488,7 +488,7 @@ cor(procuste(
     
      
      
-      method="pearson"
+      method="spearman"
        ) %>% t %>% as.data.frame %>% tibble::rownames_to_column() %>% arrange(desc(abs(ax1))) %>%
  na.omit() %>% 
    filter(abs(ax1) > 0.3 | abs(ax2) > 0.3 | abs(ax3) > 0.3 | abs(ax4) > 0.3 ) %>%
@@ -512,7 +512,7 @@ cor(procuste(
     .[rownames(mgs_clades_pco$tab),], 
   
   
-  method="pearson") %>% 
+  method="spearman") %>% 
   t %>% as.data.frame %>% tibble::rownames_to_column() %>% 
   arrange(desc(abs(ax1))) %>%
  na.omit() %>% 
@@ -520,9 +520,9 @@ cor(procuste(
   data.frame(.,item="mgs")-> b
 
 
-rbind(a,b) %>%
+(rbind(a,b) %>%
   filter(abs(ax1) > 0.3| abs(ax2) > 0.3  ) %>%
-  ggplot() + geom_point(aes(x=ax1, y=ax2, col=item)) + ggrepel::geom_text_repel(aes(x=ax1, y=ax2, label=rowname), size = 2)
+  ggplot() + geom_point(aes(x=ax1, y=ax2, col=item)) + ggrepel::geom_text_repel(aes(x=ax1, y=ax2, label=rowname), size = 2) -> procuste)
 
 
 
@@ -536,13 +536,25 @@ rbind(a,b) %>%
 rbind(a,b) %>%
   mutate(rowname = rowname %>% gsub("\\.",":", .)) %>%
   merge(., beta, by.x="rowname", by.y = "mgs_clades_names", all.x=TRUE) %>%
-  ggplot() + geom_boxplot(aes(x=ax1 %>% cut(2), y=m))
+  ggplot() + geom_boxplot(aes(x=ax1 %>% cut(4), y=m))
   
+                          
+(rbind(a,b) %>%
+  mutate(rowname = rowname %>% gsub("\\.",":", .)) %>%
+  merge(., beta, by.x="rowname", by.y = "mgs_clades_names", all.x=TRUE) %>%
+  na.omit() %>%
+  ggplot() + 
+  geom_histogram(aes(x=ax1,  fill=m %>% cut(3)), bins = 3, position = "fill", color="black") + scale_y_continuous(labels = scales::percent_format()) +
+  scale_fill_brewer("pangenomes\ndiversity", label = c("low","medium", "high"),type= "div", palette = 1) -> pangenome_diversity)
+                          
   
 rbind(a,b) %>%
   mutate(rowname = rowname %>% gsub("\\.",":", .)) %>%
   merge(., beta, by.x="rowname", by.y = "mgs_clades_names", all.x=TRUE) %>%
-  wilcox.test(m ~ ax1 > 0, data = .)
+  do(pairwise.wilcox.test(.$m , .$ax1 %>% cut(4), p.adjust.method = "none") %>% broom::tidy())
+
+
+
 
 
 
@@ -587,14 +599,14 @@ procuste(
 
 
 
-procuste(mgs_metadata_food %>% select(Patient_ID,contains("A", ignore.case = FALSE)) %>%
+(procuste(mgs_metadata_food %>% select(Patient_ID,contains("A", ignore.case = FALSE)) %>%
   tibble::column_to_rownames("Patient_ID"), 
     mgs_clades_pco$tab)$scorY %>%
   merge(mgs_metadata_food[1:12],.,by.x="Patient_ID", by.y="row.names") %>%
   select(CH4,ax1) %>%
   na.omit %>%
   ggplot() + geom_histogram(aes(x=ax1, fill=CH4 %>% cut(b=c(-1,1,5,50))), bins = 3, position = "fill", color="black") +
-  scale_fill_brewer("CH4 (ppm)", label = c("less than 1","from 1 to 5", "more than 5")) + scale_y_continuous(labels = scales::percent_format())
+  scale_fill_brewer("CH4 (ppm)", label = c("less than 1","from 1 to 5", "more than 5")) + scale_y_continuous(labels = scales::percent_format()) -> CH4_plot)
   
 
 
@@ -611,10 +623,35 @@ procuste(mgs_metadata_food %>% select(Patient_ID,contains("A", ignore.case = FAL
   scale_fill_brewer("transit (days)", label = c("less than 1","from 1 to 2", "from 2 to 3", "more than 3"), palette = 3) + scale_y_continuous(labels = scales::percent_format())
 
 
+# procuste(mgs_metadata_food %>% select(Patient_ID,contains("A", ignore.case = FALSE)) %>%
+#   tibble::column_to_rownames("Patient_ID"), 
+#     mgs_clades_pco$tab)$scorY %>%
+#   merge(mgs_metadata_food[1:12],.,by.x="Patient_ID", by.y="row.names") %>%
+#   select(SSgroup,ax1) %>%
+#   na.omit %>%
+#   do(pairwise.wilcox.test(.$ax1, .$SSgroup, p.adjust.method = "none") %>% broom::tidy())
+#   #  ggplot() + geom_boxplot(aes(x=SSgroup, y=ax2))
+
 
 
 
 ```
+
+
+
+#### figure DDW
+```{r, fig.height=11, fig.width=9}
+
+cowplot::plot_grid(
+procuste + xlab("Procuste Axis 1") + ylab("Procuste Axis 2") + theme_classic(),
+pangenome_diversity + xlab("Procuste Axis 1") + ylab("MGS Subspecies\nprevalence") + theme_classic(),
+CH4_plot + xlab("Procuste Axis 1") + ylab("Subjects\nprevalence") + theme_classic(), 
+labels = "AUTO", nrow = 3, rel_heights = c(7,2,2) )
+
+
+
+```
+
 
 
 
