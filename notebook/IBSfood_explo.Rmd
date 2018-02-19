@@ -44,6 +44,10 @@ data("food_group_levels")
 data("food_swe")
 data("mgs_clades_prop")
 
+data("cazotypes")
+data("enterotypes")
+data("cazy_counts")
+
 beta = system.file("beta/beta_mgs.csv", package = "IBSFood") %>% read.csv2(row.names = 1)
 
 
@@ -538,15 +542,18 @@ rbind(a,b) %>%
   merge(., beta, by.x="rowname", by.y = "mgs_clades_names", all.x=TRUE) %>%
   ggplot() + geom_boxplot(aes(x=ax1 %>% cut(4), y=m))
   
-                          
+   
 (rbind(a,b) %>%
   mutate(rowname = rowname %>% gsub("\\.",":", .)) %>%
   merge(., beta, by.x="rowname", by.y = "mgs_clades_names", all.x=TRUE) %>%
   na.omit() %>%
+  filter(rowname == mgs_clades_names_2) %>%  # very important!
   ggplot() + 
   geom_histogram(aes(x=ax1,  fill=m %>% cut(3)), bins = 3, position = "fill", color="black") + scale_y_continuous(labels = scales::percent_format()) +
   scale_fill_brewer("pangenomes\ndiversity", label = c("low","medium", "high"),type= "div", palette = 1) -> pangenome_diversity)
-                          
+     
+
+                     
   
 rbind(a,b) %>%
   mutate(rowname = rowname %>% gsub("\\.",":", .)) %>%
@@ -639,7 +646,7 @@ procuste(mgs_metadata_food %>% select(Patient_ID,contains("A", ignore.case = FAL
 
 
 
-#### figure DDW
+#### figure food tree and MGS pangenomes
 ```{r, fig.height=11, fig.width=9}
 
 cowplot::plot_grid(
@@ -651,6 +658,59 @@ labels = "AUTO", nrow = 3, rel_heights = c(7,2,2) )
 
 
 ```
+
+
+
+## CAZY exploration
+
+```{r}
+
+
+enterotypes %>%
+  filter(Visit=="V4") %>%
+  select(-Visit,-Sample_ID) %>%
+  merge(cazotypes,.,by.x="row.names", by.y="Patient_ID") %>%
+  xtabs(~ cazotype + enterotypes, data=.) 
+
+enterotypes %>%
+  filter(Visit=="V4") %>%
+  select(-Visit,-Sample_ID) %>%
+  merge(cazotypes,.,by.x="row.names", by.y="Patient_ID") %>%
+  ggplot + geom_bar(aes(x=cazotype %>% as.character, fill=enterotypes %>% as.character), position="fill") + scale_fill_brewer("Enterotypes",type="qual",palette = 6)
+
+procuste(mgs_metadata_food %>% select(Patient_ID,contains("A", ignore.case = FALSE)) %>%
+  tibble::column_to_rownames("Patient_ID"), 
+    mgs_clades_pco$tab)$scorY %>%
+  merge(cazotypes,.,by.x="row.names", by.y="row.names") %>%
+  ggplot() + geom_boxplot(aes(x=cazotype %>% as.character, y=ax1))
+
+procuste(mgs_metadata_food %>% select(Patient_ID,contains("A", ignore.case = FALSE)) %>%
+  tibble::column_to_rownames("Patient_ID"), 
+    mgs_clades_pco$tab)$scorY %>%
+  merge(cazotypes,.,by.x="row.names", by.y="row.names") %>%
+  ggplot() + geom_boxplot(aes(x=cazotype %>% as.character, y=ax3))
+
+
+procuste(mgs_metadata_food %>% select(Patient_ID,contains("A", ignore.case = FALSE)) %>%
+  tibble::column_to_rownames("Patient_ID"), 
+    mgs_clades_pco$tab)$scorY %>%
+  merge(cazotypes,.,by.x="row.names", by.y="row.names") %>%
+  ggplot() + geom_point(aes(color=cazotype %>% as.character,x=ax1, y=ax3))
+
+
+
+rbind(a,b) %>%
+  filter(abs(ax1) > 0.3| abs(ax3) > 0.3  ) %>%
+  ggplot() + geom_point(aes(x=ax1, y=ax3, col=item)) + ggrepel::geom_text_repel(aes(x=ax1, y=ax3, label=rowname), size = 2)
+
+
+
+
+
+
+```
+
+
 
 
 
