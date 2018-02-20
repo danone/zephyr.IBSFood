@@ -540,7 +540,9 @@ rbind(a,b) %>%
 rbind(a,b) %>%
   mutate(rowname = rowname %>% gsub("\\.",":", .)) %>%
   merge(., beta, by.x="rowname", by.y = "mgs_clades_names", all.x=TRUE) %>%
-  ggplot() + geom_boxplot(aes(x=ax1 %>% cut(4), y=m))
+  na.omit() %>%
+  filter(rowname == mgs_clades_names_2) %>%  # very important!
+  ggplot() + geom_boxplot(aes(x=ax1 %>% cut(3), y=m))
   
    
 (rbind(a,b) %>%
@@ -647,13 +649,13 @@ procuste(mgs_metadata_food %>% select(Patient_ID,contains("A", ignore.case = FAL
 
 
 #### figure food tree and MGS pangenomes
-```{r, fig.height=11, fig.width=9}
+```{r, fig.height=14, fig.width=9}
 
 cowplot::plot_grid(
 procuste + xlab("Procuste Axis 1") + ylab("Procuste Axis 2") + theme_classic(),
 pangenome_diversity + xlab("Procuste Axis 1") + ylab("MGS Subspecies\nprevalence") + theme_classic(),
 CH4_plot + xlab("Procuste Axis 1") + ylab("Subjects\nprevalence") + theme_classic(), 
-labels = "AUTO", nrow = 3, rel_heights = c(7,2,2) )
+labels = "AUTO", nrow = 3, rel_heights = c(7,3,3) )
 
 
 
