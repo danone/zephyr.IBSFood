@@ -1,39 +1,41 @@
 #' @title Compute the nutriscore
-#' 
+#'
 #' @description this function allows to compute the nutriscore from nutrients from food
 #'
 #' @param cal kCalorie
 #' @param fat fat g per 100g. default = 0
-#' @param carbohydrate carbohydrate g per 100g. default = 0
+#' @param carbohydrate carbohydrate g per 100g. default = 0 !! these are saccharides
 #' @param protein protein g per 100g. default = 0
 #' @param fibre fibre g per 100g. default = 0
 #' @param sodium sodium mg per 100g. default = 0
 #' @param fruit fruit g per 100g. default = 0
 #' @param type drink or fat or others. default "others"
-#' 
+#'
 #' @return a numeric value. the nutriscore
 #' @examples
 #' nutriscore(cal=507,fat=24,carbohydrate=65,fibre=2.7,sodium=600)
-#' 
+#'
 
 
 nutriscore = function(
-  cal=0, 
-  fat=0, 
-  carbohydrate=0, 
+  cal=0,
+  fat=0,
+  carbohydrate=0,
   protein=0,
   fibre= 0,
   sodium = 0,
   fruit = 0,
-  
+
   type=c("others")
-  
+
 ) {
-  
-  
+
+
   score_neg = 0
   score_pos = 0
-  
+  score_fruit = 0
+  score_fibre = 0
+
   if(type == "drink"){
     if (cal <= 0){
       score_neg = score_neg + 0;
@@ -69,9 +71,9 @@ nutriscore = function(
       score_neg = score_neg + 10;
     }
     #console.log("calorie: " + score_negatif);
-    
+
   }
-  
+
   else{
     if (cal <= 335){
       score_neg = score_neg + 0;
@@ -107,10 +109,10 @@ nutriscore = function(
       score_neg = score_neg + 10;
     }
     #console.log("calorie: " + score_negatif);
-    
+
   }
-  
-  #// gras
+
+  #// saturated fat
   if(type == "fat"){
     if (fat <= 6){
       score_neg = score_neg + 0;
@@ -146,7 +148,7 @@ nutriscore = function(
       score_neg = score_neg + 10;
     }
     #console.log("gras: " + score_negatif);
-    
+
   }
   else{
     if (fat <= 1){
@@ -185,7 +187,7 @@ nutriscore = function(
     #console.log("gras: " + score_negatif);
   }
   #// sucre
-  
+
   if(type == "drink"){
     if (carbohydrate <= 0){
       score_neg = score_neg + 0;
@@ -221,9 +223,9 @@ nutriscore = function(
       score_neg = score_neg + 10;
     }
     #console.log("sucre: " + score_negatif);
-    
+
   }
-  
+
   else{
     if (carbohydrate <= 4.5){
       score_neg = score_neg + 0;
@@ -260,8 +262,8 @@ nutriscore = function(
     }
     #console.log("sucre: " + score_negatif);
   }
-  
-  
+
+
   #// sodium
   if (sodium <= 90){
     score_neg = score_neg + 0;
@@ -297,45 +299,80 @@ nutriscore = function(
     score_neg = score_neg + 10;
   }
   #console.log("sodium: " + score_negatif);
-  
-  #// points positifs 
-  
+
+  #// points positifs
+
   #// fruits et légumes
+
+
+  if(type == "drink"){
+
+    if (fruit <= 40){
+      score_pos = score_pos + 0;
+      score_fruit = 0;
+    }
+    else if (fruit > 40 && fruit <= 60){
+      score_pos = score_pos + 2;
+      score_fruit = 1;
+    }
+    else if (fruit > 60 && fruit <= 80){
+      score_pos = score_pos + 4;
+      score_fruit = 2;
+    }
+    else if (fruit > 80){
+      score_pos = score_pos + 10;
+      score_fruit = 5;
+    }
+
+  } else {
+
   if (fruit <= 40){
     score_pos = score_pos + 0;
+    score_fruit = 0;
   }
   else if (fruit > 40 && fruit <= 60){
     score_pos = score_pos + 1;
+    score_fruit = 1;
   }
   else if (fruit > 60 && fruit <= 80){
     score_pos = score_pos + 2;
+    score_fruit = 2;
   }
   else if (fruit > 80){
     score_pos = score_pos + 5;
+    score_fruit = 5;
+  }
+
   }
   #console.log("fruit: " + score_positif);
-  
+
   #// fibres
   if (fibre <= 0.7){
     score_pos = score_pos + 0;
+    score_fibre = 0;
   }
   else if (fibre > 0.7 && fibre <= 1.4){
     score_pos = score_pos + 1;
+    score_fibre = 1;
   }
   else if (fibre > 1.4 && fibre <= 2.1){
     score_pos = score_pos + 2;
+    score_fibre = 2;
   }
   else if (fibre > 2.1 && fibre <= 2.8){
     score_pos = score_pos + 3;
+    score_fibre = 3;
   }
   else if (fibre > 2.8 && fibre <= 3.5){
     score_pos = score_pos + 4;
+    score_fibre = 4;
   }
   else if (fibre > 3.5){
     score_pos = score_pos + 5;
+    score_fibre = 5;
   }
   #console.log("fibre: " + score_positif);
-  
+
   #// proteines
   if (protein <=1.6){
     score_pos = score_pos + 0;
@@ -356,14 +393,27 @@ nutriscore = function(
     score_pos = score_pos + 5;
   }
   #console.log("proteine: " + score_positif);
-  
+
+  if(score_neg < 11) {
+
   score_final = score_neg - score_pos;
-  
-  
+  }
+  else if (score_neg >= 11 && score_fruit == 5) {
+
+    score_final = score_neg - score_pos;
+
+  }
+  else if (score_neg >= 11 && score_fruit < 5) {
+
+    score_final = score_neg - (score_fruit + score_fibre) ;
+
+  }
+
+
   return(score_final)
-  
+
   #to do -10-0-3-10-18
-  
+
 }
 
 
@@ -371,21 +421,21 @@ nutriscore = function(
 #'
 #' @param nutriscore a value or a vector of value. default 0
 
-#' 
+#'
 #' @return a character. the ABCDE nutriscore
 #' @examples
 #' nutriscore_qual(nutriscore=11)
-#' 
+#'
 
 
 nutriscore_qual = function(nutriscore = 0){
-  
-  
+
+
   i=findInterval(nutriscore, c(-100,0,3,10,18,100))
-  
+
   return(LETTERS[i])
-  
-  
+
+
 }
 
 
