@@ -243,6 +243,8 @@ food_html
 
 ## food recall exploration
 
+
+
 An average of **20** food items was recorded by Day by Individual.
 
 ```{r, fig.height=8, fig.width=8}
@@ -275,15 +277,117 @@ food_group_levels
 ```
 
 
-
+### Food alpha_diversity
 
 ```{r}
 
 food_data %>%
   select(Identity,Day,Meal,Code,Foodstuffs,Gram) %>%
-  rename(Food_items_id = Code)
-  merge(food_group_levels)
+  rename(Food_items_id = Code) %>%
+  merge(.,food_group_levels, by=c("Foodstuffs","Food_items_id")) %>%
+  group_by(Identity, `Food groups lvl4`) %>%
+  select(Identity, `Food groups lvl4`) %>%
+  unique() %>%
+  ungroup() %>%
+  group_by(Identity) %>%
+  summarise(n=n()) -> n_nutrient_food_group
+
+n_nutrient_food_group %>%
+  ggplot() + geom_histogram(aes(x=n)) + xlab("Number of different food nutrient based group")
   
+  
+```  
+ 
+  
+```{r}  
+
+
+ food_data %>%
+  select(Identity,Day,Meal,Code,Foodstuffs,Gram) %>%
+  rename(Food_items_id = Code) %>%
+  merge(.,food_group_levels, by=c("Foodstuffs","Food_items_id")) %>%
+  group_by(Identity) %>%
+  summarise(Gram=sum(Gram)) -> n_Gram
+
+n_Gram %>% pull(Gram) %>% min
+
+merge(n_nutrient_food_group,n_Gram,by="Identity") %>%
+  merge(.,
+     IBSData$metadata %>%
+   select(Patient_ID,Health,Gender,SSgroup,IBS_subtypes) %>%
+   unique(),
+   by.y="Patient_ID",
+   by.x="Identity"
+     
+   ) %>%
+  melt(id.vars=c("Identity","n","Gram")) %>%
+  ggplot() + geom_point(aes(x=n,y=Gram, col=value)) + facet_wrap(~variable) + scale_colour_manual(values=rainbow(12))
+
+
+ food_data %>%
+  select(Identity,Day,Meal,Code,Foodstuffs,Gram) %>%
+  rename(Food_items_id = Code) %>%
+  merge(.,food_group_levels, by=c("Foodstuffs","Food_items_id")) %>%
+   merge(.,
+     IBSData$metadata %>%
+   select(Patient_ID,Health,Gender,SSgroup,IBS_subtypes) %>%
+   unique(),
+   by.y="Patient_ID",
+   by.x="Identity"
+     
+     
+   ) %>%
+   group_by(Identity,Health,Gender,SSgroup,IBS_subtypes) %>%
+   summarise(Gram=sum(Gram)) %>%
+   melt(id.vars=c("Identity","Gram")) %>%
+   
+   ggplot() +  geom_boxplot(aes(y=Gram, x=value)) + facet_wrap(~variable, scale="free_x") 
+
+ 
+ 
+ 
+```
+
+
+
+```{r} 
+
+  food_data %>%
+  select(Identity,Day,Meal,Code,Foodstuffs,Gram) %>%
+  rename(Food_items_id = Code) %>%
+  merge(.,food_group_levels, by=c("Foodstuffs","Food_items_id")) %>%
+  group_by(Identity, `Food groups lvl4`) %>%
+  summarise(Gram=sum(Gram) %>% round(.,0) %>% as.integer()) %>%
+  dcast(Identity~`Food groups lvl4`, value.var="Gram", fill=0) %>%
+  tibble::column_to_rownames("Identity") %>%
+  vegan::rarefy(sample=2500) %>%
+  as.matrix() %>%
+  as.data.frame() %>%
+   merge(.,
+     IBSData$metadata %>%
+   select(Patient_ID,Health,Gender,SSgroup,IBS_subtypes) %>%
+   unique(),
+   by.y="Patient_ID",
+   by.x="row.names"
+     
+     
+   ) %>%
+  rename(F_obs =V1) %>%
+  melt(id.vars=c("Row.names","F_obs")) %>%
+  
+   ggplot() +  geom_boxplot(aes(y=F_obs, x=value)) + facet_wrap(~variable, scale="free_x") + 
+  ylab("Number of food nutrient OTU\n(rarefied for 2500g)")
+
+ 
+ 
+ 
+
+```
+
+
+
+```{r}
+
 
 
 
@@ -292,8 +396,189 @@ food_data %>%
 
 
 
+### Food beta_diversity
+
+Start to create phyloseq object and compute unifrac distance. Outgroup choosen to root the tree was **Vodka** food based item.
+
+```{r}
+
+food_data %>%
+  merge(food_group_levels, by.x="Code",by.y="Food_items_id", all = FALSE) %>%
+  select(-Foodstuffs.y) %>%
+  dplyr::rename(Foodstuffs = Foodstuffs.x) %>%
+  group_by(Identity, `Food groups lvl1`, `Food groups lvl2`, `Food groups lvl3`,`Food groups lvl4`) %>%
+  summarise(Gram = sum(Gram)) %>%
+  na.omit() %>%
+  dcast(Identity ~ `Food groups lvl4`, value.var = "Gram",fill = 0 ) %>%
+    tibble::column_to_rownames("Identity") %>%
+  t() %>%
+  #as_tibble %>%
+  round() -> food_otu
+
+#url = system.file("biom", "food.biom", package="IBSFood")
+tre = system.file("biom", "food.tree", package="IBSFood")
+
+#physeq = phyloseq::import_biom(url, treefilename = tre)
+#phyloseq::import_biom("../inst/biom/food.biom", treefilename = tre) # this does not work
+
+#better to do it manually
+TREE=ape::read.tree(file=tre)
+
+TREE$edge.length = rep(1, dim(TREE$edge)[1]) #important to add edge length to compute unifrac distance
+
+TAX = tax_table(food_group_levels %>%
+              select(`Food groups lvl1`, `Food groups lvl2`, `Food groups lvl3`,`Food groups lvl4`) %>%
+              unique %>%
+              na.omit() %>%
+              filter(`Food groups lvl4` %in% rownames(food_otu)) %>% tibble::column_to_rownames("Food groups lvl4")%>% as.matrix)
+
+
+OTU = otu_table(food_otu, taxa_are_rows = TRUE)
+physeq=phyloseq::phyloseq(OTU,TAX,TREE)
+
+
+phy_tree(physeq) <- ape::root(phy=phy_tree(physeq), outgroup="28_3", resolve.root=TRUE, interactive=FALSE) #outgroup is Vodka
+
+
+#otu_wunifrac = phyloseq::distance(physeq, method="wunifrac")
+food_unifrac = phyloseq::distance(physeq, method="unifrac")
+
+#food_wunifrac = phyloseq::distance(physeq, method="wunifrac")
+
+```
 
 
 
 
+```{r, fig.height=6, fig.width=8}
+
+unifrac_pco  = ade4::dudi.pco(food_unifrac %>% ade4::quasieuclid(), scannf=F, nf=3)
+
+unifrac_pco$li %>%
+ggplot() + geom_point(aes(x=A1,y=A2))
+
+merge(OTU %>% prop.table(2) ,TAX, by="row.names") %>%
+  rename(`Food groups lvl4` = Row.names) %>%
+  melt(id.vars=c("Food groups lvl1","Food groups lvl2","Food groups lvl3","Food groups lvl4")) %>%
+  melt(id.vars=c("variable","value")) -> food_df_tree
+  
+  colnames(food_df_tree) =c("Subject","Gram","Hierarchy","Type")
+  
+  food_df_tree %>%
+    group_by(Subject,Hierarchy,Type) %>%
+    summarise(Gram=sum(Gram%>%as.numeric)) %>%
+    merge(.,unifrac_pco$li,by.x="Subject", by.y="row.names") %>%
+    group_by(Hierarchy,Type) %>%
+    summarize(cor_A1 = cor(Gram, A1, method="spearman"), cor_A2=cor(Gram, A2, method="spearman")) -> cor_food_tree_res
+    
+
+# compute Meat/Plant ratio
+  merge(OTU %>% prop.table(2) ,TAX, by="row.names") %>%
+    as.data.frame %>%
+    rename(`Food groups lvl4` = Row.names) %>%
+    melt(id.vars=c("Food groups lvl1","Food groups lvl2","Food groups lvl3","Food groups lvl4")) %>%
+    group_by(variable,`Food groups lvl1`) %>%
+    summarize(Gram_prop = sum(value)) %>%
+    dcast(variable~`Food groups lvl1`) %>%
+    mutate(meat_plant_ratio = log2(`Meat-based`+0.001/`Plant-based`+0.001)) %>%
+    merge(.,unifrac_pco$li, by.x="variable", by.y="row.names") %>%
+    ggplot() + geom_point(aes(x=A1*2,y=A2*2, col=meat_plant_ratio %>% scale(scale = FALSE)), size=4, alpha=0.75) + 
+    scale_color_gradient2("") + theme_dark() +
+    
+    geom_point(data=cor_food_tree_res %>% filter(abs(cor_A1)>0.3 | abs(cor_A2)>0.3 ), aes(x=cor_A1,y = cor_A2)) + ggrepel::geom_text_repel(data=cor_food_tree_res %>% filter(abs(cor_A1)>0.3 | abs(cor_A2)>0.3 ), aes(x=cor_A1,y = cor_A2,label=Type))
+  
+  
+    
+    # cor_food_tree_res %>%
+    #   ggplot() + geom_point(aes(x=cor_A1,y = cor_A2)) + ggrepel::geom_text_repel(data=cor_food_tree_res %>% filter(abs(cor_A1)>0.3 | abs(cor_A2)>0.3 ), aes(x=cor_A1,y = cor_A2,label=Type))
+    # 
+  
+    
+
+```
+
+
+
+
+```{r}
+
+cor_food_tree_res
+
+food_group_levels %>%
+  filter(`Food groups lvl2` == "Coffee and tea")
+
+
+```
+
+
+##L Test NutriScore
+
+
+
+```{r}
+
+#TO DO: add "drink" boolean value in food table
+
+food_swe %>%
+  merge(food_group_levels, by.x="Livsmedelsnummer" , by.y="Food_items_id") %>%
+  rename(Food_items_id = Livsmedelsnummer) %>%
+  merge(food_fruit, by="Foodstuffs") %>% 
+  group_by(Foodstuffs,Food_items_id,`Food groups lvl1`,`Food groups lvl2`,`Food groups lvl3`,`Food groups lvl4`) %>%
+  summarise(
+    
+    nutriscore=nutriscore(
+    
+    cal=`Energi (kJ)(kJ)`,
+  protein=`Protein(g)`,
+  fat=`Fett(g)`,
+  carbohydrate=`Kolhydrater(g)`,
+  fibre=`Fibrer(g)`,
+  sodium=`Natrium(mg)`,
+  fruit = `fruit(%)`,
+  type= "others"
+    
+    
+  )$score_final
+  
+  
+  
+  ) %>%
+  ungroup() %>%
+  group_by(`Food groups lvl1`,`Food groups lvl2`,`Food groups lvl3`,`Food groups lvl4`) %>%
+  summarise(nutriscore=mean(nutriscore)) %>%
+  filter(`Food groups lvl1` != "Alcohol") %>%
+  #filter(`Food groups lvl1` == "Meat-based") %>%
+  merge(.,cor_food_tree_res, by.x="Food groups lvl4", by.y= "Type") -> nutriscore_food_group
+  
+cor.test(nutriscore_food_group$cor_A2,nutriscore_food_group$nutriscore, method="pearson")
+  
+  nutriscore_food_group %>%
+  ggplot() +  geom_point(aes(x=cor_A2, y=nutriscore, col=`Food groups lvl1`), size=4) + scale_color_brewer(type="qual") + 
+    ggrepel::geom_text_repel(aes(x=cor_A2, y=nutriscore, label=`Food groups lvl2`), size=2)
+
+
+
+```
+
+
+
+```{r}
+  merge(OTU %>% prop.table(2) ,TAX, by="row.names") %>%
+    as.data.frame %>%
+    rename(`Food groups lvl4` = Row.names) %>%
+    melt(id.vars=c("Food groups lvl1","Food groups lvl2","Food groups lvl3","Food groups lvl4")) %>%
+    group_by(variable,`Food groups lvl1`) %>%
+    summarize(Gram_prop = sum(value)) %>%
+    dcast(variable~`Food groups lvl1`) %>%
+    mutate(meat_plant_ratio = log2(`Meat-based`+0.001/`Plant-based`+0.001)) %>%
+    merge(.,unifrac_pco$li, by.x="variable", by.y="row.names") %>%
+    ggplot() + geom_point(aes(x=A1*2,y=A2*2, col=meat_plant_ratio %>% scale(scale = FALSE)), size=4, alpha=0.75) + 
+    scale_color_gradient2("") + theme_dark() +
+    
+    geom_point(data=nutriscore_food_group %>% filter(abs(cor_A1)>0.3 | abs(cor_A2)>0.3 ), aes(x=cor_A1,y = cor_A2, size=nutriscore)) + ggrepel::geom_text_repel(data=nutriscore_food_group %>% filter(abs(cor_A1)>0.3 | abs(cor_A2)>0.3 ), aes(x=cor_A1,y = cor_A2,label=`Food groups lvl3`))
+
+
+
+
+```
 
