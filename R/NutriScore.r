@@ -2,9 +2,9 @@
 #'
 #' @description this function allows to compute the nutriscore from nutrients from food
 #'
-#' @param cal kCalorie
-#' @param fat fat g per 100g. default = 0
-#' @param carbohydrate carbohydrate g per 100g. default = 0 !! these are saccharides
+#' @param cal energy kJ
+#' @param fat Saturated fatty acid g per 100g. default = 0
+#' @param carbohydrate saccharides g per 100g. default = 0
 #' @param protein protein g per 100g. default = 0
 #' @param fibre fibre g per 100g. default = 0
 #' @param sodium sodium mg per 100g. default = 0
@@ -410,7 +410,7 @@ nutriscore = function(
   }
 
 
-  return(score_final)
+  return(list(score_final=score_final,type=type))
 
   #to do -10-0-3-10-18
 
@@ -419,7 +419,7 @@ nutriscore = function(
 
 #' @title Compute the ABCDE nutriscore
 #'
-#' @param nutriscore a value or a vector of value. default 0
+#' @param nutriscore a nutriscore object generated with nutriscore function. no default
 
 #'
 #' @return a character. the ABCDE nutriscore
@@ -428,10 +428,18 @@ nutriscore = function(
 #'
 
 
-nutriscore_qual = function(nutriscore = 0){
+nutriscore_qual = function(nutriscore=NULL){
 
 
-  i=findInterval(nutriscore, c(-100,0,3,10,18,100))
+  if(nutriscore$type=="drink"){
+
+    i=findInterval(nutriscore$score_final, c(-100,1,2,5,9,100))
+
+
+  } else {
+
+    i=findInterval(nutriscore$score_final, c(-100,0,3,10,18,100))
+  }
 
   return(LETTERS[i])
 

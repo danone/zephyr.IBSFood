@@ -1,0 +1,299 @@
+---
+title: "IBS food exploration"
+output:
+  html_notebook:
+    author: "Julien Tap"
+    code_folding: hide
+    highlight: tango
+    mathjax: null
+    theme: cerulean
+    toc: yes
+    toc_float: yes
+  html_document:
+    toc: yes
+date: '`r Sys.Date()`'
+---
+
+
+## Introduction 
+
+
+The aim of this notebook is to do **Dietary habit characterization and nutrient intake in the study**. We plan to explore several items:
+
+-	Food tree description and grouping food items using DMM based on nutrient (focus on few example)
+-	Description of data available (4d recall, swedish db, nutrient and fodmap)
+-	“ecological” analysis of food tree : unifrac distance => Plant based vs animal based
+-	Healthy vs IBS (alcool, candy) and FODMAP [in short]
+-	NutriScore like computation (vs Snacking?), check for other diet index
+
+
+
+```{r, message=FALSE, warning=FALSE}
+#library(tidyverse)
+library(dplyr)
+library(magrittr)
+library(reshape2)
+library(circlepackeR)
+#library(vegan)
+library(ggplot2)
+#library(DirichletMultinomial)
+
+library(IBSMicrobiota)
+library(ade4)
+library(phyloseq)
+
+devtools::load_all()
+
+```
+
+
+
+## Import IBS study dataset
+
+```{r}
+
+# IBS metadata
+data("IBSData")
+
+
+# IBS food data
+data("food_data")
+data("food_group_levels")
+data("food_swe")
+
+```
+
+
+## Basics statistics
+
+IBS dataset had OTU count table, taxonomic table and several metadata asssociated to sample.
+
+```{r}
+
+
+IBSData
+
+
+```
+
+- *food_data* is the 4 day diet recall dataset
+- *food_group_levels* is the food tree hierarchy including a fourth level made with DMM model (see internal script in data-raw/ folder)
+- *food_swe* is the nutrient description of food items from National Swedish food database
+
+```{r}
+
+
+food_data
+
+food_group_levels
+
+food_swe
+
+
+
+```
+
+## Food tree exploration with food nutrient
+
+let's explore de *food_group_levels*
+
+```{r}
+
+#a bit of cleaning
+food_group_levels =
+food_group_levels %>%
+  rename(Food_items_swe = Livsmedelsnamn, Food_items_eng = Livsmedelsnamn_eng, Food_items_id = Livsmedelsnummer) %>%
+  filter(used == "yes") %>%
+  select(contains("Food")) %>%
+  mutate(`Food groups lvl1` = `Food groups lvl1` %>% gsub("Chemicals","Others",.)) %>%
+  mutate(`Food groups lvl1` = `Food groups lvl1` %>% gsub("Animal-based","Meat-based",.))
+  
+  
+  
+#a summary
+food_group_levels %>%
+  select(-Foodstuffs,-Food_items_swe, -Food_items_eng) %>%
+  melt(id.vars="Food groups lvl0") %>%
+  group_by(variable) %>%
+  unique() %>%
+  summarize(n=n())
+  
+  
+
+
+
+```
+
+Here is the complete nutrient table with associated hierachy
+
+```{r}
+
+food_swe %>%
+  rename(Food_items_swe = Livsmedelsnamn, Food_items_id = Livsmedelsnummer) %>%
+  merge(food_group_levels,.,by=c("Food_items_swe","Food_items_id")) 
+
+
+
+```
+
+### focus on some food category
+
+example with:
+1) Yoghurt was divided into two food OTU
+2) Pasta, Rice and Cereals into four food OTU
+
+
+Focus on some food category **"Food groups lvl3"** to explore how DMM divided into meaninful **"food OTU"** (called **"Food groups lvl4"**)
+
+```{r, fig.height=5, fig.width=10}
+
+## focus on "yogurt"
+
+food_swe %>%
+  rename(Food_items_swe = Livsmedelsnamn, Food_items_id = Livsmedelsnummer) %>%
+  merge(food_group_levels %>% select(Food_items_swe,Food_items_eng,Food_items_id,`Food groups lvl3`,`Food groups lvl4`),.,by=c("Food_items_swe","Food_items_id")) %>%
+  filter(`Food groups lvl3` == "yoghurt") %>%
+  select(-Livsmedelsgrupp, -`Energi (kJ)(kJ)`) %>% 
+  melt(id.vars=c("Food groups lvl4","Food_items_eng","Food_items_swe","Food_items_id","Food groups lvl3")) %>%
+  filter(variable %in% c("Energi (kcal)(kcal)","Protein(g)","Fett(g)","Kolhydrater(g)")) %>%
+  ggplot() + geom_boxplot(aes(x=`Food groups lvl4`, y=value, fill=`Food groups lvl4`)) +
+  facet_wrap(~variable, scale="free_y") -> pA_yoghurt
+
+
+
+
+food_swe %>%
+  rename(Food_items_swe = Livsmedelsnamn, Food_items_id = Livsmedelsnummer) %>%
+  merge(food_group_levels,.,by=c("Food_items_swe","Food_items_id")) %>%
+  filter(`Food groups lvl3` == "yoghurt") %>%
+  ggplot() + geom_point(aes(x=`Energi (kcal)(kcal)`, y=`Fett(g)`, col=`Food groups lvl4`)) +
+  ggrepel::geom_text_repel(aes(x=`Energi (kcal)(kcal)`, y=`Fett(g)`, label=Food_items_eng), size=2) -> pB_yoghurt
+
+cowplot::plot_grid(
+  pA_yoghurt,
+pB_yoghurt
+)
+
+
+
+
+
+
+```
+
+
+
+
+
+```{r, fig.height=5, fig.width=12}
+
+## focus on "Pasta, Rice and Cereals"
+
+
+food_swe %>%
+  rename(Food_items_swe = Livsmedelsnamn, Food_items_id = Livsmedelsnummer) %>%
+  merge(food_group_levels %>% select(Food_items_swe,Food_items_eng,Food_items_id,`Food groups lvl3`,`Food groups lvl4`),.,by=c("Food_items_swe","Food_items_id")) %>%
+  filter(`Food groups lvl3` == "pasta, rice cereals") %>%
+  select(-Livsmedelsgrupp, -`Energi (kJ)(kJ)`) %>% 
+  melt(id.vars=c("Food groups lvl4","Food_items_eng","Food_items_swe","Food_items_id","Food groups lvl3")) %>%
+  filter(variable %in% c("Energi (kcal)(kcal)","Protein(g)","Fett(g)","Kolhydrater(g)","Salt(g)","Fibrer(g)")) %>%
+  ggplot() + geom_boxplot(aes(x=`Food groups lvl4`, y=value, fill=`Food groups lvl4`)) +
+  facet_wrap(~variable, scale="free_y") -> pA_cereals
+
+
+
+
+food_swe %>%
+  rename(Food_items_swe = Livsmedelsnamn, Food_items_id = Livsmedelsnummer) %>%
+  merge(food_group_levels,.,by=c("Food_items_swe","Food_items_id")) %>%
+  filter(`Food groups lvl3` == "pasta, rice cereals") %>%
+  ggplot() + geom_point(aes(x=`Energi (kcal)(kcal)`, y=`Fibrer(g)`, col=`Food groups lvl4`), size=4, alpha=0.5) +
+  ggrepel::geom_text_repel(aes(x=`Energi (kcal)(kcal)`, y=`Fibrer(g)`, label=Food_items_eng %>% gsub(" ","\n",.)), size=2) -> pB_cereals
+
+cowplot::plot_grid(
+  pA_cereals,
+pB_cereals
+)
+
+
+
+
+```
+
+
+### Interactive food tree 
+
+```{r, fig.height=10, fig.width=10}
+
+food_swe %>%
+  rename(Food_items_swe = Livsmedelsnamn, Food_items_id = Livsmedelsnummer) %>%
+  merge(food_group_levels,.,by=c("Food_items_swe","Food_items_id")) %>%
+    mutate(pathString=paste(`Food groups lvl0`,`Food groups lvl1`,`Food groups lvl2`,`Food groups lvl3`, `Food groups lvl4`, Foodstuffs, sep="//")) %>%
+    data.tree::as.Node(pathDelimiter = "//") -> food_tree
+
+food_html = circlepackeR::circlepackeR(food_tree, size="Energi (kcal)(kcal)")
+
+food_html
+
+```
+
+
+
+
+
+## food recall exploration
+
+An average of **20** food items was recorded by Day by Individual.
+
+```{r, fig.height=8, fig.width=8}
+
+food_data %>%
+  dim()
+
+
+food_data %>%
+  group_by(Identity, Day, Meal) %>%
+  summarise(n=n()) %>%
+  ggplot() + geom_bar(aes(x=Identity,y=n,fill=Meal),stat="identity") + facet_wrap(~Day, ncol=4) + coord_flip()
+
+
+food_data %>%
+  group_by(Identity, Day) %>%
+  summarise(n=n()) %>%
+  ungroup() %>%
+  group_by(Day) %>%
+  summarise(mean=mean(n), median=median(n))
+
+
+```
+
+
+```{r}
+
+food_group_levels
+
+```
+
+
+
+
+```{r}
+
+food_data %>%
+  select(Identity,Day,Meal,Code,Foodstuffs,Gram) %>%
+  rename(Food_items_id = Code)
+  merge(food_group_levels)
+  
+
+
+
+
+```
+
+
+
+
+
+
+
+

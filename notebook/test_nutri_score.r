@@ -2,7 +2,7 @@ food_data %>%
   select(
     Foodstuffs,
     Gram,
-    `Energy kcal`,
+    `Energy kJ`,
     `Protein(g)`,
     `Saturated fatty acids(g)`,
     `Mono+disaccharides(g)`,
@@ -40,12 +40,13 @@ apply(food_test, 1, function(x) {nutriscore(
   carbohydrate=x[5]%>%as.numeric,
   fibre=x[6]%>%as.numeric,
   sodium=x[7]%>%as.numeric,
-  fruit = x[8] %>% as.numeric
+  fruit = x[8] %>% as.numeric,
+  type= "others"
 
 
 
 
-)}) %>% nutriscore_qual -> res
+) %>% nutriscore_qual })  -> res
 
 
 food_data %>%
