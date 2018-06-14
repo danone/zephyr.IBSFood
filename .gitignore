@@ -3,3 +3,6 @@
 .RData
 .Ruserdata
 data-raw/*.xlsx
+*.html
+*.csv
+*.rda
