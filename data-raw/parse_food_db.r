@@ -427,7 +427,7 @@ nutrients_data =
 readxl::read_excel("data-raw/MOSAIC food groups.xlsx", sheet = "Nutr & food groups") %>%
   filter(!is.na(kcal)) %>%
   #colnames() %>%
-  select(1,10:58)
+  select(1,10:58) %>% .[-c(143:145),]
 
 devtools::use_data(nutrients_data, overwrite = TRUE)
 
