@@ -1,0 +1,81 @@
+---
+title: "Microbiota MSP Notebook"
+output: html_notebook
+---
+
+
+```{r, message=FALSE, warning=FALSE}
+
+library(dplyr)
+library(magrittr)
+
+devtools::load_all()
+
+
+```
+
+
+the aim here is to summarize the count data to MSP
+
+```{r}
+
+data("hs3_9.genes_length")
+data("counts")
+data("MSP_tax")
+data("MSP_genes_id_corresp")
+
+
+
+counts %>% head
+```
+
+Normalize by gene length and read count
+
+```{r}
+
+merge(counts, hs3_9.genes_length, by.x="id_fragment", by.y="row.names") %>%
+  select(-id_fragment, -id_fragment_external, -sample_count) -> counts
+
+
+cols = grep("M", colnames(counts))
+
+counts[cols] = lapply(counts[cols], `/`, counts$length)
+
+counts[cols] = prop.table(counts[cols] %>% as.matrix ,2)
+
+counts %>% head
+
+```
+
+make the correspondance with MSP
+
+```{r}
+
+merge(counts, MSP_genes_id_corresp %>% select(msp_name,module_name,gene_name_v2), by.x="genes.id", by.y="gene_name_v2") %>%
+  filter(module_name == "core") %>%
+  group_by(msp_name) %>%
+  select(-module_name, -length, -genes.id) %>%
+  summarize_all(funs(median)) -> MSP_abundance
+
+MSP_abundance
+
+write.csv2(MSP_abundance, file="MSP_abundance.csv")
+
+```
+
+
+```{r}
+
+
+
+
+
+
+```
+
+
+
+
+
+
+
