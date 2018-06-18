@@ -40,7 +40,16 @@ merge(counts, hs3_9.genes_length, by.x="id_fragment", by.y="row.names") %>%
 
 cols = grep("M", colnames(counts), value=TRUE)
 
-counts[cols] = lapply(counts[cols], `/`, counts$length)
+total_reads = apply(counts[cols],2,sum)
+
+counts[cols] = lapply(counts[cols], `/`, counts$length) 
+
+
+counts[cols] = counts[cols] %>% t %>% multiply_by(total_reads %>% as.numeric ) %>% t %>% round()
+
+
+
+counts_rescaled = counts
 
 counts[cols] = prop.table(counts[cols] %>% as.matrix ,2)
 
@@ -74,7 +83,14 @@ merge(MSP_abundance, MSP_tax, by.x="msp_name", by.y="MSP_ID") %>%
   select(-msp_name) %>%
   summarize_all(funs(median)) -> MSP_species_abund
 
+merge(MSP_abundance, MSP_tax, by.x="msp_name", by.y="MSP_ID") %>%
+  group_by(genus,family,order,class,phylum,superkingdom) %>%
+  select(-msp_name,-species) %>%
+  summarize_all(funs(median)) -> MSP_genus_abund
+
 MSP_species_abund[cols] = prop.table(MSP_species_abund[cols] %>% as.matrix,2)
+MSP_genus_abund[cols]   = prop.table(MSP_genus_abund[cols]   %>% as.matrix,2)
+
 
 ```
 
@@ -83,7 +99,7 @@ MSP_species_abund[cols] = prop.table(MSP_species_abund[cols] %>% as.matrix,2)
 check some species distribution
 
 
-```{r}
+```{r, fig.height=8, fig.width=10, message=FALSE, warning=FALSE}
 
 
 
@@ -93,13 +109,54 @@ MSP_species_abund %>%
   reshape2::melt(id.vars=c("species","genus","family","order","class","phylum","superkingdom")) %>%
   ggplot() + geom_density(aes(x=value+10^-6)) + facet_wrap(~species, scale="free_y") + scale_x_log10()
   
-  MSP_species_abund %>%
+MSP_species_abund %>%
   filter(genus == "Methanobrevibacter") %>%
   reshape2::melt(id.vars=c("species","genus","family","order","class","phylum","superkingdom")) %>%
   ggplot() + geom_density(aes(x=value+10^-6)) + facet_wrap(~species, scale="free_y") + scale_x_log10()
+  
+  
+MSP_species_abund %>%
+  filter(genus == "Ruminococcus") %>%
+  reshape2::melt(id.vars=c("species","genus","family","order","class","phylum","superkingdom")) %>%
+  ggplot() + geom_density(aes(x=value+10^-6)) + facet_wrap(~species, scale="free_y") + scale_x_log10()
+  
+MSP_species_abund %>%
+  filter(genus == "Faecalibacterium") %>%
+  reshape2::melt(id.vars=c("species","genus","family","order","class","phylum","superkingdom")) %>%
+  ggplot() + geom_density(aes(x=value+10^-6)) + facet_wrap(~species, scale="free_y") + scale_x_log10()
+  
+  
+MSP_species_abund %>%
+  filter(genus == "Bacteroides") %>%
+  reshape2::melt(id.vars=c("species","genus","family","order","class","phylum","superkingdom")) %>%
+  ggplot() + geom_density(aes(x=value+10^-6)) + facet_wrap(~species, scale="free_y") + scale_x_log10()
+   
 
 ```
 
 
+check associations between MSP and 16S data
+
+```{r}
+
+devtools::load_all("../../IBSMicrobiota")
+data("IBSData")
+
+apply(IBSData$otu[, 
+
+
+IBSData$metadata %>%
+  select(Patient_ID,Visit,Sample_type,Sample_ID) %>%
+  filter(Visit == "V4", Sample_type == "Stool") %>%
+  filter(Patient_ID %in% cols) %>% pull(Sample_ID)], 2, 
+tapply, paste(IBSData$tax$phylum,IBSData$tax$family,IBSData$tax$genus,sep="_"), sum) %>%
+  prop.table(2)
+  
+  
+
+cols
+
+
+```
 
 
