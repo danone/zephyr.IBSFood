@@ -1,0 +1,244 @@
+---
+title: "IBS metagenomes by CAZy"
+output: html_notebook
+---
+
+The goal is to create CAZotypes using Dirrichlet mixture multinomial approach
+
+## load IBS metagenomics package
+
+```{r, message=FALSE, warning=FALSE}
+devtools::load_all()
+
+library(magrittr)
+
+library(dplyr)
+library(reshape2)
+library(DESeq2)
+library(DirichletMultinomial)
+library(ggplot2)
+
+```
+
+
+## load count data
+
+```{r}
+
+data("hs3_9.genes_length")
+data(counts)
+
+
+```
+
+
+## check data count
+
+
+```{r}
+ dim(counts)
+
+counts %>% 
+  filter(sample_count >1) %>%
+  dim
+
+counts %>%
+  tibble::column_to_rownames("id_fragment") %>%
+  select(-id_fragment_external)
+
+
+```
+
+
+## normalize gene data and rescale counts data
+
+
+```{r include=FALSE}
+# small check
+sample(1:10000) -> id
+
+plot(id, counts$id_fragment[id])
+
+
+```
+
+
+
+```{r}
+
+counts[4:dim(counts)[2]] %>% apply(2,sum) -> sample_read_sum
+
+counts[4:dim(counts)[2]] %>% 
+  as.matrix() %>%
+  divide_by(hs3_9.genes_length$length) %>% 
+  prop.table(2) %>%
+  t %>%
+  multiply_by(sample_read_sum) %>%
+  t %>%
+  round() -> counts_rescaled
+
+
+
+
+row.names(counts_rescaled) = hs3_9.genes_length$genes.id
+
+
+
+# counts_rescaled %>%
+#   as.data.frame() %>%
+#   filter(counts$sample_count > 1) %>%
+#   as.matrix() -> counts_rescaled
+
+counts_rescaled %>% dim
+
+counts_rescaled  = counts_rescaled[rowSums(counts_rescaled) > 0,]
+
+```
+
+
+## deseq normalisation
+
+```{r}
+
+dds <- DESeqDataSetFromMatrix(counts_rescaled, colData = data.frame(id=colnames(counts_rescaled)), design = ~ 1)
+
+dds <- estimateSizeFactors(dds, type="poscount")
+
+#counts_deseq = DESeq2::counts(dds, normalize = TRUE)
+
+#counts_rescaled %>% as.integer
+
+#counts_deseq %>% head
+
+
+
+#plot(counts_deseq[1:100000,1]%>% log10, counts_rescaled[1:100000,1]%>%log10, cex=0.1)
+
+vsd = vst(dds, blind=FALSE)
+
+counts_vsd = assay(vsd) #better 
+
+
+```
+
+
+## connect to the metahit database
+```{r connect_db}
+
+
+metahit.sqlite.db <- src_sqlite("/tmp/metahit.v2.sqlite.db")
+#metahit.sqlite.db <- src_sqlite("/lustre/samba/samba_write/tapj/metahit.v2.sqlite.db")
+
+
+# list table in DB
+#dbListTables(metahit.sqlite.db)
+
+
+
+
+#extract tbl in dplyr format
+#kegg_sqlite <- tbl(metahit.sqlite.db, "kegg")
+#cag_sqlite  <- tbl(metahit.sqlite.db, "cag")
+cazy_sqlite <- tbl(metahit.sqlite.db, "cazy")
+#og_sqlite   <- tbl(metahit.sqlite.db, "og")
+
+
+
+```
+
+
+## agregate abundances per CAZy
+
+
+```{r}
+
+#counts_vsd %>% head
+
+
+
+cazy_sqlite %>%
+  merge(.,counts_rescaled, by.x="genes_id", by.y="row.names") %>%
+  #head %>%
+  group_by(cazy_family) %>%
+  select(-genes_id) %>%
+  summarise_all(sum) -> cazy_counts
+
+write.csv2(cazy_counts, file="cazy_counts.csv")
+
+
+
+
+```
+
+
+## DMM clustering
+
+
+```{r}
+
+cazy_counts %>%
+  tibble::column_to_rownames("cazy_family") %>%
+  t -> counts_tmp
+
+set.seed(131082)
+
+fit = lapply(1:10,   dmn,   count=counts_tmp,   verbose=TRUE)
+
+
+
+
+
+
+
+```
+
+
+
+## CAZy DMM exploration
+```{r}
+
+lplc = sapply(fit, laplace)
+plot(lplc)
+
+best = fit[[which.min(lplc)]]
+
+
+heatmapdmn(counts_tmp, fit[[1]], best, 20)
+
+
+
+```
+
+
+
+```{r}
+
+ 
+ mixture(best, assign = TRUE) %>% 
+   as.matrix %>%
+   as.data.frame %>%
+  dplyr::rename(cazotype="V1") %>% write.csv2(file="cazotypes.csv")
+
+```
+
+```{r}
+cazy_counts %>%
+  as.data.frame %>%
+  tibble::column_to_rownames("cazy_family") %>%
+  as.matrix() %>%
+  prop.table(2) %>% 
+  melt %>%
+  merge(., mixture(best, assign = TRUE) %>% as.matrix %>% as.data.frame , by.x = "Var2", by.y="row.names") %>%
+  dplyr::rename(.,cazotype="V1") %>%
+  filter(Var1 %in% c("CBM32","GT2","GH13","GH2","CBM37","GH92","CBM26","GH43","GH20")) %>%
+  ggplot() + geom_boxplot(aes(x=cazotype %>% as.character,y=value)) + facet_wrap(~Var1, scale="free_y") + scale_y_log10()
+  
+
+
+
+
+
+```
+
+
+
