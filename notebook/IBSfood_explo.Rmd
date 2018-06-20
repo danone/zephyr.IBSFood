@@ -18,7 +18,7 @@ date: '`r Sys.Date()`'
 ## Introduction
 
 ```{r, message=FALSE, warning=FALSE}
-library(tidyr)
+#library(tidyr)
 library(dplyr)
 library(magrittr)
 library(reshape2)
@@ -249,6 +249,16 @@ procuste.randtest(df2 = microbial_otu_pco$tab,df1 = unifrac_pco$tab,nrepet=100)
      ggplot() + geom_point(aes(x=ax1, y=ax2)) + ggrepel::geom_text_repel(aes(x=ax1, y=ax2, label=rowname))
 
 
+ cor(procuste(unifrac_pco$tab, microbial_otu_pco$tab)$scorX[,1:3],
+     t(OTU)[colnames(genus),],
+     method="spearman"
+       ) %>% t %>% as.data.frame %>% tibble::rownames_to_column() %>% arrange(desc(abs(ax1))) %>%
+ na.omit() %>% 
+   filter(abs(ax1) > 0.3 | abs(ax3) > 0.3) %>%
+   #separate(col=rowname, sep="_", into=c("domain","phylum","order","class","family","genus")) %>%
+     ggplot() + geom_point(aes(x=ax1, y=ax3)) + ggrepel::geom_text_repel(aes(x=ax1, y=ax3, label=rowname))
+
+
 
  cor(procuste(unifrac_pco$tab, microbial_otu_pco$tab)$scorY[,1:2],
      t(genus),
@@ -320,6 +330,18 @@ procuste.randtest(df2 = microbial_otu_pco$tab,df1 = unifrac_pco$tab,nrepet=100)
      ggplot() + 
    geom_point(aes(x=ax1, y=ax2)) + ggrepel::geom_text_repel(aes(x=ax1, y=ax2, label=genus)) + 
    geom_point(data=a, aes(x=ax1, y=ax2)) +  ggrepel::geom_text_repel(data=a, aes(x=ax1, y=ax2, label=rowname))
+ 
+ 
+ cor(procuste(unifrac_pco$tab, microbial_otu_pco$tab)$scorY[,1:3],
+     t(genus),
+     method="spearman"
+       ) %>% t %>% as.data.frame %>% tibble::rownames_to_column() %>% arrange(desc(abs(ax1))) %>% 
+   na.omit() %>% 
+   filter(abs(ax1) > 0.4 | abs(ax3) > 0.4) %>%
+   tidyr::separate(col=rowname, sep="_", into=c("domain","phylum","order","class","family","genus")) %>%
+     ggplot() + 
+   geom_point(aes(x=ax1, y=ax3)) + ggrepel::geom_text_repel(aes(x=ax1, y=ax2, label=genus)) + 
+   geom_point(data=a, aes(x=ax1, y=ax3)) +  ggrepel::geom_text_repel(data=a, aes(x=ax1, y=ax3, label=rowname))
  
  
 
