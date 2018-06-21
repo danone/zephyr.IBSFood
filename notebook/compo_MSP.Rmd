@@ -13,6 +13,8 @@ library(ggplot2)
 devtools::load_all()
 
 
+library(IBSMicrobiota)
+
 ```
 
 
@@ -28,6 +30,9 @@ data("MSP_genes_id_corresp")
 
 
 counts %>% head
+
+
+
 ```
 
 Normalize by gene length and read count
@@ -42,6 +47,8 @@ cols = grep("M", colnames(counts), value=TRUE)
 
 total_reads = apply(counts[cols],2,sum)
 
+remove_sample = which(total_reads < 1000000)
+
 counts[cols] = lapply(counts[cols], `/`, counts$length) 
 
 
@@ -49,11 +56,17 @@ counts[cols] = counts[cols] %>% t %>% multiply_by(total_reads %>% as.numeric ) %
 
 
 
-counts_rescaled = counts
+counts_rescaled = counts[,-remove_sample+3]
 
 counts[cols] = prop.table(counts[cols] %>% as.matrix ,2)
 
-counts %>% head
+counts = counts[,-remove_sample+3]
+
+cols = cols[-remove_sample]
+
+which(cols == "M066")
+
+which(counts %>% colnames == "M066")
 
 ```
 
@@ -64,7 +77,8 @@ make the correspondance with MSP
 merge(counts, MSP_genes_id_corresp %>% select(msp_name,module_name,gene_name_v2), by.x="genes.id", by.y="gene_name_v2") %>%
   filter(module_name == "core") %>%
   group_by(msp_name) %>%
-  select(-module_name, -length, -genes.id) %>%
+  #select(-module_name, -length, -genes.id, cols) %>%
+  .[,cols] %>%
   summarize_all(funs(median)) -> MSP_abundance
 
 MSP_abundance %>% head
@@ -91,7 +105,7 @@ merge(MSP_abundance, MSP_tax, by.x="msp_name", by.y="MSP_ID") %>%
 MSP_species_abund[cols] = prop.table(MSP_species_abund[cols] %>% as.matrix,2)
 MSP_genus_abund[cols]   = prop.table(MSP_genus_abund[cols]   %>% as.matrix,2)
 
-
+MSP_abundance %>% select(M004)
 ```
 
 
@@ -139,7 +153,7 @@ check associations between MSP and 16S data
 
 ```{r}
 
-devtools::load_all("../../IBSMicrobiota")
+#devtools::load_all("../../IBSMicrobiota")
 data("IBSData")
 
 apply(IBSData$otu[, 
@@ -150,11 +164,27 @@ IBSData$metadata %>%
   filter(Visit == "V4", Sample_type == "Stool") %>%
   filter(Patient_ID %in% cols) %>% pull(Sample_ID)], 2, 
 tapply, paste(IBSData$tax$phylum,IBSData$tax$family,IBSData$tax$genus,sep="_"), sum) %>%
-  prop.table(2)
+  prop.table(2) %>% as.data.frame -> genus16S
   
-  
+  colnames(genus16S) %<>% stringr::str_sub(.,start=0, end=4)
+genus16S[cols]
 
-cols
+cor(MSP_genus_abund[-c(1:6)] %>% t, genus16S[cols] %>% t, method="spearman") %>% 
+  reshape2::melt() %>% na.omit()
+
+cor(
+MSP_genus_abund[-c(1:6)] %>% t %>% .[,100]
+
+genus16S[cols] %>% t %>% .[,1])
+
+MSP_genus_abund[,-c(1:6)] %>% t %>% apply(1,sum)
+
+MSP_genus_abund %>% select(M004)
+
+MSP_species_abund %>% select(M004)
+
+
+counts_rescaled$M004 %>% sum
 
 
 ```
