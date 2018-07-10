@@ -265,8 +265,12 @@ msp_0560_counts %>%
 
 ```{r}
 
+
+MSP_tax %>%
+  filter(genus == "Bacteroides") #check thetaiotamicron
+
 merge(counts_rescaled, MSP_genes_id_corresp %>% select(msp_name,module_name,gene_name_v2), by.x="genes.id", by.y="gene_name_v2") %>%
-  filter(msp_name %in% c("msp_0039","msp_0052")) -> msp_copri_counts
+  filter(msp_name %in% c("msp_0039")) -> msp_copri_counts
 
 
 # calculate mapping read statistics on core msp and select only sample with 10 reads per gene as median
@@ -292,12 +296,28 @@ msp_copri_counts %>%
   mutate(module_name = ifelse(module_name=="core","core","other")) -> binary_msp
 
 
-heatmap(binary_msp %>% select(-module_name,-genes.id) %>% as.matrix, 
+heatmap(binary_msp %>% filter(module_name  != "core") %>% select(-module_name,-genes.id) %>% as.matrix, 
         scale = "none",cexRow = 0.01, 
-        RowSideColors = c("blue","red")[binary_msp$module_name %>% as.factor %>% as.numeric],  
+        #RowSideColors = c("blue","red")[binary_msp %>% filter(module_name  != "core") %>% .$module_name %>% as.factor %>% as.numeric],  
         col=c("black","yellow"))
 
+binary_msp %>% filter(module_name  != "core") %>% 
+  select(-module_name,-genes.id) %>% as.matrix %>%
+  t %>%
+  ade4::dist.binary(.,method=1) %>%
+  fpc::clusterboot(.,B=100,bootmethod=
+                                 "subset",clustermethod=fpc::pamkCBI, count=FALSE,
+                               k=1:6, showplot=FALSE) -> msp_clust
 
+msp_clust$partition
+
+
+
+
+heatmap(binary_msp %>% filter(module_name  != "core") %>% select(-module_name,-genes.id) %>% as.matrix, 
+        scale = "none",cexRow = 0.01, 
+        ColSideColors = c("blue","red","green","gray")[msp_clust$partition %>% as.factor %>% as.numeric],  
+        col=c("black","yellow"))
 
 
 ```
