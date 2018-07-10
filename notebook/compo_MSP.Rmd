@@ -47,26 +47,32 @@ cols = grep("M", colnames(counts), value=TRUE)
 
 total_reads = apply(counts[cols],2,sum)
 
-remove_sample = which(total_reads < 1000000)
+remove_sample = which(total_reads < 1000000) %>% names
+
+
 
 counts[cols] = lapply(counts[cols], `/`, counts$length) 
 
 
-counts[cols] = counts[cols] %>% t %>% multiply_by(total_reads %>% as.numeric ) %>% t %>% round()
+#
 
 
-
-counts_rescaled = counts[,-remove_sample+3]
+#counts_rescaled = counts %>% select(-one_of(remove_sample))
 
 counts[cols] = prop.table(counts[cols] %>% as.matrix ,2)
 
-counts = counts[,-remove_sample+3]
+counts_rescaled = counts
 
-cols = cols[-remove_sample]
+counts_rescaled[cols] = counts_rescaled[cols] %>% t %>% multiply_by(total_reads %>% as.numeric ) %>% t %>% round()
 
-which(cols == "M066")
 
-which(counts %>% colnames == "M066")
+counts = counts %>% select(-one_of(remove_sample))
+
+#cols_remove_sample = cols[-remove_sample]
+
+#which(cols == "M066")
+
+#which(counts %>% colnames == "M066")
 
 ```
 
@@ -78,34 +84,43 @@ merge(counts, MSP_genes_id_corresp %>% select(msp_name,module_name,gene_name_v2)
   filter(module_name == "core") %>%
   group_by(msp_name) %>%
   #select(-module_name, -length, -genes.id, cols) %>%
-  .[,cols] %>%
+  #.[,cols_remove_sample] %>%
+  select(-length,-module_name,-genes.id) %>%
   summarize_all(funs(median)) -> MSP_abundance
 
 MSP_abundance %>% head
 
 write.csv2(MSP_abundance, file="MSP_abundance.csv")
 
+
 ```
 
 correspondance between MSP and taxonomy
 ```{r}
+
+dim(MSP_abundance)
 
 MSP_tax %>% head
 
 merge(MSP_abundance, MSP_tax, by.x="msp_name", by.y="MSP_ID") %>%
   group_by(species,genus,family,order,class,phylum,superkingdom) %>%
   select(-msp_name) %>%
-  summarize_all(funs(median)) -> MSP_species_abund
+  summarize_all(funs(sum)) -> MSP_species_abund
+
+MSP_species_abund %>% dim
 
 merge(MSP_abundance, MSP_tax, by.x="msp_name", by.y="MSP_ID") %>%
   group_by(genus,family,order,class,phylum,superkingdom) %>%
   select(-msp_name,-species) %>%
-  summarize_all(funs(median)) -> MSP_genus_abund
+  summarize_all(funs(sum)) -> MSP_genus_abund
 
-MSP_species_abund[cols] = prop.table(MSP_species_abund[cols] %>% as.matrix,2)
-MSP_genus_abund[cols]   = prop.table(MSP_genus_abund[cols]   %>% as.matrix,2)
+MSP_genus_abund %>% dim
 
-MSP_abundance %>% select(M004)
+MSP_species_abund[cols[!(cols %in% remove_sample)]] = prop.table(MSP_species_abund[cols[!(cols %in% remove_sample)]] %>% as.matrix,2)
+MSP_genus_abund[cols[!(cols %in% remove_sample)]]   = prop.table(MSP_genus_abund[cols[!(cols %in% remove_sample)]]   %>% as.matrix,2)
+
+cols_removed = cols[!(cols %in% remove_sample)]
+
 ```
 
 
@@ -162,31 +177,131 @@ apply(IBSData$otu[,
 IBSData$metadata %>%
   select(Patient_ID,Visit,Sample_type,Sample_ID) %>%
   filter(Visit == "V4", Sample_type == "Stool") %>%
-  filter(Patient_ID %in% cols) %>% pull(Sample_ID)], 2, 
+  filter(Patient_ID %in% cols_removed) %>% pull(Sample_ID)], 2, 
 tapply, paste(IBSData$tax$phylum,IBSData$tax$family,IBSData$tax$genus,sep="_"), sum) %>%
   prop.table(2) %>% as.data.frame -> genus16S
   
   colnames(genus16S) %<>% stringr::str_sub(.,start=0, end=4)
-genus16S[cols]
+#genus16S[cols_removed]
 
-cor(MSP_genus_abund[-c(1:6)] %>% t, genus16S[cols] %>% t, method="spearman") %>% 
-  reshape2::melt() %>% na.omit()
+cor(MSP_genus_abund[-c(1:6)] %>% t, genus16S[cols_removed] %>% t, method="spearman") %>% 
+  reshape2::melt() %>% na.omit() %>% 
+  filter(abs(value) > 0.65) %>% cbind(MSP_genus_abund[.$Var1,c(2)],MSP_genus_abund[.$Var1,c(1)],. ) %>% 
+  arrange(desc(value))
 
-cor(
-MSP_genus_abund[-c(1:6)] %>% t %>% .[,100]
-
-genus16S[cols] %>% t %>% .[,1])
-
-MSP_genus_abund[,-c(1:6)] %>% t %>% apply(1,sum)
-
-MSP_genus_abund %>% select(M004)
-
-MSP_species_abund %>% select(M004)
-
-
-counts_rescaled$M004 %>% sum
 
 
 ```
+
+## Check raw gene abundance within pangenome
+
+
+
+
+```{r}
+
+
+MSP_tax %>%
+  filter(genus == "Prevotella")
+
+
+merge(counts_rescaled, MSP_genes_id_corresp %>% select(msp_name,module_name,gene_name_v2), by.x="genes.id", by.y="gene_name_v2") %>%
+  filter(msp_name=="msp_0039") -> msp_0039_counts
+
+merge(counts_rescaled, MSP_genes_id_corresp %>% select(msp_name,module_name,gene_name_v2), by.x="genes.id", by.y="gene_name_v2") %>%
+  filter(msp_name=="msp_0560") -> msp_0560_counts
+
+
+merge(counts_rescaled, MSP_genes_id_corresp %>% select(msp_name,module_name,gene_name_v2), by.x="genes.id", by.y="gene_name_v2") %>%
+  filter(msp_name=="msp_0023") -> msp_0023_counts
+
+
+msp_0039_counts %>% head
+
+msp_0039_counts %>%
+  select(-length) %>%
+  reshape2::melt(id.vars=c("genes.id","msp_name","module_name")) %>%
+  group_by(variable) %>%
+  #filter(value != 0) %>%
+  mutate(value_scaled=scale(value),med=median(value), module_name_2 = ifelse(module_name == "core","core","other")) %>%
+  filter(variable %in% c("M056")) %>%
+  arrange(value) %>%
+  mutate(genes.id = factor(genes.id , levels = genes.id)) %>%
+  ggplot() + geom_point(aes(x=genes.id,y=value), stat="identity", size=0.1) + 
+  #geom_point(aes(x=genes.id,y=med), stat="identity", size=1, col="red") +
+  facet_grid(variable~module_name_2, scale="free_x") +
+  theme(axis.text.x=element_blank(), axis.ticks.x = element_blank())
+
+
+rbind(msp_0560_counts,
+msp_0039_counts,msp_0023_counts) %>%
+  select(-length) %>%
+  reshape2::melt(id.vars=c("genes.id","msp_name","module_name")) %>%
+  group_by(variable,msp_name) %>%
+  filter(module_name=="core") %>%
+  summarise(value_min=quantile(value,0.025), value_max=quantile(value,0.975),value_med=median(value)) %>%
+  ggplot() + geom_point(aes(x=value_min+1,y=value_med+1)) + scale_y_log10() + scale_x_log10() + facet_wrap(~msp_name)
+
+msp_0560_counts %>%
+  select(-length) %>%
+  reshape2::melt(id.vars=c("genes.id","msp_name","module_name")) %>%
+  group_by(variable) %>%
+  #filter(value != 0) %>%
+  mutate(value_scaled=scale(value),med=median(value), module_name_2 = ifelse(module_name == "core","core","other")) %>%
+  filter(variable %in% c("M013")) %>%
+  arrange(value) %>%
+  mutate(genes.id = factor(genes.id , levels = genes.id)) %>%
+  ggplot() + geom_point(aes(x=genes.id,y=value), stat="identity", size=0.1) + 
+  #geom_point(aes(x=genes.id,y=med), stat="identity", size=1, col="red") +
+  facet_grid(variable~module_name_2, scale="free_x") +
+  theme(axis.text.x=element_blank(), axis.ticks.x = element_blank())
+
+
+```
+
+
+
+
+
+```{r}
+
+merge(counts_rescaled, MSP_genes_id_corresp %>% select(msp_name,module_name,gene_name_v2), by.x="genes.id", by.y="gene_name_v2") %>%
+  filter(msp_name %in% c("msp_0039","msp_0052")) -> msp_copri_counts
+
+
+# calculate mapping read statistics on core msp and select only sample with 10 reads per gene as median
+
+
+msp_copri_counts %>%
+  select(-length) %>%
+  reshape2::melt(id.vars=c("genes.id","msp_name","module_name")) %>%
+  group_by(variable) %>%
+  filter(module_name=="core") %>%
+  summarise(value_min=quantile(value,0.025), value_max=quantile(value,0.975),value_med=median(value)) %>%
+  filter(value_med > 1) -> raw_reads_core_stat
+
+
+
+
+msp_copri_counts %>%
+  select(-length) %>%
+  reshape2::melt(id.vars=c("genes.id","msp_name","module_name")) %>%
+  merge(.,raw_reads_core_stat, by=c("variable"), all_y = TRUE) %>%
+  mutate(bin = ifelse(value<value_max,ifelse(value>value_min+1,1,0),0)) %>%
+  reshape2::dcast(genes.id+module_name~variable, value.var="bin") %>%
+  mutate(module_name = ifelse(module_name=="core","core","other")) -> binary_msp
+
+
+heatmap(binary_msp %>% select(-module_name,-genes.id) %>% as.matrix, 
+        scale = "none",cexRow = 0.01, 
+        RowSideColors = c("blue","red")[binary_msp$module_name %>% as.factor %>% as.numeric],  
+        col=c("black","yellow"))
+
+
+
+
+```
+
+
 
 
