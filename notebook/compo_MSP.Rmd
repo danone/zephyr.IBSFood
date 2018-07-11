@@ -363,6 +363,12 @@ plot_MSP(binary_msp=binary_msp,
          clusters_msp_gene = clusters_msp$gene)
 
 
+test_MSP_gene(binary_msp=binary_msp, 
+         clusters_msp=clusters_msp$sample) -> test_msp
+
+
+
+
 #clusters_msp %>% head()
   
   
