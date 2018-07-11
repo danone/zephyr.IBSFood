@@ -353,33 +353,17 @@ merge(counts_rescaled,
 
 
 
-binarize_MSP(msp_counts=msp_counts, cutoff_med = 1) -> binary_msp
+binarize_MSP(msp_counts=msp_counts, cutoff_med = 10) -> binary_msp
 
 partitionize_MSP(binary_msp=binary_msp) -> clusters_msp
 
 
-plot_MSP(binary_msp=binary_msp, clusters_msp=clusters_msp)
+plot_MSP(binary_msp=binary_msp, 
+         clusters_msp=clusters_msp$sample, 
+         clusters_msp_gene = clusters_msp$gene)
 
 
-binary_msp %>%
-  reshape2::melt(id.vars=c("genes.id","module_name")) %>%
-    merge(., clusters_msp$partition %>% 
-    as.matrix %>% 
-    as.data.frame %>% 
-    tibble::rownames_to_column("variable") %>%
-    dplyr::rename(id=V1),
-  by=c("variable")) %>%
-  group_by(genes.id) %>%
-  mutate(s=sum(value),l=length(value)) %>%
-  filter(s>0, s<l) %>%
-  do(w = with(.,chisq.test(id,value, 
-simulate.p.value = TRUE))) %>% 
-  broom::tidy(w) %>%
-  mutate(fdr=p.adjust(p.value, method="fdr")) %>%
-  filter(fdr<0.05)
-
-  
-
+#clusters_msp %>% head()
   
   
 ```
