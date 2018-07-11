@@ -46,7 +46,8 @@ binary_msp %>% filter(module_name  != "core") %>%
                    k=1:6, showplot=FALSE) -> clusters_msp
 
 binary_msp %>% filter(module_name  != "core") %>%
-  select(-module_name,-genes.id) %>% as.matrix %>%
+  tibble::column_to_rownames("genes.id") %>%
+  select(-module_name) %>% as.matrix %>%
   #t %>%
   dist(.,method="binary") %>%
   fpc::clusterboot(.,B=100,bootmethod=
@@ -111,13 +112,45 @@ binary_msp %>%
   group_by(genes.id) %>%
   mutate(s=sum(value),l=length(value)) %>%
   filter(s>0, s<l) %>%
-  do(w = with(.,chisq.test(id,value,
-                           simulate.p.value = TRUE))) %>%
+  do(w = with(.,suppressWarnings(chisq.test(id,value,
+                           simulate.p.value = FALSE)))) %>%
   broom::tidy(w) %>%
+  ungroup() %>%
   mutate(fdr=p.adjust(p.value, method="fdr")) %>%
-  filter(fdr<0.05) -> test_msp
+  filter(fdr<0.05) %>%
+  select(genes.id,p.value,fdr) -> test_msp
 
   return(test_msp)
 
 
 }
+
+
+
+summarize_MSP_analysis = function(binary_msp,clusters_msp,test_msp){
+
+  binary_msp %>%
+    filter(genes.id %in% names(clusters_msp$gene$partition)) %>%
+    merge(., clusters_msp$gene$partition %>%
+            as.matrix %>% as.data.frame,
+          by.x="genes.id", by.y="row.names") %>%
+    rename(gene_cl = V1) %>%
+    reshape2::melt(id.vars=c("genes.id","module_name","gene_cl")) %>%
+    merge(.,clusters_msp$sample$partition %>%
+            as.matrix %>% as.data.frame, by.x="variable", by.y="row.names") %>%
+    rename(msp_cl = V1) %>%
+    group_by(msp_cl,gene_cl, genes.id) %>%
+    summarize(prop = sum(value)/n()) %>%
+    reshape2::dcast(genes.id+gene_cl~msp_cl, value.var="prop") %>%
+    merge(.,test_msp, by="genes.id", all.x=TRUE) %>%
+    mutate(p.value = ifelse(is.na(p.value),1,p.value ), fdr = ifelse(is.na(fdr),1,fdr )) %>%
+    filter(fdr<0.05)
+
+
+
+
+
+
+}
+
+
