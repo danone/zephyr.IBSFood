@@ -48,13 +48,13 @@ binary_msp %>% filter(module_name  != "core") %>%
 binary_msp %>% filter(module_name  != "core") %>%
   select(-module_name,-genes.id) %>% as.matrix %>%
   #t %>%
-  ade4::dist.binary(.,method=1) %>%
+  dist(.,method="binary") %>%
   fpc::clusterboot(.,B=100,bootmethod=
                      "subset",clustermethod=fpc::pamkCBI, count=FALSE,
                    k=1:6, showplot=FALSE) -> clusters_msp_gene
 
 
-return(list(clusters_msp,clusters_msp_gene))
+return(list(sample=clusters_msp,gene=clusters_msp_gene))
 
 }
 
@@ -97,4 +97,27 @@ plot_MSP = function(binary_msp, clusters_msp, clusters_msp_gene) {
 }
 
 
+test_MSP_gene = function(binary_msp,clusters_msp){
 
+binary_msp %>%
+  filter(module_name != "core") %>%
+  reshape2::melt(id.vars=c("genes.id","module_name")) %>%
+  merge(., clusters_msp$partition %>%
+          as.matrix %>%
+          as.data.frame %>%
+          tibble::rownames_to_column("variable") %>%
+          dplyr::rename(id=V1),
+        by=c("variable")) %>%
+  group_by(genes.id) %>%
+  mutate(s=sum(value),l=length(value)) %>%
+  filter(s>0, s<l) %>%
+  do(w = with(.,chisq.test(id,value,
+                           simulate.p.value = TRUE))) %>%
+  broom::tidy(w) %>%
+  mutate(fdr=p.adjust(p.value, method="fdr")) %>%
+  filter(fdr<0.05) -> test_msp
+
+  return(test_msp)
+
+
+}
