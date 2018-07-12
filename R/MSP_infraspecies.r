@@ -41,19 +41,23 @@ binary_msp %>% filter(module_name  != "core") %>%
   select(-module_name,-genes.id) %>% as.matrix %>%
   t %>%
   ade4::dist.binary(.,method=1) %>%
-  fpc::clusterboot(.,B=100,bootmethod=
-                     "subset",clustermethod=fpc::pamkCBI, count=FALSE,
+  fpc::clusterboot(.,B=100,
+                   bootmethod="subset",
+                   clustermethod=fpc::pamkCBI,
+                   count=FALSE,
                    k=1:6, showplot=FALSE) -> clusters_msp
 
-binary_msp %>% filter(module_name  != "core") %>%
-  tibble::column_to_rownames("genes.id") %>%
-  select(-module_name) %>% as.matrix %>%
-  #t %>%
-  dist(.,method="binary") %>%
-  fpc::clusterboot(.,B=100,bootmethod=
-                     "subset",clustermethod=fpc::pamkCBI, count=FALSE,
-                   k=1:6, showplot=FALSE) -> clusters_msp_gene
+# binary_msp %>% filter(module_name  != "core") %>%
+#   tibble::column_to_rownames("genes.id") %>%
+#   select(-module_name) %>% as.matrix %>%
+#   #t %>%
+#   dist(.,method="binary") %>%
+#   fpc::clusterboot(.,B=10,
+#                    bootmethod="subset",
+#                    clustermethod=fpc::pamkCBI, count=FALSE,
+#                    k=1:6, showplot=FALSE) -> clusters_msp_gene
 
+clusters_msp_gene = NULL
 
 return(list(sample=clusters_msp,gene=clusters_msp_gene))
 
@@ -80,14 +84,15 @@ plot_MSP = function(binary_msp, clusters_msp, clusters_msp_gene) {
   heatmap(binary_msp %>%
             filter(module_name  != "core") %>%
             select(-module_name,-genes.id) %>%
-            as.matrix %>% .[order(clusters_msp_gene$partition),order(clusters_msp$partition)]
-          ,
-          labRow=NA, Colv = NA, Rowv=NA, keep.dendro=FALSE,
+            #as.matrix %>% .[order(clusters_msp_gene$partition),order(clusters_msp$partition)]
+            as.matrix %>% .[,order(clusters_msp$partition)]
+            ,
+          labRow=NA, Colv = NA,  keep.dendro=FALSE,
           distfun = function(x) dist(x,method="binary"),
           hclustfun = function(x) hclust(x,method="centroid"),
           scale = "none",cexRow = 0.01,
           ColSideColors = viridis::viridis(clusters_msp$nccl)[clusters_msp$partition %>% as.factor %>% as.numeric][order(clusters_msp$partition)],
-          RowSideColors = viridis::magma(clusters_msp_gene$nccl)[clusters_msp_gene$partition %>% as.factor %>% as.numeric][order(clusters_msp_gene$partition)],
+          #RowSideColors = viridis::magma(clusters_msp_gene$nccl)[clusters_msp_gene$partition %>% as.factor %>% as.numeric][order(clusters_msp_gene$partition)],
 
           col=c("black","yellow"))
 
