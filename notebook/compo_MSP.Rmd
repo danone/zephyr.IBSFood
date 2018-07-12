@@ -125,7 +125,7 @@ cols_removed = cols[!(cols %in% remove_sample)]
 
 
 
-check some species distribution
+## Check some species distribution
 
 
 ```{r, fig.height=8, fig.width=10, message=FALSE, warning=FALSE}
@@ -274,7 +274,7 @@ MSP_tax %>%
 merge(counts_rescaled, 
       MSP_genes_id_corresp %>% 
         select(msp_name,module_name,gene_name_v2) %>% 
-        filter(msp_name %in% c("msp_0071")),
+        filter(msp_name %in% c("msp_0003")),
       by.x="genes.id", by.y="gene_name_v2") -> msp_counts
 
 
@@ -330,7 +330,7 @@ heatmap(binary_msp %>% filter(module_name  != "core") %>% select(-module_name,-g
 
 ```
 
-use inbuilt function
+## use inbuilt function
 
 ```{r}
 
@@ -348,7 +348,7 @@ MSP_tax %>%
 merge(counts_rescaled, 
       MSP_genes_id_corresp %>% 
         select(msp_name,module_name,gene_name_v2) %>% 
-        filter(msp_name %in% c("msp_0790")),
+        filter(msp_name %in% c("msp_0003")),
       by.x="genes.id", by.y="gene_name_v2") -> msp_counts
 
 
@@ -367,7 +367,7 @@ test_MSP_gene(binary_msp=binary_msp,
          clusters_msp=clusters_msp$sample) -> test_msp
 
 
-
+test_msp
 
 #clusters_msp %>% head()
   
