@@ -8,11 +8,11 @@ nutriscore(cal = 0, fat = 0, carbohydrate = 0, protein = 0, fibre = 0,
   sodium = 0, fruit = 0, type = c("others"))
 }
 \arguments{
-\item{cal}{kCalorie}
+\item{cal}{energy kJ}
 
-\item{fat}{fat g per 100g. default = 0}
+\item{fat}{Saturated fatty acid g per 100g. default = 0}
 
-\item{carbohydrate}{carbohydrate g per 100g. default = 0}
+\item{carbohydrate}{saccharides g per 100g. default = 0}
 
 \item{protein}{protein g per 100g. default = 0}
 

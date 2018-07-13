@@ -4,10 +4,10 @@
 \alias{nutriscore_qual}
 \title{Compute the ABCDE nutriscore}
 \usage{
-nutriscore_qual(nutriscore = 0)
+nutriscore_qual(nutriscore = NULL)
 }
 \arguments{
-\item{nutriscore}{a value or a vector of value. default 0}
+\item{nutriscore}{a nutriscore object generated with nutriscore function. no default}
 }
 \value{
 a character. the ABCDE nutriscore

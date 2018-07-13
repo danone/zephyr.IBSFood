@@ -1,4 +1,20 @@
-
+#' @title binarize MSP
+#' @description convert read abundance matrix from MSP to a binary matrix
+#' @param msp_counts msp count matrix
+#' @param cutoff_med average read number gene, Default: 2
+#' @return a binary matrix
+#' @details DETAILS
+#' @examples
+#' \dontrun{
+#' if(interactive()){
+#'  #EXAMPLE1
+#'  }
+#' }
+#' @seealso
+#'  \code{\link[reshape2]{melt}},\code{\link[reshape2]{cast}}
+#' @rdname binarize_MSP
+#' @export
+#' @importFrom reshape2 melt dcast
 binarize_MSP = function(msp_counts, cutoff_med=2) {
 
   #check colnames
@@ -30,6 +46,24 @@ return(binary_msp)
 
 }
 
+#' @title partitionize MSP
+#' @description the aim of this function is to find sample cluster base on gene presence/absence per MSP
+#' @param binary_msp MSP binary matrix
+#' @return clusters from fpc::clusterboot
+#' @details DETAILS
+#' @examples
+#' \dontrun{
+#' if(interactive()){
+#'  #EXAMPLE1
+#'  }
+#' }
+#' @seealso
+#'  \code{\link[ade4]{dist.binary}}
+#'  \code{\link[fpc]{clusterboot}},\code{\link[fpc]{kmeansCBI}}
+#' @rdname partitionize_MSP
+#' @export
+#' @importFrom ade4 dist.binary
+#' @importFrom fpc clusterboot pamkCBI
 partitionize_MSP = function(binary_msp) {
 
 
@@ -63,7 +97,24 @@ return(list(sample=clusters_msp,gene=clusters_msp_gene))
 
 }
 
-
+#' @title plot MSP with clusters
+#' @description function to visualize MSP clustering
+#' @param binary_msp MSP binary matrix
+#' @param clusters_msp MSP sample clusters
+#' @param clusters_msp_gene MSP gene clusters
+#' @return heatmap plot
+#' @details DETAILS
+#' @examples
+#' \dontrun{
+#' if(interactive()){
+#'  #EXAMPLE1
+#'  }
+#' }
+#' @seealso
+#'  \code{\link[viridis]{reexports}}
+#' @rdname plot_MSP
+#' @export
+#' @importFrom viridis viridis
 plot_MSP = function(binary_msp, clusters_msp, clusters_msp_gene) {
 
 
@@ -102,7 +153,29 @@ plot_MSP = function(binary_msp, clusters_msp, clusters_msp_gene) {
 
 }
 
-
+#' @title test gene MSP as function of sample clusters
+#' @description the aim of this fonction is to test whether gene prevalence is associated with specific sample clusters
+#' @param binary_msp MSP binary matrix
+#' @param clusters_msp MSP cluters
+#' @return statistical table
+#' @details DETAILS
+#' @examples
+#' \dontrun{
+#' if(interactive()){
+#'  #EXAMPLE1
+#'  }
+#' }
+#' @seealso
+#'  \code{\link[reshape2]{melt}}
+#'  \code{\link[tibble]{rownames}}
+#'  \code{\link[dplyr]{select}}
+#'  \code{\link[broom]{tidy}}
+#' @rdname test_MSP_gene
+#' @export
+#' @importFrom reshape2 melt
+#' @importFrom tibble rownames_to_column
+#' @importFrom dplyr rename
+#' @importFrom broom tidy
 test_MSP_gene = function(binary_msp,clusters_msp){
 
 binary_msp %>%
@@ -131,7 +204,24 @@ binary_msp %>%
 }
 
 
-
+#' @title summarize MSP
+#' @description FUNCTION_DESCRIPTION
+#' @param binary_msp MSP binary matrix
+#' @param clusters_msp MSP clusters
+#' @param test_msp MSP test object
+#' @return a global summary of MSP analysis
+#' @details DETAILS
+#' @examples
+#' \dontrun{
+#' if(interactive()){
+#'  #EXAMPLE1
+#'  }
+#' }
+#' @seealso
+#'  \code{\link[reshape2]{melt}},\code{\link[reshape2]{cast}}
+#' @rdname summarize_MSP_analysis
+#' @export
+#' @importFrom reshape2 melt dcast
 summarize_MSP_analysis = function(binary_msp,clusters_msp,test_msp){
 
   binary_msp %>%
