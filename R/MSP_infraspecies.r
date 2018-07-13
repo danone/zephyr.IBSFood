@@ -91,7 +91,14 @@ binary_msp %>% filter(module_name  != "core") %>%
 #                    clustermethod=fpc::pamkCBI, count=FALSE,
 #                    k=1:6, showplot=FALSE) -> clusters_msp_gene
 
-clusters_msp_gene = NULL
+binary_msp %>% filter(module_name  != "core") %>%
+  tibble::column_to_rownames("genes.id") %>%
+  select(-module_name) %>% as.matrix %>%
+  #t %>%
+  dist(.,method="binary") %>%
+  fpc::pamk(data=., krange = clusters_msp$nccl,criterion = "ch", seed = 444) -> clusters_msp_gene
+
+#clusters_msp_gene = NULL
 
 return(list(sample=clusters_msp,gene=clusters_msp_gene))
 
@@ -143,7 +150,7 @@ plot_MSP = function(binary_msp, clusters_msp, clusters_msp_gene) {
           hclustfun = function(x) hclust(x,method="centroid"),
           scale = "none",cexRow = 0.01,
           ColSideColors = viridis::viridis(clusters_msp$nccl)[clusters_msp$partition %>% as.factor %>% as.numeric][order(clusters_msp$partition)],
-          #RowSideColors = viridis::magma(clusters_msp_gene$nccl)[clusters_msp_gene$partition %>% as.factor %>% as.numeric][order(clusters_msp_gene$partition)],
+          RowSideColors = viridis::magma(clusters_msp_gene$nc)[clusters_msp_gene$pamobject$clustering %>% as.factor %>% as.numeric][order(clusters_msp_gene$pamobject$clustering)],
 
           col=c("black","yellow"))
 
