@@ -101,7 +101,7 @@ write.csv2(MSP_abundance, file="MSP_abundance.csv")
 ### MSP prevalence
 
 
-```{r}
+```{r  , include=FALSE}
 
 prevalent_MSP = 
 MSP_abundance %>% 
@@ -398,4 +398,51 @@ test_msp
   
   
 ```
+
+
+## infraspecies of the most prevalent MSP
+
+```{r}
+library(foreach)
+library(doMC)
+doMC::registerDoMC(cores=8)
+
+prevalent_MSP = 
+MSP_abundance %>% 
+  reshape2::melt(id.vars="msp_name") %>%
+  group_by(msp_name) %>%
+  filter(value > 0) %>%
+  summarize(n=n()) %>%
+  mutate(p = n/(dim(MSP_abundance)[2]-1)) %>%
+  filter(p>0.25) %>%
+  merge(.,MSP_tax, by.y = "MSP_ID", by.x = "msp_name") %>%
+  arrange(n)
+
+msp_name_target = prevalent_MSP$msp_name
+
+foreach(msp_name_target[1:3] , .combine = rbind) %dopar% {
+
+merge(counts_rescaled, 
+      MSP_genes_id_corresp %>% 
+        select(msp_name,module_name,gene_name_v2) %>% 
+        filter(msp_name %in% msp_name_target),
+      by.x="genes.id", by.y="gene_name_v2") -> msp_counts
+
+
+
+binarize_MSP(msp_counts=msp_counts, cutoff_med = 2) -> binary_msp
+
+partitionize_MSP(binary_msp=binary_msp) -> clusters_msp
+
+convert_MSP_to_infraspecies(MSP_abundance = MSP_abundance, clusters_msp_sample = clusters_msp$sample, msp_counts = msp_counts) -> infraspecies_abundance
+
+}
+
+write.csv2(infraspecies_abundance, file="infraspecies_abundance.csv")
+
+```
+
+
+
+
 
