@@ -403,9 +403,9 @@ test_msp
 ## infraspecies of the most prevalent MSP
 
 ```{r}
-library(foreach)
-library(doMC)
-doMC::registerDoMC(cores=8)
+#library(foreach)
+#library(doMC)
+#doMC::registerDoMC(cores=8)
 
 prevalent_MSP = 
 MSP_abundance %>% 
@@ -420,28 +420,92 @@ MSP_abundance %>%
 
 msp_name_target = prevalent_MSP$msp_name
 
-foreach(msp_name_target[1:3] , .combine = rbind) %dopar% {
 
+
+infraspecies_abundance = NULL
+
+#foreach(i = 1:length(msp_name_target)[1:3] , .combine = rbind) %do% {
+
+pb = txtProgressBar(min = 0, max=length(msp_name_target))
+
+for(i in (1:length(msp_name_target)))  {
+
+setTxtProgressBar(pb,i)
+
+  #i=24  
+  
 merge(counts_rescaled, 
       MSP_genes_id_corresp %>% 
         select(msp_name,module_name,gene_name_v2) %>% 
-        filter(msp_name %in% msp_name_target),
+        filter(msp_name %in% msp_name_target[i]),
       by.x="genes.id", by.y="gene_name_v2") -> msp_counts
 
-
+if(dim(msp_counts)[1] < 100 ) next
 
 binarize_MSP(msp_counts=msp_counts, cutoff_med = 2) -> binary_msp
 
 partitionize_MSP(binary_msp=binary_msp) -> clusters_msp
 
-convert_MSP_to_infraspecies(MSP_abundance = MSP_abundance, clusters_msp_sample = clusters_msp$sample, msp_counts = msp_counts) -> infraspecies_abundance
+convert_MSP_to_infraspecies(MSP_abundance = MSP_abundance, clusters_msp_sample = clusters_msp$sample, msp_counts = msp_counts) -> tmp
+
+infraspecies_abundance = rbind(infraspecies_abundance,tmp)
+
 
 }
+
+close(pb)
+
+#} -> infraspecies_abundance
 
 write.csv2(infraspecies_abundance, file="infraspecies_abundance.csv")
 
 ```
 
+### explore infraspecies
+
+185 MSP selected and 166 partionized
+
+```{r}
+
+# number of MSP
+MSP_abundance %>% dim %>% .[1]
+
+# prevalent MSP
+prevalent_MSP$msp_name %>% length
+
+# MSP partitionized
+infraspecies_abundance %>%
+  filter(partition ==  "cl_2") %>%
+  select(msp_name) %>%
+  unique %>% .$msp_name -> msp_partitionized
+
+msp_partitionized %>% length()
+
+infraspecies_abundance %>%
+  filter(!(msp_name %in%  msp_partitionized)) %>%
+  select(msp_name) %>%
+  unique %>% .$msp_name -> msp_non_partitionized
+
+
+infraspecies_abundance %>%
+  filter(msp_name %in%  msp_partitionized)  %>%
+  mutate(msp_name_partition = paste0(msp_name,"_",partition)) %>%
+  reshape2::dcast(msp_name_partition+msp_name~variable, value.var="value", fill = 0) -> infraspecies_table
+
+
+MSP_abundance %>% 
+  filter(!(msp_name %in% msp_partitionized)) %>%
+  mutate(msp_name_partition = paste0(msp_name,"_","unassigned")) %>%
+  rbind(.,infraspecies_table) %>%
+  merge(., MSP_tax, by.x="msp_name", by.y = "MSP_ID" ) -> infraspecies_table_full
+
+
+infraspecies_table_full
+
+write.csv2(infraspecies_table_full, file="infraspecies_table_full.csv")
+
+
+```
 
 
 
