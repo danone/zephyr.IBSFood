@@ -150,7 +150,7 @@ plot_MSP = function(binary_msp, clusters_msp, clusters_msp_gene) {
           hclustfun = function(x) hclust(x,method="centroid"),
           scale = "none",cexRow = 0.01,
           ColSideColors = viridis::viridis(clusters_msp$nccl)[clusters_msp$partition %>% as.factor %>% as.numeric][order(clusters_msp$partition)],
-          RowSideColors = viridis::magma(clusters_msp_gene$nc)[clusters_msp_gene$pamobject$clustering %>% as.factor %>% as.numeric][order(clusters_msp_gene$pamobject$clustering)],
+          #RowSideColors = viridis::magma(clusters_msp_gene$nc)[clusters_msp_gene$pamobject$clustering %>% as.factor %>% as.numeric][order(clusters_msp_gene$pamobject$clustering)],
 
           col=c("black","yellow"))
 
@@ -230,7 +230,7 @@ binary_msp %>%
 #' @export
 #' @importFrom reshape2 melt dcast
 summarize_MSP_analysis = function(binary_msp,clusters_msp,test_msp){
-
+stop("this function is not ready")
   binary_msp %>%
     filter(genes.id %in% names(clusters_msp$gene$partition)) %>%
     merge(., clusters_msp$gene$partition %>%
@@ -248,11 +248,39 @@ summarize_MSP_analysis = function(binary_msp,clusters_msp,test_msp){
     mutate(p.value = ifelse(is.na(p.value),1,p.value ), fdr = ifelse(is.na(fdr),1,fdr )) %>%
     filter(fdr<0.05)
 
+}
 
 
 
 
+
+
+
+convert_MSP_to_infraspecies =  function(MSP_abundance,clusters_msp_sample, msp_counts){
+
+
+  msp_name_target = msp_counts$msp_name %>% unique
+
+
+  MSP_abundance %>%
+    filter(msp_name == msp_name_target) %>%
+    reshape2::melt(id.vars="msp_name") %>%
+    merge(.,clusters_msp_sample$partition %>%
+            as.matrix %>% as.data.frame %>%
+            tibble::rownames_to_column("sample_id"), by.x="variable",by.y="sample_id", all.x=TRUE) %>%
+    rename(partition = V1) %>%
+    mutate(partition =  ifelse(is.na(partition),"unassigned",paste0("cl_",partition))) -> infraspecies_abundance
+
+  return(infraspecies_abundance)
 
 }
+
+
+
+
+
+
+
+
 
 
