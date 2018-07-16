@@ -91,14 +91,14 @@ binary_msp %>% filter(module_name  != "core") %>%
 #                    clustermethod=fpc::pamkCBI, count=FALSE,
 #                    k=1:6, showplot=FALSE) -> clusters_msp_gene
 
-binary_msp %>% filter(module_name  != "core") %>%
-  tibble::column_to_rownames("genes.id") %>%
-  select(-module_name) %>% as.matrix %>%
-  #t %>%
-  dist(.,method="binary") %>%
-  fpc::pamk(data=., krange = clusters_msp$nccl,criterion = "ch", seed = 444) -> clusters_msp_gene
+# binary_msp %>% filter(module_name  != "core") %>%
+#   tibble::column_to_rownames("genes.id") %>%
+#   select(-module_name) %>% as.matrix %>%
+#   #t %>%
+#   dist(.,method="binary") %>%
+#   fpc::pamk(data=., krange = clusters_msp$nccl,criterion = "ch", seed = 444) -> clusters_msp_gene
 
-#clusters_msp_gene = NULL
+clusters_msp_gene = NULL
 
 return(list(sample=clusters_msp,gene=clusters_msp_gene))
 
