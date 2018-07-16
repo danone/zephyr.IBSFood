@@ -3,6 +3,7 @@ title: "Microbiota MSP Notebook"
 output: html_notebook
 ---
 
+## Load library
 
 ```{r, message=FALSE, warning=FALSE}
 
@@ -17,6 +18,7 @@ library(IBSMicrobiota)
 
 ```
 
+## MSP wrangling
 
 the aim here is to summarize the count data to MSP
 
@@ -35,7 +37,7 @@ counts %>% head
 
 ```
 
-Normalize by gene length and read count
+### Normalize by gene length and read count
 
 ```{r}
 
@@ -76,7 +78,7 @@ counts = counts %>% select(-one_of(remove_sample))
 
 ```
 
-make the correspondance with MSP
+### make the correspondance with MSP
 
 ```{r}
 
@@ -95,7 +97,30 @@ write.csv2(MSP_abundance, file="MSP_abundance.csv")
 
 ```
 
-correspondance between MSP and taxonomy
+
+### MSP prevalence
+
+
+```{r}
+
+prevalent_MSP = 
+MSP_abundance %>% 
+  reshape2::melt(id.vars="msp_name") %>%
+  group_by(msp_name) %>%
+  filter(value > 0) %>%
+  summarize(n=n()) %>%
+  mutate(p = n/(dim(MSP_abundance)-1)) %>%
+  filter(p>0.25) %>%
+  merge(.,MSP_tax, by.y = "MSP_ID", by.x = "msp_name") %>%
+  arrange(n)
+
+
+
+```
+
+
+
+### correspondance between MSP and taxonomy
 ```{r}
 
 dim(MSP_abundance)
@@ -177,7 +202,7 @@ apply(IBSData$otu[,
 IBSData$metadata %>%
   select(Patient_ID,Visit,Sample_type,Sample_ID) %>%
   filter(Visit == "V4", Sample_type == "Stool") %>%
-  filter(Patient_ID %in% cols_removed) %>% pull(Sample_ID)], 2, 
+  filter(Patient_ID %in% cols_removed) %>% .$Sample_ID], 2, 
 tapply, paste(IBSData$tax$phylum,IBSData$tax$family,IBSData$tax$genus,sep="_"), sum) %>%
   prop.table(2) %>% as.data.frame -> genus16S
   
@@ -198,7 +223,7 @@ cor(MSP_genus_abund[-c(1:6)] %>% t, genus16S[cols_removed] %>% t, method="spearm
 
 
 
-```{r}
+```{r, eval=FALSE, include=FALSE}
 
 
 MSP_tax %>%
