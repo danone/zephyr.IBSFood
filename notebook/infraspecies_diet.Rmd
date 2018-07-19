@@ -9,6 +9,7 @@ output: html_notebook
 
 library(dplyr)
 library(magrittr)
+library(ggplot2)
 devtools::load_all()
 
 
@@ -31,6 +32,7 @@ infraspecies = readr::read_csv2(system.file("infraspecies", "infraspecies_table_
 
 rbind(
 infraspecies %>%
+  mutate_at(vars(contains("M", ignore.case = F)),function(x){x/sum(x)}) %>%
   select(contains("M", ignore.case = F),phylum) %>%
   group_by(phylum) %>%
   summarise_all(sum) %>%
@@ -40,6 +42,7 @@ infraspecies %>%
 
 
 infraspecies %>%
+  mutate_at(vars(contains("M", ignore.case = F)),function(x){x/sum(x)}) %>%
   select(contains("M", ignore.case = F),phylum,family) %>%
   group_by(phylum,family) %>%
   summarise_all(sum) %>%
@@ -51,6 +54,7 @@ infraspecies %>%
 
 
 infraspecies %>%
+  mutate_at(vars(contains("M", ignore.case = F)),function(x){x/sum(x)}) %>%
   select(contains("M", ignore.case = F),phylum,family,genus) %>%
   group_by(phylum,family,genus) %>%
   summarise_all(sum) %>%
@@ -62,6 +66,7 @@ infraspecies %>%
 
 
 infraspecies %>%
+  mutate_at(vars(contains("M", ignore.case = F)),function(x){x/sum(x)}) %>%
   select(contains("M", ignore.case = F),phylum,family,genus,msp_name) %>%
   group_by(phylum,family,genus,msp_name) %>%
   summarise_all(sum) %>%
@@ -73,6 +78,7 @@ infraspecies %>%
 
 
 infraspecies %>%
+  mutate_at(vars(contains("M", ignore.case = F)),function(x){x/sum(x)}) %>%
   select(contains("M", ignore.case = F),phylum,family,genus,msp_name, msp_name_partition) %>%
   group_by(phylum,family,genus,msp_name, msp_name_partition) %>%
   summarise_all(sum) %>%
@@ -107,9 +113,60 @@ compo_taxa_nutrient_melt %>%
   group_by(taxa,tax_variable,variable) %>%
   summarize(cor = cor(value.x,value.y, method="spearman")) -> nutrient_taxa_cor
   
-  
+write.csv2(nutrient_taxa_cor, file="nutrient_taxa_cor.csv")
+
+nutrient_taxa_cor %>%
+  ggplot() + geom_density(aes(x=abs(cor), fill=taxa), alpha=0.5)
 
 
 ```
+
+
+
+```{r}
+
+
+infraspecies %>% 
+  mutate_at(vars(contains("M", ignore.case = F)),function(x){x/sum(x)}) %>%
+  select(contains("M", ignore.case = F), msp_name_partition) %>%
+  tibble::column_to_rownames("msp_name_partition") %>%
+  t %>% as.data.frame() %>%
+  merge(.,nutrients_data, by.x="row.names", by.y="ID") -> infraspecies_nutrient_df
+
+
+
+infraspecies %>% 
+  mutate_at(vars(contains("M", ignore.case = F)),function(x){x/sum(x)}) %>%
+  select(contains("M", ignore.case = F), msp_name) %>%
+  group_by(msp_name) %>%
+  summarise_at(vars(contains("M", ignore.case = F)),sum) %>%
+  tibble::column_to_rownames("msp_name") %>%
+  t %>% as.data.frame() %>%
+  merge(.,nutrients_data, by.x="row.names", by.y="ID") -> MSP_nutrient_df
+
+
+
+dim(infraspecies_nutrient_df)
+dim(MSP_nutrient_df)
+
+
+dim(nutrients_data)
+
+
+cor(log10(infraspecies_nutrient_df[2:(1838-49)]+10^-6),infraspecies_nutrient_df[(1838-48):1838], method="pearson") %>% 
+  reshape2::melt() %>%
+  filter(abs(value) > 0.4)
+
+
+cor(log10(MSP_nutrient_df[2:(1481-49)]+10^-6),MSP_nutrient_df[(1481-48):1481], method="pearson") %>% 
+  reshape2::melt() %>%
+  filter(abs(value) > 0.4)
+
+
+
+```
+
+
+
 
 
