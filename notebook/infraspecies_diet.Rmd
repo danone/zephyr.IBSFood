@@ -1,0 +1,115 @@
+---
+title: "MSP Infraspecies association with nutrient and foods"
+output: html_notebook
+---
+
+
+
+```{r}
+
+library(dplyr)
+library(magrittr)
+devtools::load_all()
+
+
+```
+
+
+load infraspecies data table
+```{r}
+
+infraspecies = readr::read_csv2(system.file("infraspecies", "infraspecies_table_full.csv", package="IBSFood"))[,-1]
+
+
+
+
+```
+
+
+```{r}
+
+
+rbind(
+infraspecies %>%
+  select(contains("M", ignore.case = F),phylum) %>%
+  group_by(phylum) %>%
+  summarise_all(sum) %>%
+  reshape2::melt(id.vars="phylum") %>%
+  mutate(taxa = "phylum") %>%
+  rename(tax_variable = phylum),
+
+
+infraspecies %>%
+  select(contains("M", ignore.case = F),phylum,family) %>%
+  group_by(phylum,family) %>%
+  summarise_all(sum) %>%
+  ungroup() %>%
+  select(-phylum) %>%
+  reshape2::melt(id.vars="family")%>%
+  mutate(taxa = "family") %>%
+  rename(tax_variable = family),
+
+
+infraspecies %>%
+  select(contains("M", ignore.case = F),phylum,family,genus) %>%
+  group_by(phylum,family,genus) %>%
+  summarise_all(sum) %>%
+  ungroup() %>%
+  select(-phylum,-family) %>%
+  reshape2::melt(id.vars="genus") %>%
+  mutate(taxa = "genus") %>%
+  rename(tax_variable = genus),
+
+
+infraspecies %>%
+  select(contains("M", ignore.case = F),phylum,family,genus,msp_name) %>%
+  group_by(phylum,family,genus,msp_name) %>%
+  summarise_all(sum) %>%
+  ungroup() %>%
+  select(-phylum,-family,-genus) %>%
+  reshape2::melt(id.vars="msp_name") %>%
+  mutate(taxa = "MSP") %>%
+  rename(tax_variable = msp_name),
+
+
+infraspecies %>%
+  select(contains("M", ignore.case = F),phylum,family,genus,msp_name, msp_name_partition) %>%
+  group_by(phylum,family,genus,msp_name, msp_name_partition) %>%
+  summarise_all(sum) %>%
+  ungroup() %>%
+  select(-phylum,-family,-genus, -msp_name) %>%
+  reshape2::melt(id.vars="msp_name_partition") %>%
+  mutate(taxa = "Infraspecies") %>%
+  rename(tax_variable = msp_name_partition)
+) -> compo_taxa_melt
+
+
+compo_taxa_melt %>% head
+
+```
+
+
+
+
+
+load nutrient data
+```{r}
+data("nutrients_data")
+
+nutrients_data %>%
+  reshape2::melt(id.vars="ID") %>%
+  merge(.,compo_taxa_melt, by.y="variable", by.x="ID") -> compo_taxa_nutrient_melt
+  
+
+
+compo_taxa_nutrient_melt %>% 
+  #filter(variable == "Niek _mg" | tax_variable == "msp_1265_unassigned" | tax_variable =="msp_0849_cl_1"| tax_variable == "msp_0849") %>%
+  group_by(taxa,tax_variable,variable) %>%
+  summarize(cor = cor(value.x,value.y, method="spearman")) -> nutrient_taxa_cor
+  
+  
+
+
+```
+
+
