@@ -472,6 +472,9 @@ phy_tree(physeq) <- ape::root(phy=phy_tree(physeq), outgroup="28_3", resolve.roo
 
 food_unifrac = phyloseq::distance(physeq, method="unifrac")
 
+save(food_unifrac, file="food_unifrac.dist")
+
+
 #food_wunifrac = phyloseq::distance(physeq, method="wunifrac")
 
 ```
