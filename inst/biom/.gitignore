@@ -1,1 +1,3 @@
 *.biom
+*.tree
+food_unifrac.dist
