@@ -196,19 +196,25 @@ TAX = phyloseq::tax_table(infraspecies %>%
 
 
 OTU = phyloseq::otu_table(infraspecies %>% select(contains("M", ignore.case = F),msp_name_partition) %>% tibble::column_to_rownames("msp_name_partition")%>% as.matrix, taxa_are_rows = TRUE)
+OTU = OTU %>% multiply_by(50*10^6) %>% round() 
+
 physeq=phyloseq::phyloseq(OTU,TAX,infraspecies.tree)
 
 
 phyloseq::phy_tree(physeq) <- ape::root(phy=phyloseq::phy_tree(physeq), outgroup="msp_0001_unassigned", resolve.root=TRUE, interactive=FALSE) #outgroup is an eucaryote
 
-
+save(physeq, file="infraspecies_phyloseq")
 
 infraspecies_unifrac = phyloseq::distance(physeq, method="unifrac")
 
-infraspecies %>%
-  select(superkingdom, msp_name_partition) %>%
-  filter(superkingdom == "Eukaryota")
-
+save(infraspecies_unifrac, file="infraspecies_unifrac")
+load("infraspecies_unifrac")
+#infraspecies_jsd_phyloseq = phyloseq::distance(physeq, method="jsd")
+# 
+# infraspecies %>%
+#   select(superkingdom, msp_name_partition) %>%
+#   filter(superkingdom == "Eukaryota")
+# 
 
 ```
 
@@ -217,20 +223,20 @@ infraspecies %>%
 
 ```{r}
 
-food_unifrac.dist = system.file("biom", "food_unifrac.dist", package="IBSFood")
+load(system.file("biom", "food_unifrac.dist", package="IBSFood"))
 
-A = merge(infraspecies_jsd %>% broom::tidy(diagonal=TRUE, upper=TRUE),
+A = merge(infraspecies_unifrac %>% broom::tidy(diagonal=TRUE, upper=TRUE),
 food_unifrac %>% broom::tidy(diagonal=TRUE, upper=TRUE) , by=c("item1","item2")) %>%
   reshape2::dcast(item1~item2, value.var = "distance.x") %>% .[,-1] %>%
   as.dist()
 
-B = merge(infraspecies_jsd %>% broom::tidy(diagonal=TRUE, upper=TRUE),
+B = merge(infraspecies_unifrac %>% broom::tidy(diagonal=TRUE, upper=TRUE),
 food_unifrac %>% broom::tidy(diagonal=TRUE, upper=TRUE) , by=c("item1","item2")) %>%
   reshape2::dcast(item1~item2, value.var = "distance.y") %>% .[,-1] %>%
   as.dist()
 
 
-infraspecies_pco = dudi.pco(A, scannf = F, nf=3)
+infraspecies_pco = dudi.pco(A %>% ade4::quasieuclid(), scannf = F, nf=3)
 
 food_pco = dudi.pco(B %>% ade4::quasieuclid(), scannf = F, nf=10)
 
@@ -241,9 +247,6 @@ infraspecies_food_coi = coinertia(infraspecies_pco,food_pco, scannf=F, nf=10)
 plot(infraspecies_food_coi)
 
 
-infraspecies_food_coi %>% randtest
-
-
 coinertia(dudi.pca(infraspecies_pco$li, scannf=F, nf=3),dudi.pca(food_pco$li, scannf=F, nf=3), scannf=F, nf=3) %>% randtest
 
 
@@ -251,6 +254,16 @@ coinertia(dudi.pca(infraspecies_pco$li, scannf=F, nf=3),dudi.pca(food_pco$li, sc
 
 
 
+```{r}
+
+
+infraspecies_food_coi
+
+
+
+
+
+```
 
 
 
