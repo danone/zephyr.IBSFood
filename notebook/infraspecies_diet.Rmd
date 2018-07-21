@@ -188,22 +188,26 @@ infraspecies.tree = ape::read.tree(file=tre)
 
 infraspecies.tree$edge.length = rep(1, dim(infraspecies.tree$edge)[1]) #important to add edge length to compute unifrac distance
 
-TAX = tax_table(food_group_levels %>%
-              select(`Food groups lvl1`, `Food groups lvl2`, `Food groups lvl3`,`Food groups lvl4`) %>%
+TAX = phyloseq::tax_table(infraspecies %>%
+              select(superkingdom, phylum, class, order, family, genus, species, msp_name, msp_name_partition) %>%
               unique %>%
               na.omit() %>%
-              filter(`Food groups lvl4` %in% rownames(food_otu)) %>% tibble::column_to_rownames("Food groups lvl4")%>% as.matrix)
+             tibble::column_to_rownames("msp_name_partition")%>% as.matrix)
 
 
-OTU = otu_table(food_otu, taxa_are_rows = TRUE)
-physeq=phyloseq::phyloseq(OTU,TAX,TREE)
+OTU = phyloseq::otu_table(infraspecies %>% select(contains("M", ignore.case = F),msp_name_partition) %>% tibble::column_to_rownames("msp_name_partition")%>% as.matrix, taxa_are_rows = TRUE)
+physeq=phyloseq::phyloseq(OTU,TAX,infraspecies.tree)
 
 
-phy_tree(physeq) <- ape::root(phy=phy_tree(physeq), outgroup="28_3", resolve.root=TRUE, interactive=FALSE) #outgroup is Vodka
+phyloseq::phy_tree(physeq) <- ape::root(phy=phyloseq::phy_tree(physeq), outgroup="msp_0001_unassigned", resolve.root=TRUE, interactive=FALSE) #outgroup is an eucaryote
 
 
 
-food_unifrac = phyloseq::distance(physeq, method="unifrac")
+infraspecies_unifrac = phyloseq::distance(physeq, method="unifrac")
+
+infraspecies %>%
+  select(superkingdom, msp_name_partition) %>%
+  filter(superkingdom == "Eukaryota")
 
 
 ```
