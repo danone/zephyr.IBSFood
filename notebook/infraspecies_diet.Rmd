@@ -6,7 +6,7 @@ output: html_notebook
 
 
 ```{r}
-
+library(ade4)
 library(dplyr)
 library(magrittr)
 library(ggplot2)
@@ -155,16 +155,99 @@ dim(nutrients_data)
 
 cor(log10(infraspecies_nutrient_df[2:(1838-49)]+10^-6),infraspecies_nutrient_df[(1838-48):1838], method="pearson") %>% 
   reshape2::melt() %>%
-  filter(abs(value) > 0.4)
+  filter(abs(value) > 0.5) %>%
+  merge(.,infraspecies %>% select(species, msp_name, msp_name_partition), by.x="Var1", by.y="msp_name_partition") %>% select(-msp_name) %>%
+  arrange(desc(abs(value)))
+
 
 
 cor(log10(MSP_nutrient_df[2:(1481-49)]+10^-6),MSP_nutrient_df[(1481-48):1481], method="pearson") %>% 
   reshape2::melt() %>%
-  filter(abs(value) > 0.4)
+  filter(abs(value) > 0.5) %>%
+  merge(.,infraspecies %>% select(species, msp_name), by.x="Var1", by.y="msp_name") %>%
+  arrange(desc(abs(value)))
 
 
 
 ```
+
+compute MSP infraspecies distance matrix
+
+```{r}
+
+infraspecies_jsd = BiotypeR::dist.JSD(infraspecies %>% 
+                                        mutate_at(vars(contains("M", ignore.case = F)),function(x){x/sum(x)}) %>% select(contains("M",ignore.case = F)))
+
+save(infraspecies_jsd, file="infraspecies_jsd")
+
+
+tre = system.file("biom", "infraspecies.tree", package="IBSFood")
+
+
+infraspecies.tree = ape::read.tree(file=tre)
+
+infraspecies.tree$edge.length = rep(1, dim(infraspecies.tree$edge)[1]) #important to add edge length to compute unifrac distance
+
+TAX = tax_table(food_group_levels %>%
+              select(`Food groups lvl1`, `Food groups lvl2`, `Food groups lvl3`,`Food groups lvl4`) %>%
+              unique %>%
+              na.omit() %>%
+              filter(`Food groups lvl4` %in% rownames(food_otu)) %>% tibble::column_to_rownames("Food groups lvl4")%>% as.matrix)
+
+
+OTU = otu_table(food_otu, taxa_are_rows = TRUE)
+physeq=phyloseq::phyloseq(OTU,TAX,TREE)
+
+
+phy_tree(physeq) <- ape::root(phy=phy_tree(physeq), outgroup="28_3", resolve.root=TRUE, interactive=FALSE) #outgroup is Vodka
+
+
+
+food_unifrac = phyloseq::distance(physeq, method="unifrac")
+
+
+```
+
+
+
+
+```{r}
+
+food_unifrac.dist = system.file("biom", "food_unifrac.dist", package="IBSFood")
+
+A = merge(infraspecies_jsd %>% broom::tidy(diagonal=TRUE, upper=TRUE),
+food_unifrac %>% broom::tidy(diagonal=TRUE, upper=TRUE) , by=c("item1","item2")) %>%
+  reshape2::dcast(item1~item2, value.var = "distance.x") %>% .[,-1] %>%
+  as.dist()
+
+B = merge(infraspecies_jsd %>% broom::tidy(diagonal=TRUE, upper=TRUE),
+food_unifrac %>% broom::tidy(diagonal=TRUE, upper=TRUE) , by=c("item1","item2")) %>%
+  reshape2::dcast(item1~item2, value.var = "distance.y") %>% .[,-1] %>%
+  as.dist()
+
+
+infraspecies_pco = dudi.pco(A, scannf = F, nf=3)
+
+food_pco = dudi.pco(B %>% ade4::quasieuclid(), scannf = F, nf=10)
+
+
+infraspecies_food_coi = coinertia(infraspecies_pco,food_pco, scannf=F, nf=10)
+
+
+plot(infraspecies_food_coi)
+
+
+infraspecies_food_coi %>% randtest
+
+
+coinertia(dudi.pca(infraspecies_pco$li, scannf=F, nf=3),dudi.pca(food_pco$li, scannf=F, nf=3), scannf=F, nf=3) %>% randtest
+
+
+```
+
+
+
+
 
 
 
