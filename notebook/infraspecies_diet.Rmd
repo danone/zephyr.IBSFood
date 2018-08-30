@@ -5,7 +5,7 @@ output: html_notebook
 
 ## load library
 
-```{r}
+```{r, message=FALSE, warning=FALSE}
 library(ade4)
 library(dplyr)
 library(magrittr)
@@ -17,7 +17,7 @@ devtools::load_all()
 
 
 ## load infraspecies data table
-```{r}
+```{r, message=FALSE, warning=FALSE}
 
 infraspecies = readr::read_csv2(system.file("infraspecies", "infraspecies_table_full.csv", package="IBSFood"))[,-1]
 
@@ -258,7 +258,7 @@ coinertia(dudi.pca(infraspecies_pco$li, scannf=F, nf=3),dudi.pca(food_pco$li, sc
 ```{r}
 
 
-infraspecies_food_coi$lX %> head
+infraspecies_food_coi$lX %>% head
 
 
 
