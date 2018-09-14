@@ -378,7 +378,7 @@ infraspecies_food_coi$lX[1:3] %>%
 infraspecies_coi_cor %>%
   merge(.,infraspecies %>% select(-contains("M",ignore.case = F)), by="msp_name_partition") %>%
   #filter(abs(A1_cor)>0.35|abs(A2_cor)>0.35) %>% 
-  arrange(A1_cor)
+  arrange(A2_cor)
 
 
 infraspecies_coi_cor %>%
@@ -405,7 +405,7 @@ food_coi_cor %>%
   select(-Livsmedelsnamn, -Livsmedelsnummer, -Livsmedelsnamn_eng, -Foodstuffs) %>% 
   unique %>%
   arrange(`Food groups lvl4`), by.x="Var1", by.y="Food groups lvl4") %>%
-  filter(abs(A1_cor)>0.35|abs(A2_cor)>0.35) %>%
+  filter(abs(A1_cor)>0.3|abs(A2_cor)>0.3) %>% arrange(A2_cor) %>%
   ggplot() + ggrepel::geom_label_repel(aes(x=A1_cor, y=A2_cor, label=`Food groups lvl3`), size=2, label.size = NA, fill=NA)
 
 
