@@ -612,7 +612,11 @@ merge(OTU %>% prop.table(2) ,TAX, by="row.names") %>%
     summarize(Gram_prop = sum(value)) %>%
     dcast(variable~`Food groups lvl1`) %>%
     mutate(meat_plant_ratio = log2(`Meat-based`+0.001/`Plant-based`+0.001)) %>%
-    merge(.,unifrac_pco$li, by.x="variable", by.y="row.names") %>%
+    merge(.,unifrac_pco$li, by.x="variable", by.y="row.names") -> meat_plant_ratio_df
+  
+  write.csv2(meat_plant_ratio_df, file="../inst/tables/meat_plant_ratio.csv")
+  
+  meat_plant_ratio_df  %>%
     ggplot() + geom_point(aes(x=A1*2,y=A2*2, col=meat_plant_ratio %>% scale(scale = FALSE)), size=4, alpha=0.75) + 
     scale_color_gradient2("Meat/Plant\nratio\n(centered,log2)") + theme_dark() +
     
