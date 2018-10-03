@@ -22,7 +22,7 @@ devtools::load_all()
 infraspecies = readr::read_csv2(system.file("infraspecies", "infraspecies_table_full.csv", package="IBSFood"))[,-1]
 
 
-
+meat_plant_ratio = readr::read_csv2(system.file("tables", "meat_plant_ratio.csv", package="IBSFood"))[,-1]
 
 ```
 
@@ -251,6 +251,21 @@ plot(infraspecies_food_coi)
 coinertia(dudi.pca(infraspecies_pco$li, scannf=F, nf=3),dudi.pca(food_pco$li, scannf=F, nf=3), scannf=F, nf=3) %>% randtest
 
 
+cor(infraspecies_food_coi$lX,food_pco$li[1:2]) %>%
+  reshape2::melt() %>%
+  group_by(Var2) %>%
+  top_n(1)
+
+
+
+cor(infraspecies_food_coi$lX,infraspecies_pco$li[1:2]) %>%
+  reshape2::melt() %>%
+  group_by(Var2) %>%
+  top_n(1)
+
+
+
+
 ```
 
 ### compute correlation with co-inertia component
@@ -404,7 +419,7 @@ xtabs( ~ enterotypes + cazotype, data=.)
 infraspecies_coi_cor %>%
   merge(.,infraspecies %>% select(-contains("M",ignore.case = F)), by="msp_name_partition") %>%
   #filter(abs(A1_cor)>0.35|abs(A2_cor)>0.35) %>% 
-  arrange(A2_cor)
+  arrange(A1_cor)
 
 
 infraspecies_coi_cor %>%
@@ -438,4 +453,61 @@ food_coi_cor %>%
 
 
 ```
+
+
+hypothesis : if do not eat enough fiber then you lose fiber degrading bactering and only galactose degrading bacteria remains with possibly lactose intolerance due to colic fermentation.
+
+Test the link between PCoA1_Diet and Co_Inertia axis, if the correlation is significant then compared MSP_core and MSP_infraspecies with Nutriscore and Meat_plant_ratio
+
+
+## Association with meat plant ratio
+
+```{r}
+
+
+infraspecies %>%
+  select(msp_name_partition, msp_name, contains("M", ignore.case = FALSE)) %>%
+  reshape2::melt(id.vars=c("msp_name_partition","msp_name")) %>%
+  merge(.,meat_plant_ratio, by="variable") %>%
+  group_by(msp_name) %>%
+  do(w = with(.,pairwise.wilcox.test(meat_plant_ratio,msp_name_partition, p.adjust="none"))) -> test_meat_plant
+ 
+
+
+infraspecies %>%
+  select(msp_name_partition, msp_name, contains("M", ignore.case = FALSE)) %>%
+  reshape2::melt(id.vars=c("msp_name_partition","msp_name")) %>%
+   group_by(msp_name, variable) %>%
+  summarise(value=sum(value)) %>%
+  ungroup() %>%
+  merge(.,meat_plant_ratio, by="variable") %>%
+  group_by(msp_name) %>%
+  do(w = with(.,cor.test(Dairy,value, method="spearman"))) %>% broom::tidy(w) -> test_meat_plant
+ 
+test_meat_plant %>% arrange(p.value)
+
+
+
+infraspecies %>%
+  select(msp_name_partition, msp_name, contains("M", ignore.case = FALSE)) %>%
+  reshape2::melt(id.vars=c("msp_name_partition","msp_name")) %>%
+  merge(.,meat_plant_ratio, by="variable") %>%
+  group_by(msp_name_partition) %>%
+  do(w = with(.,cor.test(meat_plant_ratio,value, method="spearman"))) %>% broom::tidy(w) -> test_meat_plant
+
+test_meat_plant %>% ungroup() %>% 
+  mutate(fdr= p.adjust(p.value, method="fdr")) %>% 
+  arrange(fdr)
+
+
+
+
+#lapply(test_meat_plant$w, function(x){a=x$p.value %>% as.vector %>% .[1]; if(is.null(a)){a<-"no"};a  }) %>% unlist
+#test_meat_plant$w[[48]]$p.value[1]
+
+
+
+
+```
+
 
