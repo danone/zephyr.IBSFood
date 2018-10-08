@@ -527,7 +527,7 @@ merge(OTU %>% prop.table(2) ,TAX, by="row.names") %>%
     summarise(Gram=sum(Gram%>%as.numeric)) %>%
     merge(.,unifrac_pco$li,by.x="Subject", by.y="row.names") %>%
     group_by(Hierarchy,Type) %>%
-    summarize(cor_A1 = cor(Gram, A1, method="spearman"), cor_A2=cor(Gram, A2, method="spearman")) -> cor_food_tree_res
+    summarize(cor_A1 = cor(Gram, A1, method="spearman"), cor_A2=cor(Gram, A2, method="spearman"), cor_A3=cor(Gram, A3, method="spearman")) -> cor_food_tree_res
 
 
 
@@ -544,6 +544,23 @@ ggplot() + geom_point(aes(x=A1*2,y=A2*2, shape=Health, color=Gender), size=4) +
     
     geom_point(data=cor_food_tree_res %>% filter(abs(cor_A1)>0.3 | abs(cor_A2)>0.3 ), aes(x=cor_A1,y = cor_A2)) + ggrepel::geom_text_repel(data=cor_food_tree_res %>% filter(abs(cor_A1)>0.3 | abs(cor_A2)>0.3 ), aes(x=cor_A1,y = cor_A2,label=Type)) + 
     xlab("PCoA1") + ylab("PCoA2") -> food_tree_unifrac_pcoa_plot
+
+
+
+unifrac_pco$li %>%
+  merge(.,
+     IBSData$metadata %>% 
+       select(Patient_ID,Health,Gender,SSgroup,IBS_subtypes,Methanogens_qPCR, transit.days,H2_group,BSF.Mean_Frequenc_StoolPerDay) %>% unique(),
+   by.y="Patient_ID",
+   by.x="row.names"
+     
+     
+   ) %>%
+ggplot() + geom_point(aes(x=A1*2,y=A3*2, shape=Health, color=Gender), size=4) +
+    
+    geom_point(data=cor_food_tree_res %>% filter(abs(cor_A1)>0.3 | abs(cor_A3)>0.3 ), aes(x=cor_A1,y = cor_A3)) + ggrepel::geom_text_repel(data=cor_food_tree_res %>% filter(abs(cor_A1)>0.3 | abs(cor_A3)>0.3 ), aes(x=cor_A1,y = cor_A3,label=Type)) + 
+    xlab("PCoA1") + ylab("PCoA3") -> food_tree_unifrac_pcoa_PC3_plot
+
 
 
 unifrac_pco$li %>%
