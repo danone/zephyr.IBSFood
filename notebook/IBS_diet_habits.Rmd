@@ -41,6 +41,7 @@ library(ggplot2)
 library(IBSMicrobiota)
 library(ade4)
 library(phyloseq)
+library(tidybayes)
 
 devtools::load_all()
 
@@ -482,7 +483,7 @@ save(food_unifrac, file="food_unifrac.dist")
 
 Compare first component with metadata
 
-```{r, fig.height=6, fig.width=10}
+```{r, fig.height=6, fig.width=10, message=FALSE, warning=FALSE}
 
 unifrac_pco  = ade4::dudi.pco(food_unifrac %>% ade4::quasieuclid(), scannf=F, nf=3)
 
@@ -512,6 +513,19 @@ unifrac_pco$li %>%
   group_by(variable) %>%
   do(pairwise.wilcox.test(.$A2,.$value, data=.) %>% broom::tidy())
 
+
+unifrac_pco$li %>%
+  merge(.,
+     IBSData$metadata %>% 
+       select(Patient_ID,Health,Gender,SSgroup,IBS_subtypes,Methanogens_qPCR, H2_group, CH4_group) %>% unique(),
+   by.y="Patient_ID",
+   by.x="row.names"
+     
+     
+   ) %>%
+  melt(id.vars=c("A1","A2","A3","Row.names")) %>%
+  group_by(variable) %>%
+  do(pairwise.wilcox.test(.$A3,.$value, data=.) %>% broom::tidy())
 
 
 
@@ -561,7 +575,7 @@ ggplot() + geom_point(aes(x=A1*2,y=A3*2, shape=Health, color=Gender), size=4) +
     geom_point(data=cor_food_tree_res %>% filter(abs(cor_A1)>0.3 | abs(cor_A3)>0.3 ), aes(x=cor_A1,y = cor_A3)) + ggrepel::geom_text_repel(data=cor_food_tree_res %>% filter(abs(cor_A1)>0.3 | abs(cor_A3)>0.3 ), aes(x=cor_A1,y = cor_A3,label=Type)) + 
     xlab("PCoA1") + ylab("PCoA3") -> food_tree_unifrac_pcoa_PC3_plot
 
-
+food_tree_unifrac_pcoa_PC3_plot
 
 unifrac_pco$li %>%
   merge(.,
@@ -741,8 +755,12 @@ food_swe %>%
   filter(`Food groups lvl1` != "Alcohol") %>%
   #filter(`Food groups lvl1` == "Meat-based") %>%
   merge(.,cor_food_tree_res, by.x="Food groups lvl4", by.y= "Type") -> nutriscore_food_group
-  
+
+save(nutriscore_food_group, file="../data/nutriscore_food_group.rda")
+
+#cor.test(nutriscore_food_group$cor_A1,nutriscore_food_group$nutriscore, method="spearman")  
 cor.test(nutriscore_food_group$cor_A2,nutriscore_food_group$nutriscore, method="spearman")
+#cor.test(nutriscore_food_group$cor_A3,nutriscore_food_group$nutriscore, method="spearman")
   
   nutriscore_food_group %>%
   ggplot() +  geom_point(aes(x=cor_A2, y=nutriscore, col=`Food groups lvl1`), size=4) + scale_color_brewer("Food groups",type="qual") + 
