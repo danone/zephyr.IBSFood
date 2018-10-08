@@ -181,6 +181,35 @@ infraspecies_jsd = BiotypeR::dist.JSD(infraspecies %>%
 
 save(infraspecies_jsd, file="infraspecies_jsd")
 
+infraspecies %>% 
+  group_by(genus) %>%
+  summarise_at(vars(contains("M", ignore.case = F)),
+    function(x){sum(x)}) %>%
+  ungroup() %>%
+  mutate_at(vars(contains("M", ignore.case = F)),
+    function(x){x/sum(x)}) %>% 
+  select(contains("M",ignore.case = F)) %>%
+  BiotypeR::dist.JSD() -> genus_jsd
+
+save(genus_jsd, file="genus_jsd")
+
+
+
+infraspecies %>% 
+  group_by(species) %>%
+  summarise_at(vars(contains("M", ignore.case = F)),
+    function(x){sum(x)}) %>%
+  ungroup() %>%
+  mutate_at(vars(contains("M", ignore.case = F)),
+    function(x){x/sum(x)}) %>% 
+  select(contains("M",ignore.case = F)) %>%
+  BiotypeR::dist.JSD() -> species_jsd
+
+save(species_jsd, file="species_jsd")
+
+
+
+
 
 tre = system.file("biom", "infraspecies.tree", package="IBSFood")
 
@@ -250,6 +279,9 @@ load("infraspecies_unifrac")
 
 ## co-inertia analysis
 
+
+### unifrac infraspecies
+
 ```{r}
 
 load(system.file("biom", "food_unifrac.dist", package="IBSFood"))
@@ -265,7 +297,7 @@ food_unifrac %>% broom::tidy(diagonal=TRUE, upper=TRUE) , by=c("item1","item2"))
   as.dist()
 
 
-infraspecies_pco = dudi.pco(A %>% ade4::quasieuclid(), scannf = F, nf=3)
+infraspecies_pco = dudi.pco(A %>% ade4::quasieuclid(), scannf = F, nf=10)
 
 food_pco = dudi.pco(B %>% ade4::quasieuclid(), scannf = F, nf=10)
 
@@ -276,7 +308,7 @@ infraspecies_food_coi = coinertia(infraspecies_pco,food_pco, scannf=F, nf=10)
 plot(infraspecies_food_coi)
 
 
-coinertia(dudi.pca(infraspecies_pco$li, scannf=F, nf=3),dudi.pca(food_pco$li, scannf=F, nf=3), scannf=F, nf=3) %>% randtest
+coinertia(dudi.pca(infraspecies_pco$li, scannf=F, nf=10),dudi.pca(food_pco$li, scannf=F, nf=10), scannf=F, nf=3) %>% randtest
 
 
 cor(infraspecies_food_coi$lX,food_pco$li[1:2]) %>%
@@ -296,6 +328,135 @@ cor(infraspecies_food_coi$lX,infraspecies_pco$li[1:2]) %>%
 
 ```
 
+
+
+
+### JSD genus
+
+
+```{r}
+
+
+load(system.file("biom", "food_unifrac.dist", package="IBSFood"))
+
+A = merge(genus_jsd %>% broom::tidy(diagonal=TRUE, upper=TRUE),
+food_unifrac %>% broom::tidy(diagonal=TRUE, upper=TRUE) , by=c("item1","item2")) %>%
+  reshape2::dcast(item1~item2, value.var = "distance.x") %>% .[,-1] %>%
+  as.dist()
+
+B = merge(genus_jsd %>% broom::tidy(diagonal=TRUE, upper=TRUE),
+food_unifrac %>% broom::tidy(diagonal=TRUE, upper=TRUE) , by=c("item1","item2")) %>%
+  reshape2::dcast(item1~item2, value.var = "distance.y") %>% .[,-1] %>%
+  as.dist()
+
+
+infraspecies_pco = dudi.pco(A %>% ade4::quasieuclid(), scannf = F, nf=10)
+
+food_pco = dudi.pco(B %>% ade4::quasieuclid(), scannf = F, nf=10)
+
+
+infraspecies_food_coi = coinertia(infraspecies_pco,food_pco, scannf=F, nf=10)
+
+
+
+
+coinertia(dudi.pca(infraspecies_pco$li, scannf=F, nf=10),dudi.pca(food_pco$li, scannf=F, nf=10), scannf=F, nf=3) %>% randtest
+
+
+
+
+
+```
+
+
+
+
+### JSD species
+
+```{r}
+
+load(system.file("biom", "food_unifrac.dist", package="IBSFood"))
+
+A = merge(species_jsd %>% broom::tidy(diagonal=TRUE, upper=TRUE),
+food_unifrac %>% broom::tidy(diagonal=TRUE, upper=TRUE) , by=c("item1","item2")) %>%
+  reshape2::dcast(item1~item2, value.var = "distance.x") %>% .[,-1] %>%
+  as.dist()
+
+B = merge(species_jsd %>% broom::tidy(diagonal=TRUE, upper=TRUE),
+food_unifrac %>% broom::tidy(diagonal=TRUE, upper=TRUE) , by=c("item1","item2")) %>%
+  reshape2::dcast(item1~item2, value.var = "distance.y") %>% .[,-1] %>%
+  as.dist()
+
+
+infraspecies_pco = dudi.pco(A %>% ade4::quasieuclid(), scannf = F, nf=10)
+
+food_pco = dudi.pco(B %>% ade4::quasieuclid(), scannf = F, nf=10)
+
+
+infraspecies_food_coi = coinertia(infraspecies_pco,food_pco, scannf=F, nf=10)
+
+coinertia(dudi.pca(infraspecies_pco$li, scannf=F, nf=10),dudi.pca(food_pco$li, scannf=F, nf=10), scannf=F, nf=3) %>% randtest
+
+
+```
+
+
+
+
+
+### JSD infraspecies
+
+```{r}
+
+load(system.file("biom", "food_unifrac.dist", package="IBSFood"))
+
+A = merge(infraspecies_jsd %>% broom::tidy(diagonal=TRUE, upper=TRUE),
+food_unifrac %>% broom::tidy(diagonal=TRUE, upper=TRUE) , by=c("item1","item2")) %>%
+  reshape2::dcast(item1~item2, value.var = "distance.x") %>% .[,-1] %>%
+  as.dist()
+
+B = merge(infraspecies_jsd %>% broom::tidy(diagonal=TRUE, upper=TRUE),
+food_unifrac %>% broom::tidy(diagonal=TRUE, upper=TRUE) , by=c("item1","item2")) %>%
+  reshape2::dcast(item1~item2, value.var = "distance.y") %>% .[,-1] %>%
+  as.dist()
+
+
+infraspecies_pco = dudi.pco(A %>% ade4::quasieuclid(), scannf = F, nf=10)
+
+food_pco = dudi.pco(B %>% ade4::quasieuclid(), scannf = F, nf=10)
+
+
+infraspecies_food_coi = coinertia(infraspecies_pco,food_pco, scannf=F, nf=10)
+
+coinertia(dudi.pca(infraspecies_pco$li, scannf=F, nf=10),dudi.pca(food_pco$li, scannf=F, nf=10), scannf=F, nf=3) %>% randtest
+
+
+
+cor(infraspecies_food_coi$lX,food_pco$li[1:2]) %>%
+  reshape2::melt() %>%
+  group_by(Var2) %>%
+  top_n(2)
+
+
+
+cor(infraspecies_food_coi$lX,infraspecies_pco$li[1:5]) %>%
+  reshape2::melt() %>%
+  group_by(Var2) %>%
+  top_n(2)
+
+
+
+
+```
+
+
+
+
+When 10 Principal components are selected for the co-inertia analysis, 
+JSD at species and infraspecies levels are significantly associated with food inertia.
+
+
+
 ### compute correlation with co-inertia component
 
 ```{r, message=FALSE, warning=FALSE}
@@ -314,7 +475,7 @@ infraspecies %>%
   summarize(A1_cor=cor(AxcX1,value, method="spearman"), 
             A2_cor=cor(AxcX2,value, method="spearman"),
             A3_cor=cor(AxcX3,value, method="spearman")) %>%
-  filter(abs(A1_cor)> 0.25|abs(A2_cor)> 0.25 ) %>%
+  #filter(abs(A1_cor)> 0.25|abs(A2_cor)> 0.25 ) %>%
   arrange(msp_name_partition) -> infraspecies_coi_cor
 
 
@@ -355,7 +516,8 @@ food_otu %>%
   summarize(A1_cor=cor(AxcY1,value, method="spearman"), 
             A2_cor=cor(AxcY2,value, method="spearman"),
             A3_cor=cor(AxcY3,value, method="spearman")) %>%
-  filter(abs(A1_cor)> 0.25|abs(A2_cor)> 0.25 ) %>% arrange(A2_cor) -> food_coi_cor
+  #filter(abs(A1_cor)> 0.25|abs(A2_cor)> 0.25 ) %>% 
+  arrange(A2_cor) -> food_coi_cor
 
 
 
@@ -398,20 +560,20 @@ infraspecies_food_coi$lX[1:3] %>%
             A3_p   =  cor.test(AxcX3, value, method = "spearman")$p.value %>% round(2),
             n=n())
 
-
-infraspecies_food_coi$lX[1:3] %>%
-  merge(.,IBSMicrobiota::IBSData$metadata %>%
-          filter(Visit=="V4",Sample_type=="Stool"), by.x="row.names", by.y="Patient_ID") %>%
-  mutate(breath_H2 = ifelse(H2>5,"High_H2","Low_H2"), breath_CH4 = ifelse(H2>5,"High_CH4","Low_CH4")) %>%
-  ggplot() + geom_point(aes( y=AxcX2, x=(H2+1)/(CH4+1) %>% log2))  + geom_smooth(aes( y=AxcX2, x=(H2+1)/(CH4+1) %>% log2), method = "lm")
-
+# 
+# infraspecies_food_coi$lX[1:3] %>%
+#   merge(.,IBSMicrobiota::IBSData$metadata %>%
+#           filter(Visit=="V4",Sample_type=="Stool"), by.x="row.names", by.y="Patient_ID") %>%
+#   mutate(breath_H2 = ifelse(H2>5,"High_H2","Low_H2"), breath_CH4 = ifelse(H2>5,"High_CH4","Low_CH4")) %>%
+#   ggplot() + geom_point(aes( y=AxcX3, x=(H2+1)/(CH4+1) %>% log2))  + geom_smooth(aes( y=AxcX3, x=(H2+1)/(CH4+1) %>% log2), method = "lm")
+# 
 
 
 infraspecies_food_coi$lX[1:3] %>%
   merge(.,IBSMicrobiota::IBSData$metadata %>%
           filter(Visit=="V4",Sample_type=="Stool"), by.x="row.names", by.y="Patient_ID") %>%
   mutate(breath_H2 = ifelse(H2>10,"High_H2","Low_H2"), breath_CH4 = ifelse(CH4>10,"High_CH4","Low_CH4")) %>%
-  ggplot() + geom_boxplot(aes( y=AxcX2, x=paste(breath_H2,breath_CH4))) + coord_flip()
+  ggplot() + geom_boxplot(aes( y=AxcX3, x=paste(breath_H2,breath_CH4))) + coord_flip()
 
 
 data("enterotypes")
@@ -472,15 +634,31 @@ infraspecies_coi_cor %>%
 
 infraspecies_coi_cor %>%
   merge(.,infraspecies %>% select(-contains("M",ignore.case = F)), by="msp_name_partition") %>%
-  filter(abs(A1_cor)>0.35|abs(A2_cor)>0.35) %>%
+  filter(abs(A1_cor)>0.3|abs(A2_cor)>0.3) %>%
   ggplot() + ggrepel::geom_label_repel(aes(x=A1_cor, y=A2_cor, label=genus), size=2, label.size = NA, fill=NA)
 
 
 
 infraspecies_coi_cor %>%
   merge(.,infraspecies %>% select(-contains("M",ignore.case = F)), by="msp_name_partition") %>%
-  filter(abs(A1_cor)>0.35|abs(A2_cor)>0.35) %>%
+  filter(abs(A1_cor)>0.3|abs(A2_cor)>0.3) %>%
   ggplot() + ggrepel::geom_label_repel(aes(x=A1_cor, y=A2_cor, label=msp_name_partition), size=2, label.size = NA, fill=NA)
+
+
+
+infraspecies_coi_cor %>%
+  merge(.,infraspecies %>% select(-contains("M",ignore.case = F)), by="msp_name_partition") %>%
+  filter(abs(A1_cor)>0.3|abs(A3_cor)>0.3) %>%
+  ggplot() + ggrepel::geom_label_repel(aes(x=A1_cor, y=A3_cor, label=genus), size=2, label.size = NA, fill=NA)
+
+
+
+infraspecies_coi_cor %>%
+  merge(.,infraspecies %>% select(-contains("M",ignore.case = F)), by="msp_name_partition") %>%
+  filter(abs(A1_cor)>0.3|abs(A3_cor)>0.3) %>%
+  ggplot() + ggrepel::geom_label_repel(aes(x=A1_cor, y=A3_cor, label=msp_name_partition), size=2, label.size = NA, fill=NA)
+
+
 
 
 
@@ -492,11 +670,23 @@ infraspecies_coi_cor %>%
 food_coi_cor %>%
   merge(food_group_levels %>%
   select(-Livsmedelsnamn, -Livsmedelsnummer, -Livsmedelsnamn_eng, -Foodstuffs) %>% 
+  filter(used == "yes") %>%  
   unique %>%
   arrange(`Food groups lvl4`), by.x="Var1", by.y="Food groups lvl4") %>%
   filter(abs(A1_cor)>0.3|abs(A2_cor)>0.3) %>% arrange(A2_cor) %>%
   ggplot() + ggrepel::geom_label_repel(aes(x=A1_cor, y=A2_cor, label=`Food groups lvl3`), size=2, label.size = NA, fill=NA)
 
+
+
+food_coi_cor %>%
+  merge(food_group_levels %>%
+  select(-Livsmedelsnamn, -Livsmedelsnummer, -Livsmedelsnamn_eng, -Foodstuffs) %>% 
+    filter(used == "yes") %>%  
+  unique %>%
+  arrange(`Food groups lvl4`), by.x="Var1", by.y="Food groups lvl4") %>%
+  unique() %>%
+  filter(abs(A1_cor)>0.3|abs(A3_cor)>0.3) %>% arrange(A3_cor) %>%
+  ggplot() + ggrepel::geom_label_repel(aes(x=A1_cor, y=A3_cor, label=`Food groups lvl3`), size=2, label.size = NA, fill=NA)
 
 
 
@@ -564,7 +754,7 @@ infraspecies %>%
   #group_by(variable) %>%
   #summarize(sum=sum(prop))
   dcast(msp_name_partition + msp_name + species + genus + family + order + class + phylum + superkingdom ~ variable) %>%
-  .$msp_name_partition
+  .$msp_name_partition %>% head
   
 
 
