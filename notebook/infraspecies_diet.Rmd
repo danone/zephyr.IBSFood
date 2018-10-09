@@ -826,3 +826,54 @@ merge(meat_plant_ratio, by.x="variable",
 
 ```
 
+
+
+
+
+## global heatmap
+
+
+
+
+```{r}
+
+
+cowplot::plot_grid(
+enterotypes %>%
+  filter(Visit=="V4") %>%
+  merge(.,cazotypes, by.x="Patient_ID", by.y="row.names") %>%
+  arrange(enterotypes) %>%
+  ggplot() + 
+  geom_tile(aes(x = rep("ET",length(enterotypes)), y=1:length(enterotypes),  fill=enterotypes %>% as.character)) + 
+  scale_fill_brewer(type="qual", palette = "Set1") +
+  #geom_tile(aes(x = rep("Visit",length(enterotypes)), y=1:length(enterotypes),  fill=Visit %>% as.character)) +
+  #geom_tile(aes(x = rep("cazotypes",length(enterotypes)), y=1:length(enterotypes),  fill=cazotype %>% as.character)) +
+  coord_flip() + theme_minimal() + xlab("") + ylab("") + guides(fill=FALSE),
+
+enterotypes %>%
+  filter(Visit=="V4") %>%
+  merge(.,cazotypes, by.x="Patient_ID", by.y="row.names") %>%
+  arrange(enterotypes) %>%
+  ggplot() + 
+  #geom_tile(aes(x = rep("ET",length(enterotypes)), y=1:length(enterotypes),  fill=enterotypes %>% as.character)) + 
+  scale_fill_brewer(type="qual", palette = "Set2") +
+  #geom_tile(aes(x = rep("Visit",length(enterotypes)), y=1:length(enterotypes),  fill=Visit %>% as.character)) +
+  geom_tile(aes(x = rep("cazotypes",length(enterotypes)), y=1:length(enterotypes),  fill=cazotype %>% as.character)) +
+  coord_flip() + theme_minimal() + xlab("") + ylab("") + guides(fill=FALSE),
+
+nrow=2,
+align = "v"
+
+)
+
+
+```
+
+
+
+
+
+
+
+
+
