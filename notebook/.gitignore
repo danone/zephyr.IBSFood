@@ -1,3 +1,2 @@
-*.biom
-*.tree
 food_unifrac.dist
+infraspecies_jsd
