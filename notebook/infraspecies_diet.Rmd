@@ -10,6 +10,8 @@ library(ade4)
 library(dplyr)
 library(magrittr)
 library(ggplot2)
+library(reshape2)
+library(phyloseq)
 devtools::load_all()
 
 
@@ -100,7 +102,7 @@ compo_taxa_melt %>% head
 
 
 ### load nutrient data
-```{r}
+```{r, eval=FALSE, include=FALSE}
 data("nutrients_data")
 
 nutrients_data %>%
@@ -230,7 +232,7 @@ OTU = OTU %>% multiply_by(50*10^6) %>% round()
 
 physeq=phyloseq::phyloseq(OTU,TAX,infraspecies.tree)
 
-taxa_names(physeq)
+#phyloseq::taxa_names(physeq)
 
 select = 
 infraspecies %>% 
@@ -243,11 +245,11 @@ infraspecies %>%
   ungroup %>%
   #group_by(variable) %>%
   #summarize(sum=sum(prop))
-  dcast(msp_name_partition + msp_name + species + genus + family + order + class + phylum + superkingdom ~ variable) %>%
+  reshape2::dcast(msp_name_partition + msp_name + species + genus + family + order + class + phylum + superkingdom ~ variable) %>%
   .$msp_name_partition
 
 
-physeq = prune_taxa(select,physeq)
+physeq = phyloseq::prune_taxa(select,physeq)
 
 
 
@@ -426,11 +428,18 @@ infraspecies_pco = dudi.pco(A %>% ade4::quasieuclid(), scannf = F, nf=10)
 food_pco = dudi.pco(B %>% ade4::quasieuclid(), scannf = F, nf=10)
 
 
-infraspecies_food_coi = coinertia(infraspecies_pco,food_pco, scannf=F, nf=10)
+#infraspecies_food_coi = coinertia(infraspecies_pco,food_pco, scannf=F, nf=10)
 
-coinertia(dudi.pca(infraspecies_pco$li, scannf=F, nf=10),dudi.pca(food_pco$li, scannf=F, nf=10), scannf=F, nf=3) %>% randtest
+infraspecies_food_coi = coinertia(dudi.pca(infraspecies_pco$li, scannf=F, nf=10),dudi.pca(food_pco$li, scannf=F, nf=10), scannf=F, nf=10)
 
+coinertia(dudi.pca(infraspecies_pco$li, scannf=F, nf=10),dudi.pca(food_pco$li, scannf=F, nf=10), scannf=F, nf=10) %>% randtest
 
+# 
+# cor(
+# infraspecies_food_coi$lX,
+# infraspecies_food_coi2$lX
+# ) %>% abs %>% heatmap
+# 
 
 cor(infraspecies_food_coi$lX,food_pco$li[1:3]) %>%
   reshape2::melt() %>%
@@ -439,13 +448,31 @@ cor(infraspecies_food_coi$lX,food_pco$li[1:3]) %>%
 
 
 
-cor(infraspecies_food_coi$lX,infraspecies_pco$li[1:5]) %>%
+cor(infraspecies_food_coi$lX,dudi.pca(food_pco$li, scannf=F, nf=10)$li[1:3]) %>%
   reshape2::melt() %>%
   group_by(Var2) %>%
   top_n(2)
 
 
 
+
+cor(infraspecies_food_coi$lX,infraspecies_pco$li[1:3]) %>%
+  reshape2::melt() %>%
+  group_by(Var2) %>%
+  top_n(2)
+
+
+
+cor(infraspecies_food_coi$lX,dudi.pca(infraspecies_pco$li, scannf=F, nf=10)$li[1:3]) %>%
+  reshape2::melt() %>%
+  group_by(Var2) %>%
+  top_n(2)
+
+
+#cumsum(infraspecies_pco$eig/sum(infraspecies_pco$eig))
+#cumsum(food_pco$eig/sum(food_pco$eig))
+
+plot(infraspecies_food_coi)
 
 ```
 
@@ -454,6 +481,191 @@ cor(infraspecies_food_coi$lX,infraspecies_pco$li[1:5]) %>%
 
 When 10 Principal components are selected for the co-inertia analysis, 
 JSD at species and infraspecies levels are significantly associated with food inertia.
+
+
+**distance shuffling**
+
+```{r, eval=FALSE, include=FALSE}
+
+#load(system.file("biom", "food_unifrac.dist", package="IBSFood"))
+
+#set.seed(1)
+
+rv_sim = 1:999
+
+pb <- txtProgressBar(min = 0, max = length(rv_sim), style = 3)
+# 
+# infraspecies_norm =
+# infraspecies %>%
+#   mutate_at(vars(contains("M", ignore.case = F)),function(x){x/sum(x)}) %>% 
+#   select(contains("M",ignore.case = F))
+# 
+# infraspecies_norm_names = colnames(infraspecies_norm)
+# 
+# infraspecies_jsd = BiotypeR::dist.JSD(infraspecies_norm)
+
+for(i in 1:length(rv_sim)) {
+
+#infraspecies_norm = infraspecies_norm %>% apply(.,2, sample) #%>% t  %>% apply(.,2, sample)
+
+#colnames(infraspecies_norm) = infraspecies_norm_names
+#rownames(infraspecies_norm) = rownames(infraspecies)
+    
+#
+  
+  
+  
+A = merge(infraspecies_jsd %>% broom::tidy(diagonal=TRUE, upper=TRUE),
+food_unifrac %>% broom::tidy(diagonal=TRUE, upper=TRUE) , by=c("item1","item2")) %>%
+  reshape2::dcast(item1~item2, value.var = "distance.x") %>% .[,-1] %>%
+  as.dist()
+
+
+attr(A, "Labels") = sample(A %>% attr(., "Labels"))
+
+A = A %>% as.matrix %>% .[order(attr(A, "Labels")),order(attr(A, "Labels"))] %>% as.dist
+
+
+B = merge(infraspecies_jsd %>% broom::tidy(diagonal=TRUE, upper=TRUE),
+food_unifrac %>% broom::tidy(diagonal=TRUE, upper=TRUE) , by=c("item1","item2")) %>%
+  reshape2::dcast(item1~item2, value.var = "distance.y") %>% .[,-1] %>%
+  as.dist()
+
+attr(B, "Labels") = sample(B %>% attr(., "Labels"))
+
+B =  B %>% as.matrix %>% .[order(attr(B, "Labels")),order(attr(B, "Labels"))] %>% as.dist
+
+
+infraspecies_pco = dudi.pco(A , scannf = F, nf=10)
+
+food_pco = dudi.pco(B %>% ade4::quasieuclid(), scannf = F, nf=10)
+
+
+
+infraspecies_food_coi = coinertia(infraspecies_pco,food_pco, scannf=F, nf=10)
+
+
+rv_sim[i] = infraspecies_food_coi$RV
+setTxtProgressBar(pb, i)
+}
+close(pb)
+
+
+########## observed ############
+# 
+# infraspecies_norm =
+# infraspecies %>%
+#   mutate_at(vars(contains("M", ignore.case = F)),function(x){x/sum(x)}) %>% 
+#   select(contains("M",ignore.case = F))
+# 
+# infraspecies_jsd = BiotypeR::dist.JSD(infraspecies_norm)
+# 
+
+A = merge(infraspecies_jsd %>% broom::tidy(diagonal=TRUE, upper=TRUE),
+food_unifrac %>% broom::tidy(diagonal=TRUE, upper=TRUE) , by=c("item1","item2")) %>%
+  reshape2::dcast(item1~item2, value.var = "distance.x") %>% .[,-1] %>%
+  as.dist()
+
+
+#attr(A, "Labels") = sample(A %>% attr(., "Labels"))
+
+A = A %>% as.matrix %>% .[order(attr(A, "Labels")),order(attr(A, "Labels"))] %>% as.dist
+
+
+B = merge(infraspecies_jsd %>% broom::tidy(diagonal=TRUE, upper=TRUE),
+food_unifrac %>% broom::tidy(diagonal=TRUE, upper=TRUE) , by=c("item1","item2")) %>%
+  reshape2::dcast(item1~item2, value.var = "distance.y") %>% .[,-1] %>%
+  as.dist()
+
+B =  B %>% as.matrix %>% .[order(attr(B, "Labels")),order(attr(B, "Labels"))] %>% as.dist
+
+
+infraspecies_pco = dudi.pco(A , scannf = F, nf=10)
+
+food_pco = dudi.pco(B %>% ade4::quasieuclid(), scannf = F, nf=10)
+
+
+
+infraspecies_food_coi = coinertia(infraspecies_pco,food_pco, scannf=F, nf=10)
+
+
+rv_obs = infraspecies_food_coi$RV
+
+table(rv_obs >= rv_sim)
+
+
+
+#infra_food_pro = procuste(infraspecies_pco$tab, food_pco$tab, scale = FALSE, nf=3)
+
+
+#randtest(infra_food_pro)
+
+
+
+```
+
+
+
+
+
+#### partial co-ineria analysis
+
+with unifrac Food and JSD infraspecies
+
+
+```{r, eval=FALSE, message=FALSE, warning=FALSE, include=FALSE}
+
+
+A = merge(infraspecies_jsd %>% broom::tidy(diagonal=TRUE, upper=TRUE),
+food_unifrac %>% broom::tidy(diagonal=TRUE, upper=TRUE) , by=c("item1","item2")) %>%
+  reshape2::dcast(item1~item2, value.var = "distance.x") %>% .[,-1] %>%
+  as.dist()
+
+B = merge(infraspecies_jsd %>% broom::tidy(diagonal=TRUE, upper=TRUE),
+food_unifrac %>% broom::tidy(diagonal=TRUE, upper=TRUE) , by=c("item1","item2")) %>%
+  reshape2::dcast(item1~item2, value.var = "distance.y") %>% .[,-1] %>%
+  as.dist()
+
+
+infraspecies_pco = dudi.pco(infraspecies_jsd, scannf = F, nf=10)
+
+food_pco = dudi.pco(food_unifrac %>% ade4::quasieuclid(), scannf = F, nf=10)
+
+
+infraspecies_food_coi = coinertia(infraspecies_pco,food_pco, scannf=F, nf=10)
+
+samples_intersect = 
+intersect(
+infraspecies_jsd %>% attr(.,"Labels"),
+
+food_unifrac %>% attr(.,"Labels"))
+
+
+infraspecies_pco$tab = infraspecies_pco$tab[samples_intersect,]
+infraspecies_pco$li = infraspecies_pco$li[samples_intersect,]
+infraspecies_pco$l1 = infraspecies_pco$l1[samples_intersect,]
+
+infraspecies_pco$lw = 1/length(samples_intersect)
+
+food_pco$tab = food_pco$tab[samples_intersect,]
+food_pco$li = food_pco$li[samples_intersect,]
+food_pco$l1 = food_pco$l1[samples_intersect,]
+
+food_pco$lw = 1/length(samples_intersect)
+
+infraspecies_pco
+food_pco
+
+infraspecies_food_coi = coinertia(infraspecies_pco,food_pco, scannf=F, nf=10)
+
+plot(infraspecies_food_coi)
+
+
+
+
+
+```
+
 
 
 
@@ -576,6 +788,22 @@ infraspecies_food_coi$lX[1:3] %>%
   ggplot() + geom_boxplot(aes( y=AxcX3, x=paste(breath_H2,breath_CH4))) + coord_flip()
 
 
+
+infraspecies_food_coi$lX[1:3] %>%
+  merge(.,IBSMicrobiota::IBSData$metadata %>%
+          filter(Visit=="V4",Sample_type=="Stool"), by.x="row.names", by.y="Patient_ID") %>%
+  mutate(breath_H2 = ifelse(H2>10,"High_H2","Low_H2"), breath_CH4 = ifelse(CH4>10,"High_CH4","Low_CH4")) %>%
+  ggplot() + geom_boxplot(aes( y=AxcX2, x=paste(breath_H2,breath_CH4))) + coord_flip()
+
+
+
+infraspecies_food_coi$lX[1:3] %>%
+  merge(.,IBSMicrobiota::IBSData$metadata %>%
+          filter(Visit=="V4",Sample_type=="Stool"), by.x="row.names", by.y="Patient_ID") %>%
+  mutate(breath_H2 = ifelse(H2>10,"High_H2","Low_H2"), breath_CH4 = ifelse(CH4>10,"High_CH4","Low_CH4")) %>%
+  ggplot() + geom_boxplot(aes( y=AxcX1, x=paste(breath_H2,breath_CH4))) + coord_flip()
+
+
 data("enterotypes")
 
 
@@ -674,7 +902,7 @@ infraspecies_coi_cor %>%
 ```
 
 
-```{r}
+```{r, message=FALSE, warning=FALSE}
 
 food_coi_cor %>%
   merge(food_group_levels %>%
