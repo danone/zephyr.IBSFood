@@ -85,7 +85,7 @@ counts = counts %>% select(-one_of(remove_sample))
 
 ### MSP counts correspondance
 
-```{r}
+```{r, message=FALSE, warning=FALSE}
 #merge(counts %>% head(1000), MSP_genes_id_corresp %>% select(msp_name,module_name,gene_name_v2), by.x="genes.id", by.y="gene_name_v2")
 
 # an example with inbuilt function
@@ -120,7 +120,7 @@ infraspecies %>% head
 
 ```{r}
 
-msp_target="msp_0291"
+msp_target="msp_0070"
 
 infraspecies %>%
   filter(msp_name == msp_target) %>%
@@ -175,6 +175,8 @@ plot_MSP(binary_msp=binary_msp,
          clusters_msp=clusters_msp$sample, 
          clusters_msp_gene = clusters_msp$gene)
 
+ggsave("msp_0070.pdf")
+
 
 test_MSP_gene(binary_msp=binary_msp, 
          clusters_msp=clusters_msp$sample) -> test_msp
@@ -190,10 +192,10 @@ test_MSP_gene(binary_msp=binary_msp,
     merge(clusters_msp$sample$partition %>% as.matrix %>% as.data.frame() , by.y = "row.names", by.x="variable" ) %>%
     #reshape2::dcast(genes.id~variable+V1, value.var="value") %>%
     ggplot() + geom_tile(aes(x=genes.id,y=variable, fill=value %>% as.character)) + 
-    facet_grid(~V1, scales = "free_x") + 
-    theme(axis.text = element_blank()) + coord_flip()
+    facet_grid(~V1, scales = "free_x") + ylab("") +
+    theme(axis.text = element_blank()) + coord_flip() + guides(fill=FALSE) + scale_fill_manual(values = c("black","yellow"))
   
-  
+ggsave("msp_0070_diff.pdf")  
   
   
 ```
