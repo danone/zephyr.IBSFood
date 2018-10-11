@@ -428,9 +428,9 @@ infraspecies_pco = dudi.pco(A %>% ade4::quasieuclid(), scannf = F, nf=10)
 food_pco = dudi.pco(B %>% ade4::quasieuclid(), scannf = F, nf=10)
 
 
-#infraspecies_food_coi = coinertia(infraspecies_pco,food_pco, scannf=F, nf=10)
+infraspecies_food_coi = coinertia(infraspecies_pco,food_pco, scannf=F, nf=10)
 
-infraspecies_food_coi = coinertia(dudi.pca(infraspecies_pco$li, scannf=F, nf=10),dudi.pca(food_pco$li, scannf=F, nf=10), scannf=F, nf=10)
+#infraspecies_food_coi = coinertia(dudi.pca(infraspecies_pco$li, scannf=F, nf=10),dudi.pca(food_pco$li, scannf=F, nf=10), scannf=F, nf=10)
 
 coinertia(dudi.pca(infraspecies_pco$li, scannf=F, nf=10),dudi.pca(food_pco$li, scannf=F, nf=10), scannf=F, nf=10) %>% randtest
 
@@ -446,13 +446,13 @@ cor(infraspecies_food_coi$lX,food_pco$li[1:3]) %>%
   group_by(Var2) %>%
   top_n(2)
 
-
-
-cor(infraspecies_food_coi$lX,dudi.pca(food_pco$li, scannf=F, nf=10)$li[1:3]) %>%
-  reshape2::melt() %>%
-  group_by(Var2) %>%
-  top_n(2)
-
+# 
+# 
+# cor(infraspecies_food_coi$lX,dudi.pca(food_pco$li, scannf=F, nf=10)$li[1:3]) %>%
+#   reshape2::melt() %>%
+#   group_by(Var2) %>%
+#   top_n(2)
+# 
 
 
 
@@ -462,17 +462,24 @@ cor(infraspecies_food_coi$lX,infraspecies_pco$li[1:3]) %>%
   top_n(2)
 
 
-
-cor(infraspecies_food_coi$lX,dudi.pca(infraspecies_pco$li, scannf=F, nf=10)$li[1:3]) %>%
-  reshape2::melt() %>%
-  group_by(Var2) %>%
-  top_n(2)
-
+# 
+# cor(infraspecies_food_coi$lX,dudi.pca(infraspecies_pco$li, scannf=F, nf=10)$li[1:3]) %>%
+#   reshape2::melt() %>%
+#   group_by(Var2) %>%
+#   top_n(2)
+# 
 
 #cumsum(infraspecies_pco$eig/sum(infraspecies_pco$eig))
 #cumsum(food_pco$eig/sum(food_pco$eig))
 
 plot(infraspecies_food_coi)
+
+
+
+cbind(infraspecies_food_coi$lX,food_pco$li[1:3]) %>%
+  ggplot() + geom_point(aes(AxcX1,A1),size=5, alpha=0.5, color="white") + 
+  ylab("Diet PCo1 (Plant/Meat)") + xlab("Coinertia PC1") + theme_dark()
+
 
 ```
 
@@ -930,7 +937,7 @@ data("nutriscore_food_group")
 
 food_coi_cor %>%
 merge(.,nutriscore_food_group, by.y="Food groups lvl4", by.x="Var1") %>%
-select(A1_cor,A2_cor,A3_cor,nutriscore,cor_A1,cor_A2,cor_A3) %>%
+select(A1_cor,A2_cor,A3_cor,nutriscore,cor_A1,cor_A2) %>%
   reshape2::melt(id.vars="nutriscore") %>%
   group_by(variable) %>%
   do(w = with(.,cor.test(nutriscore,value, p.adjust="none", method="spearman"))) %>% broom::tidy(w)
