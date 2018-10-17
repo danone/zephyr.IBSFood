@@ -674,7 +674,18 @@ merge(OTU %>% prop.table(2) ,TAX, by="row.names") %>%
     scale_color_gradient2("Meat/Plant\nratio\n(centered,log2)") + theme_dark() +
     xlab("PCoA1") + ylab("PCoA2")
   
-  
+ 
+  merge(OTU %>% prop.table(2) ,TAX, by="row.names") %>%
+    as.data.frame %>%
+    rename(`Food groups lvl4` = Row.names) %>%
+    melt(id.vars=c("Food groups lvl1","Food groups lvl2","Food groups lvl3","Food groups lvl4")) %>%
+    group_by(variable,`Food groups lvl1`) %>%
+    summarize(Gram_prop = sum(value)) %>%
+    dcast(variable~`Food groups lvl1`) %>%
+    mutate(meat_plant_ratio = log2(`Meat-based`+0.001/`Plant-based`+0.001)) %>%
+    merge(.,unifrac_pco$li, by.x="variable", by.y="row.names") %>%
+    write.csv2(., file="../inst/tables/meat_plant_ratio.csv")
+   
   
   merge(OTU %>% prop.table(2) ,TAX, by="row.names") %>%
     as.data.frame %>%
