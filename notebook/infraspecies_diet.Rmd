@@ -1107,7 +1107,7 @@ align = "v"
 
 prepare data for all the map
 
-```{r}
+```{r, fig.height=8, fig.width=4}
 
 
 df_bar_data =
@@ -1122,12 +1122,98 @@ merge( infraspecies %>%
   as.data.frame(), by.x="variable",by.y="row.names", all=TRUE) %>%
   merge(enterotypes %>% filter(Visit == "V4" ), by.x="variable",by.y="Patient_ID", all=TRUE) %>%
   merge(cazotypes, by.x="variable", by.y="row.names",  all=TRUE) %>%
-  merge(infraspecies_food_coi$lX, by.x="variable", by.y="row.names",  all = TRUE)
+  merge(infraspecies_food_coi$lX, by.x="variable", by.y="row.names",  all = TRUE) %>%
+  arrange(meat_plant_ratio) %>%
+  mutate(enterotypes = paste0("ET",enterotypes), cazotype = paste0("CT",cazotype)) %>%
+  mutate(Diet_A1_rank = rank(A1))
+
+
+cowplot::plot_grid(
+
+df_bar_data %>%
+  filter(!is.na(meat_plant_ratio)) %>%
+  ggplot() + 
+  geom_tile(aes(y=1:length(meat_plant_ratio), x=rep("meat\n\\plant",length(meat_plant_ratio)), fill=meat_plant_ratio)) +
+  coord_flip() +
+  viridis::scale_fill_viridis() +
+  theme_minimal() +
+  xlab("") + ylab("") +
+  guides(fill=FALSE),
 
 
 
+df_bar_data %>%
+  filter(!is.na(meat_plant_ratio)) %>%
+  ggplot() + 
+  geom_tile(aes(y=1:length(meat_plant_ratio), x=rep("Diet PCoA1",length(meat_plant_ratio)), fill=A1)) +
+  coord_flip() +
+  viridis::scale_fill_viridis() +
+  theme_minimal() +
+  xlab("") + ylab("") +
+  guides(fill=FALSE),
 
 
+df_bar_data %>%
+  filter(!is.na(meat_plant_ratio)) %>%
+  select(Diet_A1_rank,A1,AxcX1, enterotypes, cazotype) %>%
+  GGally::ggparcoord(columns = 3:1, groupColumn = 5, showPoints=TRUE) + coord_flip() + theme_minimal() + xlab("") + ylab("") + scale_color_brewer(type="qual") + guides(color=FALSE),
+
+
+df_bar_data %>%
+  filter(!is.na(AxcX1)) %>%
+  arrange(AxcX1) %>%  
+  ggplot() + 
+  geom_tile(aes(y=1:length(enterotypes), x=rep("ET",length(enterotypes)), fill=enterotypes)) +
+  coord_flip() +
+  scale_fill_brewer(type="qual") +
+  theme_minimal() +
+  xlab("") + ylab("") +
+  guides(fill=FALSE),
+
+
+
+df_bar_data %>%
+  filter(!is.na(AxcX1)) %>%
+  arrange(AxcX1) %>% 
+  ggplot() + 
+  geom_tile(aes(y=1:length(enterotypes), x=rep("cazy",length(enterotypes)), fill=cazotype)) +
+  coord_flip() +
+  scale_fill_brewer(type="qual") +
+  theme_minimal() +
+  xlab("") + ylab("") +
+  guides(fill=FALSE),
+
+
+df_bar_data %>%
+  filter(!is.na(AxcX1)) %>%
+  arrange(AxcX1) %>% 
+  ggplot() + 
+  geom_tile(aes(y=1:length(enterotypes), x=rep("cl1",length(enterotypes)), fill=msp_0070_cl_1)) +
+  coord_flip() +
+  viridis::scale_fill_viridis() +
+  theme_minimal() +
+  xlab("") + ylab("") +
+  guides(fill=FALSE),
+
+
+df_bar_data %>%
+  filter(!is.na(AxcX1)) %>%
+  arrange(AxcX1) %>% 
+  ggplot() + 
+  geom_tile(aes(y=1:length(enterotypes), x=rep("cl2",length(enterotypes)), fill=msp_0070_cl_2)) +
+  coord_flip() +
+  viridis::scale_fill_viridis() +
+  theme_minimal() +
+  xlab("") + ylab("") +
+  guides(fill=FALSE),
+
+ncol=1, align = "v", rel_heights = c(1,1,4,1,1,1,1)
+
+)
+
+df_bar_data %>% ggplot() + geom_point(aes(x=A1,y=AxcX1,color=msp_0070_cl_1/(msp_0070_cl_2+10^-6))) + viridis::scale_color_viridis()
+
+df_bar_data %>% ggplot() + geom_point(aes(x=A1,y=AxcX1,color=cazotype))
 
 
 ```
