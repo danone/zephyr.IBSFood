@@ -640,7 +640,7 @@ infraspecies_pco = dudi.pco(infraspecies_jsd, scannf = F, nf=10)
 food_pco = dudi.pco(food_unifrac %>% ade4::quasieuclid(), scannf = F, nf=10)
 
 
-infraspecies_food_coi = coinertia(infraspecies_pco,food_pco, scannf=F, nf=10)
+#infraspecies_food_coi = coinertia(infraspecies_pco,food_pco, scannf=F, nf=10)
 
 samples_intersect = 
 intersect(
@@ -648,13 +648,14 @@ infraspecies_jsd %>% attr(.,"Labels"),
 
 food_unifrac %>% attr(.,"Labels"))
 
-
+infraspecies_pco_tabsup = infraspecies_pco$tab[-which(row.names(infraspecies_pco$tab) %in% samples_intersect),]
 infraspecies_pco$tab = infraspecies_pco$tab[samples_intersect,]
 infraspecies_pco$li = infraspecies_pco$li[samples_intersect,]
 infraspecies_pco$l1 = infraspecies_pco$l1[samples_intersect,]
 
 infraspecies_pco$lw = 1/length(samples_intersect)
 
+food_pco_tabsup = food_pco$tab[-which(row.names(food_pco$tab) %in% samples_intersect),]
 food_pco$tab = food_pco$tab[samples_intersect,]
 food_pco$li = food_pco$li[samples_intersect,]
 food_pco$l1 = food_pco$l1[samples_intersect,]
@@ -666,7 +667,37 @@ food_pco
 
 infraspecies_food_coi = coinertia(infraspecies_pco,food_pco, scannf=F, nf=10)
 
+infraspecies_food_coi_spesup = ade4::suprow(infraspecies_food_coi,infraspecies_pco_tabsup)
+infraspecies_food_coi_foodsup = ade4::supcol(infraspecies_food_coi,t(food_pco_tabsup))
+
+colnames(infraspecies_food_coi_spesup$lisup) = colnames(infraspecies_food_coi$lX)
+colnames(infraspecies_food_coi_foodsup$cosup) = colnames(infraspecies_food_coi$lY)
+
+
 plot(infraspecies_food_coi)
+
+s.label(infraspecies_food_coi$lX)
+s.label(infraspecies_food_coi_spesup$lisup,add.p=T,clab=1.5)
+
+s.label(infraspecies_food_coi$lY)
+s.label(infraspecies_food_coi_foodsup$cosup,add.p=T,clab=1.5)
+
+
+
+rbind(infraspecies_food_coi$lX,infraspecies_food_coi_spesup$lisup)
+
+IBSMicrobiota::IBSData$metadata %>% 
+  filter(Visit == "V4", Sample_type =="Stool") %>%
+  merge(.,rbind(infraspecies_food_coi$lX,infraspecies_food_coi_spesup$lisup), by.x="Patient_ID", by.y="row.names") %>%
+  select(IBS.Severity.Score, contains("AxcX")) %>%
+  reshape2::melt(id.vars="IBS.Severity.Score") %>%
+  group_by(variable) %>%
+  do(w = with(.,cor.test(value,IBS.Severity.Score))) %>% broom::tidy(w)
+    
+ 
+
+rbind(infraspecies_food_coi$lY,infraspecies_food_coi_foodsup$cosup)
+
 
 
 
@@ -676,13 +707,38 @@ plot(infraspecies_food_coi)
 
 
 
+```{r}
+
+merge(dudi.pco(infraspecies_jsd, scannf = F, nf=10)$li[1:3],
+      rbind(infraspecies_food_coi$lX,infraspecies_food_coi_spesup$lisup)[1:3], by="row.names") %>% .[-1] %>%
+  cor(method="spearman")
+
+
+merge(dudi.pco(food_unifrac %>% ade4::quasieuclid(), scannf = F, nf=10)$li[1:3],
+      rbind(infraspecies_food_coi$lY,infraspecies_food_coi_foodsup$cosup)[1:3], by="row.names") %>% .[-1] %>%
+  cor(method="spearman")
+                                                                                                    
+
+
+```
+
+
+
+
+
+
+
 
 ### compute correlation with co-inertia component
+
+
+
+
 
 ```{r, message=FALSE, warning=FALSE}
 
 
-infraspecies_food_coi$lX %>% head
+rbind(infraspecies_food_coi$lX,infraspecies_food_coi_spesup$lisup) %>% head
 
 
 
@@ -690,7 +746,7 @@ infraspecies %>%
   select(contains("M", ignore.case = F),msp_name_partition) %>%
   mutate_at(vars(contains("M", ignore.case = F)),function(x){x/sum(x)}) %>%
   reshape2::melt(id.vars="msp_name_partition") %>%
-  merge(infraspecies_food_coi$lX,.,by.x="row.names", by.y="variable") %>%
+  merge(rbind(infraspecies_food_coi$lX,infraspecies_food_coi_spesup$lisup),.,by.x="row.names", by.y="variable") %>%
   group_by(msp_name_partition) %>%
   summarize(A1_cor=cor(AxcX1,value, method="spearman"), 
             A2_cor=cor(AxcX2,value, method="spearman"),
@@ -731,7 +787,7 @@ infraspecies_food_coi$lY %>% head
 food_otu %>% 
   reshape2::melt() %>%
   #reshape2::melt(id.vars="msp_name_partition") %>%
-  merge(infraspecies_food_coi$lY,.,by.x="row.names", by.y="Var2") %>%
+  merge(rbind(infraspecies_food_coi$lY,infraspecies_food_coi_foodsup$cosup),.,by.x="row.names", by.y="Var2") %>%
   group_by(Var1) %>%
   summarize(A1_cor=cor(AxcY1,value, method="spearman"), 
             A2_cor=cor(AxcY2,value, method="spearman"),
@@ -758,11 +814,88 @@ food_group_levels %>%
 
 ## association with metadata
 
+
+### permanova
+
+
+
+```{r}
+
+data("enterotypes")
+
+data("cazotypes")
+
+load(system.file("biom", "food_unifrac.dist", package="IBSFood"))
+
+A = merge(infraspecies_jsd %>% broom::tidy(diagonal=TRUE, upper=TRUE),
+food_unifrac %>% broom::tidy(diagonal=TRUE, upper=TRUE) , by=c("item1","item2")) %>%
+  reshape2::dcast(item1~item2, value.var = "distance.x") %>% .[,-1] %>%
+  as.dist()
+
+B = merge(infraspecies_jsd %>% broom::tidy(diagonal=TRUE, upper=TRUE),
+food_unifrac %>% broom::tidy(diagonal=TRUE, upper=TRUE) , by=c("item1","item2")) %>%
+  reshape2::dcast(item1~item2, value.var = "distance.y") %>% .[,-1] %>%
+  as.dist()
+
+
+et_grp = 
+  merge(attr(A,"Label") %>% 
+      as.matrix %>% as.data.frame, 
+    enterotypes %>% 
+      filter(Visit=="V4"), by.x="V1", by.y="Patient_ID", all=FALSE)  %>% 
+  merge(.,cazotypes, by.x="V1",by.y="row.names") %>%
+  merge(.,
+    IBSMicrobiota::IBSData$metadata %>%
+      filter(Visit=="V4", Sample_type =="Stool") %>%
+      select(Gender,Health,Patient_ID, IBS.Severity.Score), by.x="V1", by.y="Patient_ID", all.x=TRUE ) %>%
+  mutate(enterotypes = enterotypes %>% as.character, 
+    cazotype = cazotype %>% as.character) %>% 
+  tibble::column_to_rownames("V1")
+
+#warning : label order for adonis
+
+vegan::adonis(B %>% ade4::quasieuclid() ~ cazotype , data=et_grp[attr(B,"Label"),] ) %>% class
+vegan::adonis(A  ~ cazotype , data=et_grp[attr(A,"Label"),] )
+
+vegan::adonis(B %>% ade4::quasieuclid() ~ enterotypes , data=et_grp[attr(B,"Label"),] )
+vegan::adonis(A  ~ enterotypes , data=et_grp[attr(A,"Label"),] )
+
+vegan::adonis(B %>% ade4::quasieuclid() ~ Health , data=et_grp[attr(B,"Label"),] )
+vegan::adonis(A  ~ Health  , data=et_grp[attr(A,"Label"),] )
+
+
+vegan::adonis(B %>% ade4::quasieuclid() ~ Gender , data=et_grp[attr(B,"Label"),] )
+vegan::adonis(A  ~ Gender , data=et_grp[attr(A,"Label"),] )
+
+
+vegan::adonis(B %>% ade4::quasieuclid()  ~ Gender * Health * cazotype , data=et_grp[attr(B,"Label"),] )
+
+vegan::adonis(A  ~ Gender * Health * cazotype , data=et_grp[attr(A,"Label"),] )
+
+vegan::adonis2(B %>% ade4::quasieuclid()  ~ Gender * Health * enterotypes * cazotype , data=et_grp[attr(B,"Label"),] , by="terms")
+
+vegan::adonis2(A  ~ Gender * Health * enterotypes * cazotype , data=et_grp[attr(A,"Label"),], by="terms" )
+
+
+     dudi.pco(A,scannf=F, nf=3) %>% .$li %>% merge(.,et_grp, by="row.names") %>%  ggplot() + geom_point(aes(x=A1,y=A2,col=enterotypes %>% as.character))
+
+     dudi.pco(B %>% ade4::quasieuclid(),scannf=F, nf=3) %>% .$li %>% merge(.,et_grp, by="row.names") %>%  ggplot() + geom_point(aes(x=A1,y=A2,col=cazotype %>% as.character))
+
+```
+
+
+
+
+
+
+
+### coinertia axis and metadata
+
 ```{r, message=FALSE, warning=FALSE}
 
 
 
-infraspecies_food_coi$lX[1:3] %>%
+rbind(infraspecies_food_coi$lX,infraspecies_food_coi_spesup$lisup)[1:3] %>%
   merge(.,IBSMicrobiota::IBSData$metadata %>%
           filter(Visit=="V4",Sample_type=="Stool"), by.x="row.names", by.y="Patient_ID") %>%
   select_if(is.numeric) %>%
@@ -789,7 +922,7 @@ infraspecies_food_coi$lX[1:3] %>%
 # 
 
 
-infraspecies_food_coi$lX[1:3] %>%
+rbind(infraspecies_food_coi$lX,infraspecies_food_coi_spesup$lisup)[1:3] %>%
   merge(.,IBSMicrobiota::IBSData$metadata %>%
           filter(Visit=="V4",Sample_type=="Stool"), by.x="row.names", by.y="Patient_ID") %>%
   mutate(breath_H2 = ifelse(H2>10,"High_H2","Low_H2"), breath_CH4 = ifelse(CH4>10,"High_CH4","Low_CH4")) %>%
@@ -797,7 +930,7 @@ infraspecies_food_coi$lX[1:3] %>%
 
 
 
-infraspecies_food_coi$lX[1:3] %>%
+rbind(infraspecies_food_coi$lX,infraspecies_food_coi_spesup$lisup)[1:3] %>%
   merge(.,IBSMicrobiota::IBSData$metadata %>%
           filter(Visit=="V4",Sample_type=="Stool"), by.x="row.names", by.y="Patient_ID") %>%
   mutate(breath_H2 = ifelse(H2>10,"High_H2","Low_H2"), breath_CH4 = ifelse(CH4>10,"High_CH4","Low_CH4")) %>%
@@ -805,7 +938,7 @@ infraspecies_food_coi$lX[1:3] %>%
 
 
 
-infraspecies_food_coi$lX[1:3] %>%
+rbind(infraspecies_food_coi$lX,infraspecies_food_coi_spesup$lisup)[1:3] %>%
   merge(.,IBSMicrobiota::IBSData$metadata %>%
           filter(Visit=="V4",Sample_type=="Stool"), by.x="row.names", by.y="Patient_ID") %>%
   mutate(breath_H2 = ifelse(H2>10,"High_H2","Low_H2"), breath_CH4 = ifelse(CH4>10,"High_CH4","Low_CH4")) %>%
@@ -816,23 +949,23 @@ data("enterotypes")
 
 
 
-infraspecies_food_coi$lX[1:3] %>%
+rbind(infraspecies_food_coi$lX,infraspecies_food_coi_spesup$lisup)[1:3] %>%
   merge(.,IBSMicrobiota::IBSData$metadata %>%
           filter(Visit=="V4",Sample_type=="Stool"), by.x="row.names", by.y="Patient_ID") %>%
   merge(.,enterotypes, by.x="Row.names", by.y="Patient_ID") %>%
   mutate(enterotypes = enterotypes %>% as.character) %>%
-  ggplot() + geom_boxplot(aes(x=enterotypes,y=AxcX3))
+  ggplot() + geom_jitter(aes(x=enterotypes,y=AxcX3))
 
 
-infraspecies_food_coi$lX[1:3] %>%
+rbind(infraspecies_food_coi$lX,infraspecies_food_coi_spesup$lisup)[1:3] %>%
   merge(.,IBSMicrobiota::IBSData$metadata %>%
           filter(Visit=="V4",Sample_type=="Stool"), by.x="row.names", by.y="Patient_ID") %>%
   merge(.,enterotypes, by.x="Row.names", by.y="Patient_ID") %>%
   mutate(enterotypes = enterotypes %>% as.character) %>%
-  ggplot() + geom_boxplot(aes(x=enterotypes,y=AxcX2))
+  ggplot() + geom_jitter(aes(x=enterotypes,y=AxcX2))
 
 
-infraspecies_food_coi$lX[1:3] %>%
+rbind(infraspecies_food_coi$lX,infraspecies_food_coi_spesup$lisup)[1:3] %>%
   merge(.,IBSMicrobiota::IBSData$metadata %>%
           filter(Visit=="V4",Sample_type=="Stool"), by.x="row.names", by.y="Patient_ID") %>%
   merge(.,enterotypes, by.x="Row.names", by.y="Patient_ID") %>%
@@ -841,7 +974,7 @@ infraspecies_food_coi$lX[1:3] %>%
 
 
 
-infraspecies_food_coi$lX[1:3] %>%
+rbind(infraspecies_food_coi$lX,infraspecies_food_coi_spesup$lisup)[1:3] %>%
   merge(.,IBSMicrobiota::IBSData$metadata %>%
           filter(Visit=="V4",Sample_type=="Stool"), by.x="row.names", by.y="Patient_ID") %>%
   merge(.,enterotypes, by.x="Row.names", by.y="Patient_ID") %>%
@@ -855,7 +988,7 @@ merge(enterotypes %>% filter(Visit=="V4"), cazotypes, by.x="Patient_ID", by.y="r
 xtabs( ~ enterotypes + cazotype, data=.)
 
 
-infraspecies_food_coi$lX[1:3] %>%
+rbind(infraspecies_food_coi$lX,infraspecies_food_coi_spesup$lisup)[1:3] %>%
   merge(.,IBSMicrobiota::IBSData$metadata %>%
           filter(Visit=="V4",Sample_type=="Stool"), by.x="row.names", by.y="Patient_ID") %>%
   merge(.,cazotypes, by.x="Row.names", by.y="row.names") %>%
@@ -912,18 +1045,12 @@ infraspecies_coi_cor %>%
 
 ```{r, message=FALSE, warning=FALSE}
 
-food_coi_cor %>%
-  merge(food_group_levels %>%
-  select(-Livsmedelsnamn, -Livsmedelsnummer, -Livsmedelsnamn_eng, -Foodstuffs) %>% 
-  filter(used == "yes") %>%  
-  unique %>%
-  arrange(`Food groups lvl4`), by.x="Var1", by.y="Food groups lvl4") %>%
-  filter(abs(A1_cor)>0.3|abs(A2_cor)>0.3|abs(A3_cor)>0.3) %>% arrange(A2_cor) %>%
-  ggplot() + ggrepel::geom_label_repel(aes(x=A1_cor, y=A2_cor, label=`Food groups lvl3`), size=2, label.size = NA, fill=NA)
 
 
+data("nutriscore_food_group")
 
 food_coi_cor %>%
+  merge(.,nutriscore_food_group, by.y="Food groups lvl4", by.x="Var1") %>%
   merge(food_group_levels %>%
   select(-Livsmedelsnamn, -Livsmedelsnummer, -Livsmedelsnamn_eng, -Foodstuffs) %>% 
     filter(used == "yes") %>%  
@@ -931,9 +1058,21 @@ food_coi_cor %>%
   arrange(`Food groups lvl4`), by.x="Var1", by.y="Food groups lvl4") %>%
   unique() %>%
   filter(abs(A1_cor)>0.3|abs(A2_cor)>0.3|abs(A3_cor)>0.3) %>% arrange(A3_cor) %>%
-  ggplot() + ggrepel::geom_label_repel(aes(x=A1_cor, y=A3_cor, label=`Food groups lvl3`), size=2, label.size = NA, fill=NA)
+  ggplot() + ggrepel::geom_label_repel(aes(x=A1_cor, y=A2_cor, label=`Food groups lvl3.x`, color=nutriscore), size=2, label.size = NA, fill=NA)
 
-data("nutriscore_food_group")
+
+food_coi_cor %>%
+  merge(.,nutriscore_food_group, by.y="Food groups lvl4", by.x="Var1") %>%
+  merge(food_group_levels %>%
+  select(-Livsmedelsnamn, -Livsmedelsnummer, -Livsmedelsnamn_eng, -Foodstuffs) %>% 
+    filter(used == "yes") %>%  
+  unique %>%
+  arrange(`Food groups lvl4`), by.x="Var1", by.y="Food groups lvl4") %>%
+  unique() %>%
+  filter(abs(A1_cor)>0.3|abs(A2_cor)>0.3|abs(A3_cor)>0.3) %>% arrange(A3_cor) %>%
+  ggplot() + ggrepel::geom_label_repel(aes(x=A1_cor, y=A3_cor, label=`Food groups lvl3.x`, color=nutriscore), size=2, label.size = NA, fill=NA)
+
+
 
 
 food_coi_cor %>%
@@ -1112,7 +1251,7 @@ prepare data for all the map
 
 df_bar_data =
 
-meat_plant_ratio_df %>%
+meat_plant_ratio %>%
 merge( infraspecies %>% 
   filter(msp_name == "msp_0070") %>%
   select(msp_name_partition,contains("M", ignore.case = FALSE)) %>%
@@ -1122,7 +1261,7 @@ merge( infraspecies %>%
   as.data.frame(), by.x="variable",by.y="row.names", all=TRUE) %>%
   merge(enterotypes %>% filter(Visit == "V4" ), by.x="variable",by.y="Patient_ID", all=TRUE) %>%
   merge(cazotypes, by.x="variable", by.y="row.names",  all=TRUE) %>%
-  merge(infraspecies_food_coi$lX, by.x="variable", by.y="row.names",  all = TRUE) %>%
+  merge(rbind(infraspecies_food_coi$lX,infraspecies_food_coi_spesup$lisup), by.x="variable", by.y="row.names",  all = TRUE) %>%
   arrange(meat_plant_ratio) %>%
   mutate(enterotypes = paste0("ET",enterotypes), cazotype = paste0("CT",cazotype)) %>%
   mutate(Diet_A1_rank = rank(A1))
