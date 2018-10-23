@@ -1109,10 +1109,14 @@ et_grp =
   merge(.,
     IBSMicrobiota::IBSData$metadata %>%
       filter(Visit=="V4", Sample_type =="Stool") %>%
-      select(Gender,Health,Patient_ID, IBS.Severity.Score), by.x="V1", by.y="Patient_ID", all.x=TRUE ) %>%
+      select(Gender,Health,Patient_ID, IBS.Severity.Score, SSgroup), by.x="V1", by.y="Patient_ID", all.x=TRUE ) %>%
   mutate(enterotypes = enterotypes %>% as.character, 
     cazotype = cazotype %>% as.character) %>% 
+  mutate(SS= ifelse(SSgroup=="severe","severe","non-severe")) %>% 
+  mutate(SS = ifelse(is.na(SS),"non-severe",SS)) %>%
   tibble::column_to_rownames("V1")
+
+
 
 #warning : label order for adonis
 
