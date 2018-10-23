@@ -332,6 +332,130 @@ cor(infraspecies_food_coi$lX,infraspecies_pco$li[1:2]) %>%
 ```
 
 
+**distance shuffling**
+
+```{r, eval=FALSE, include=FALSE}
+
+#load(system.file("biom", "food_unifrac.dist", package="IBSFood"))
+
+#set.seed(1)
+
+rv_sim = 1:99
+
+pb <- txtProgressBar(min = 0, max = length(rv_sim), style = 3)
+# 
+# infraspecies_norm =
+# infraspecies %>%
+#   mutate_at(vars(contains("M", ignore.case = F)),function(x){x/sum(x)}) %>% 
+#   select(contains("M",ignore.case = F))
+# 
+# infraspecies_norm_names = colnames(infraspecies_norm)
+# 
+# infraspecies_jsd = BiotypeR::dist.JSD(infraspecies_norm)
+
+for(i in 1:length(rv_sim)) {
+
+#infraspecies_norm = infraspecies_norm %>% apply(.,2, sample) #%>% t  %>% apply(.,2, sample)
+
+#colnames(infraspecies_norm) = infraspecies_norm_names
+#rownames(infraspecies_norm) = rownames(infraspecies)
+    
+#
+  
+  
+  
+A = merge(infraspecies_unifrac %>% broom::tidy(diagonal=TRUE, upper=TRUE),
+food_unifrac %>% broom::tidy(diagonal=TRUE, upper=TRUE) , by=c("item1","item2")) %>%
+  reshape2::dcast(item1~item2, value.var = "distance.x") %>% .[,-1] %>%
+  as.dist()
+
+
+attr(A, "Labels") = sample(A %>% attr(., "Labels"))
+
+A = A %>% as.matrix %>% .[order(attr(A, "Labels")),order(attr(A, "Labels"))] %>% as.dist
+
+
+B = merge(infraspecies_unifrac %>% broom::tidy(diagonal=TRUE, upper=TRUE),
+food_unifrac %>% broom::tidy(diagonal=TRUE, upper=TRUE) , by=c("item1","item2")) %>%
+  reshape2::dcast(item1~item2, value.var = "distance.y") %>% .[,-1] %>%
+  as.dist()
+
+attr(B, "Labels") = sample(B %>% attr(., "Labels"))
+
+B =  B %>% as.matrix %>% .[order(attr(B, "Labels")),order(attr(B, "Labels"))] %>% as.dist
+
+
+infraspecies_unifrac_pco = dudi.pco(A , scannf = F, nf=10)
+
+food_pco = dudi.pco(B %>% ade4::quasieuclid(), scannf = F, nf=10)
+
+
+
+infraspecies_unifrac_food_coi = coinertia(infraspecies_unifrac_pco,food_pco, scannf=F, nf=10)
+
+
+rv_sim[i] = infraspecies_unifrac_food_coi$RV
+setTxtProgressBar(pb, i)
+}
+close(pb)
+
+
+########## observed ############
+# 
+# infraspecies_norm =
+# infraspecies %>%
+#   mutate_at(vars(contains("M", ignore.case = F)),function(x){x/sum(x)}) %>% 
+#   select(contains("M",ignore.case = F))
+# 
+# infraspecies_jsd = BiotypeR::dist.JSD(infraspecies_norm)
+# 
+
+A = merge(infraspecies_unifrac %>% broom::tidy(diagonal=TRUE, upper=TRUE),
+food_unifrac %>% broom::tidy(diagonal=TRUE, upper=TRUE) , by=c("item1","item2")) %>%
+  reshape2::dcast(item1~item2, value.var = "distance.x") %>% .[,-1] %>%
+  as.dist()
+
+
+#attr(A, "Labels") = sample(A %>% attr(., "Labels"))
+
+A = A %>% as.matrix %>% .[order(attr(A, "Labels")),order(attr(A, "Labels"))] %>% as.dist
+
+
+B = merge(infraspecies_unifrac %>% broom::tidy(diagonal=TRUE, upper=TRUE),
+food_unifrac %>% broom::tidy(diagonal=TRUE, upper=TRUE) , by=c("item1","item2")) %>%
+  reshape2::dcast(item1~item2, value.var = "distance.y") %>% .[,-1] %>%
+  as.dist()
+
+B =  B %>% as.matrix %>% .[order(attr(B, "Labels")),order(attr(B, "Labels"))] %>% as.dist
+
+
+infraspecies_unifrac_pco = dudi.pco(A , scannf = F, nf=10)
+
+food_pco = dudi.pco(B %>% ade4::quasieuclid(), scannf = F, nf=10)
+
+
+
+infraspecies_unifrac_food_coi = coinertia(infraspecies_unifrac_pco,food_pco, scannf=F, nf=10)
+
+
+rv_obs = infraspecies_unifrac_food_coi$RV
+
+table(rv_obs >= rv_sim)
+
+
+
+#infra_food_pro = procuste(infraspecies_pco$tab, food_pco$tab, scale = FALSE, nf=3)
+
+
+#randtest(infra_food_pro)
+
+
+
+```
+
+
+
+
 
 
 ### JSD genus
@@ -353,12 +477,12 @@ food_unifrac %>% broom::tidy(diagonal=TRUE, upper=TRUE) , by=c("item1","item2"))
   as.dist()
 
 
-infraspecies_pco = dudi.pco(A %>% ade4::quasieuclid(), scannf = F, nf=10)
+genus_pco = dudi.pco(A %>% ade4::quasieuclid(), scannf = F, nf=10)
 
 food_pco = dudi.pco(B %>% ade4::quasieuclid(), scannf = F, nf=10)
 
 
-infraspecies_food_coi = coinertia(infraspecies_pco,food_pco, scannf=F, nf=10)
+genus_food_coi = coinertia(genus_pco,food_pco, scannf=F, nf=10)
 
 
 
@@ -370,6 +494,129 @@ coinertia(dudi.pca(infraspecies_pco$li, scannf=F, nf=10),dudi.pca(food_pco$li, s
 
 
 ```
+
+
+**distance shuffling**
+
+```{r, eval=FALSE, include=FALSE}
+
+#load(system.file("biom", "food_unifrac.dist", package="IBSFood"))
+
+#set.seed(1)
+
+rv_sim = 1:99
+
+pb <- txtProgressBar(min = 0, max = length(rv_sim), style = 3)
+# 
+# infraspecies_norm =
+# infraspecies %>%
+#   mutate_at(vars(contains("M", ignore.case = F)),function(x){x/sum(x)}) %>% 
+#   select(contains("M",ignore.case = F))
+# 
+# infraspecies_norm_names = colnames(infraspecies_norm)
+# 
+# infraspecies_jsd = BiotypeR::dist.JSD(infraspecies_norm)
+
+for(i in 1:length(rv_sim)) {
+
+#infraspecies_norm = infraspecies_norm %>% apply(.,2, sample) #%>% t  %>% apply(.,2, sample)
+
+#colnames(infraspecies_norm) = infraspecies_norm_names
+#rownames(infraspecies_norm) = rownames(infraspecies)
+    
+#
+  
+  
+  
+A = merge(genus_jsd %>% broom::tidy(diagonal=TRUE, upper=TRUE),
+food_unifrac %>% broom::tidy(diagonal=TRUE, upper=TRUE) , by=c("item1","item2")) %>%
+  reshape2::dcast(item1~item2, value.var = "distance.x") %>% .[,-1] %>%
+  as.dist()
+
+
+attr(A, "Labels") = sample(A %>% attr(., "Labels"))
+
+A = A %>% as.matrix %>% .[order(attr(A, "Labels")),order(attr(A, "Labels"))] %>% as.dist
+
+
+B = merge(genus_jsd %>% broom::tidy(diagonal=TRUE, upper=TRUE),
+food_unifrac %>% broom::tidy(diagonal=TRUE, upper=TRUE) , by=c("item1","item2")) %>%
+  reshape2::dcast(item1~item2, value.var = "distance.y") %>% .[,-1] %>%
+  as.dist()
+
+attr(B, "Labels") = sample(B %>% attr(., "Labels"))
+
+B =  B %>% as.matrix %>% .[order(attr(B, "Labels")),order(attr(B, "Labels"))] %>% as.dist
+
+
+genus_pco = dudi.pco(A , scannf = F, nf=10)
+
+food_pco = dudi.pco(B %>% ade4::quasieuclid(), scannf = F, nf=10)
+
+
+
+genus_food_coi = coinertia(genus_pco,food_pco, scannf=F, nf=10)
+
+
+rv_sim[i] = genus_food_coi$RV
+setTxtProgressBar(pb, i)
+}
+close(pb)
+
+
+########## observed ############
+# 
+# infraspecies_norm =
+# infraspecies %>%
+#   mutate_at(vars(contains("M", ignore.case = F)),function(x){x/sum(x)}) %>% 
+#   select(contains("M",ignore.case = F))
+# 
+# infraspecies_jsd = BiotypeR::dist.JSD(infraspecies_norm)
+# 
+
+A = merge(genus_jsd %>% broom::tidy(diagonal=TRUE, upper=TRUE),
+food_unifrac %>% broom::tidy(diagonal=TRUE, upper=TRUE) , by=c("item1","item2")) %>%
+  reshape2::dcast(item1~item2, value.var = "distance.x") %>% .[,-1] %>%
+  as.dist()
+
+
+#attr(A, "Labels") = sample(A %>% attr(., "Labels"))
+
+A = A %>% as.matrix %>% .[order(attr(A, "Labels")),order(attr(A, "Labels"))] %>% as.dist
+
+
+B = merge(genus_jsd %>% broom::tidy(diagonal=TRUE, upper=TRUE),
+food_unifrac %>% broom::tidy(diagonal=TRUE, upper=TRUE) , by=c("item1","item2")) %>%
+  reshape2::dcast(item1~item2, value.var = "distance.y") %>% .[,-1] %>%
+  as.dist()
+
+B =  B %>% as.matrix %>% .[order(attr(B, "Labels")),order(attr(B, "Labels"))] %>% as.dist
+
+
+genus_pco = dudi.pco(A , scannf = F, nf=10)
+
+food_pco = dudi.pco(B %>% ade4::quasieuclid(), scannf = F, nf=10)
+
+
+
+genus_food_coi = coinertia(genus_pco,food_pco, scannf=F, nf=10)
+
+
+rv_obs = genus_food_coi$RV
+
+table(rv_obs >= rv_sim)
+
+
+
+#infra_food_pro = procuste(infraspecies_pco$tab, food_pco$tab, scale = FALSE, nf=3)
+
+
+#randtest(infra_food_pro)
+
+
+
+```
+
 
 
 
@@ -832,6 +1079,21 @@ food_unifrac %>% broom::tidy(diagonal=TRUE, upper=TRUE) , by=c("item1","item2"))
   reshape2::dcast(item1~item2, value.var = "distance.x") %>% .[,-1] %>%
   as.dist()
 
+A_genus = merge(genus_jsd %>% broom::tidy(diagonal=TRUE, upper=TRUE),
+food_unifrac %>% broom::tidy(diagonal=TRUE, upper=TRUE) , by=c("item1","item2")) %>%
+  reshape2::dcast(item1~item2, value.var = "distance.x") %>% .[,-1] %>%
+  as.dist()
+
+A_species = merge(species_jsd %>% broom::tidy(diagonal=TRUE, upper=TRUE),
+food_unifrac %>% broom::tidy(diagonal=TRUE, upper=TRUE) , by=c("item1","item2")) %>%
+  reshape2::dcast(item1~item2, value.var = "distance.x") %>% .[,-1] %>%
+  as.dist()
+
+A_unifrac = merge(infraspecies_unifrac %>% broom::tidy(diagonal=TRUE, upper=TRUE),
+food_unifrac %>% broom::tidy(diagonal=TRUE, upper=TRUE) , by=c("item1","item2")) %>%
+  reshape2::dcast(item1~item2, value.var = "distance.x") %>% .[,-1] %>%
+  as.dist()
+
 B = merge(infraspecies_jsd %>% broom::tidy(diagonal=TRUE, upper=TRUE),
 food_unifrac %>% broom::tidy(diagonal=TRUE, upper=TRUE) , by=c("item1","item2")) %>%
   reshape2::dcast(item1~item2, value.var = "distance.y") %>% .[,-1] %>%
@@ -874,7 +1136,20 @@ vegan::adonis(A  ~ Gender * Health * cazotype , data=et_grp[attr(A,"Label"),] )
 
 vegan::adonis2(B %>% ade4::quasieuclid()  ~ Gender * Health * enterotypes * cazotype , data=et_grp[attr(B,"Label"),] , by="terms")
 
+vegan::adonis2(B %>% ade4::quasieuclid()  ~ Gender * Health * enterotypes * cazotype , data=et_grp[attr(B,"Label"),] , by=NULL)
 vegan::adonis2(A  ~ Gender * Health * enterotypes * cazotype , data=et_grp[attr(A,"Label"),], by="terms" )
+vegan::adonis2(A_species  ~ Gender * Health * enterotypes * cazotype , data=et_grp[attr(A_species,"Label"),], by="terms" )
+vegan::adonis2(A_genus  ~ Gender * Health * enterotypes * cazotype , data=et_grp[attr(A_genus,"Label"),], by="terms" )
+vegan::adonis2(A_unifrac  ~ Gender * Health * enterotypes * cazotype , data=et_grp[attr(A_unifrac,"Label"),], by="terms" )
+
+
+
+perm <- permute::how(nperm = 999)
+#vegan::adonis2(A  ~ Health * enterotypes * cazotype , data=et_grp[attr(A,"Label"),])
+#vegan::adonis2(A  ~ Health * enterotypes * cazotype , data=et_grp[attr(A,"Label"),], permutations = perm)
+permute::setBlocks(perm) <- with(et_grp[attr(A,"Label"),], Gender)
+vegan::adonis2(A  ~ Health * enterotypes * cazotype , data=et_grp[attr(A,"Label"),], permutations = perm)
+vegan::adonis2(B %>% ade4::quasieuclid()  ~ Health * enterotypes * cazotype , data=et_grp[attr(B,"Label"),] ,  permutations = perm)
 
 
      dudi.pco(A,scannf=F, nf=3) %>% .$li %>% merge(.,et_grp, by="row.names") %>%  ggplot() + geom_point(aes(x=A1,y=A2,col=enterotypes %>% as.character))
