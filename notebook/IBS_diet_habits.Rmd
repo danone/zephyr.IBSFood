@@ -606,6 +606,20 @@ unifrac_pco$li %>%
   geom_point(data = . %>% group_by(Health) %>% summarize(A2=median(A2*2)), aes(x=Health, y=A2) , size=5, shape=18  ) + 
   scale_color_brewer("CI") + ylab("PCoA2") -> Health_pcoa_plot
 
+
+unifrac_pco$li %>%
+  merge(.,
+     IBSData$metadata %>% 
+       select(Patient_ID,Health,Gender,SSgroup,IBS_subtypes,Methanogens_qPCR, H2_group, CH4_group) %>% unique(),
+   by.y="Patient_ID",
+   by.x="row.names") %>%
+ ggplot() + 
+  geom_interval(data= . %>% group_by(SSgroup) %>% tidybayes::mean_qi(A2=A2*2 , .prob = c(.5, .66, .95, .99)) , aes(x=SSgroup, y=A2)) +
+  #geom_jitter(aes(x=Gender, y=A1), width=0.1) +
+  geom_point(data = . %>% group_by(SSgroup) %>% summarize(A2=median(A2*2)), aes(x=SSgroup, y=A2) , size=5, shape=18  ) + 
+  scale_color_brewer("CI") + ylab("PCoA2") -> Severity_pcoa_plot
+
+
 cowplot::plot_grid(food_tree_unifrac_pcoa_plot,  cowplot::plot_grid(Gender_pcoa_plot,Health_pcoa_plot, nrow=2), rel_widths = c(4,1))
 
 
