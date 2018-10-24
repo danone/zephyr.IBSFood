@@ -184,6 +184,21 @@ infraspecies_jsd = BiotypeR::dist.JSD(infraspecies %>%
 
 save(infraspecies_jsd, file="infraspecies_jsd")
 
+
+infraspecies %>% 
+  group_by(phylum) %>%
+  summarise_at(vars(contains("M", ignore.case = F)),
+    function(x){sum(x)}) %>%
+  ungroup() %>%
+  mutate_at(vars(contains("M", ignore.case = F)),
+    function(x){x/sum(x)}) %>% 
+  select(contains("M",ignore.case = F)) %>%
+  BiotypeR::dist.JSD() -> phylum_jsd
+
+save(phylum_jsd, file="phylum_jsd")
+
+
+
 infraspecies %>% 
   group_by(genus) %>%
   summarise_at(vars(contains("M", ignore.case = F)),
@@ -448,6 +463,43 @@ table(rv_obs >= rv_sim)
 
 
 #randtest(infra_food_pro)
+
+
+
+```
+
+
+### JSD Phylum
+```{r}
+
+
+
+load(system.file("biom", "food_unifrac.dist", package="IBSFood"))
+
+A = merge(phylum_jsd %>% broom::tidy(diagonal=TRUE, upper=TRUE),
+food_unifrac %>% broom::tidy(diagonal=TRUE, upper=TRUE) , by=c("item1","item2")) %>%
+  reshape2::dcast(item1~item2, value.var = "distance.x") %>% .[,-1] %>%
+  as.dist()
+
+B = merge(phylum_jsd %>% broom::tidy(diagonal=TRUE, upper=TRUE),
+food_unifrac %>% broom::tidy(diagonal=TRUE, upper=TRUE) , by=c("item1","item2")) %>%
+  reshape2::dcast(item1~item2, value.var = "distance.y") %>% .[,-1] %>%
+  as.dist()
+
+
+phylum_pco = dudi.pco(A %>% ade4::quasieuclid(), scannf = F, nf=10)
+
+food_pco = dudi.pco(B %>% ade4::quasieuclid(), scannf = F, nf=10)
+
+
+phylum_food_coi = coinertia(phylum_pco,food_pco, scannf=F, nf=10)
+
+
+
+
+coinertia(dudi.pca(phylum_pco$li, scannf=F, nf=10),dudi.pca(food_pco$li, scannf=F, nf=10), scannf=F, nf=3) %>% randtest
+
+
 
 
 
@@ -1066,7 +1118,7 @@ food_group_levels %>%
 
 
 
-```{r}
+```{r, fig.height=4, fig.width=8}
 
 data("enterotypes")
 
@@ -1075,6 +1127,11 @@ data("cazotypes")
 load(system.file("biom", "food_unifrac.dist", package="IBSFood"))
 
 A = merge(infraspecies_jsd %>% broom::tidy(diagonal=TRUE, upper=TRUE),
+food_unifrac %>% broom::tidy(diagonal=TRUE, upper=TRUE) , by=c("item1","item2")) %>%
+  reshape2::dcast(item1~item2, value.var = "distance.x") %>% .[,-1] %>%
+  as.dist()
+
+A_phylum = merge(phylum_jsd %>% broom::tidy(diagonal=TRUE, upper=TRUE),
 food_unifrac %>% broom::tidy(diagonal=TRUE, upper=TRUE) , by=c("item1","item2")) %>%
   reshape2::dcast(item1~item2, value.var = "distance.x") %>% .[,-1] %>%
   as.dist()
@@ -1109,11 +1166,13 @@ et_grp =
   merge(.,
     IBSMicrobiota::IBSData$metadata %>%
       filter(Visit=="V4", Sample_type =="Stool") %>%
-      select(Gender,Health,Patient_ID, IBS.Severity.Score, SSgroup), by.x="V1", by.y="Patient_ID", all.x=TRUE ) %>%
+      select(Gender,Health,Patient_ID, IBS.Severity.Score, SSgroup,H2_group,CH4_group), by.x="V1", by.y="Patient_ID", all.x=TRUE ) %>%
   mutate(enterotypes = enterotypes %>% as.character, 
     cazotype = cazotype %>% as.character) %>% 
   mutate(SS= ifelse(SSgroup=="severe","severe","non-severe")) %>% 
   mutate(SS = ifelse(is.na(SS),"non-severe",SS)) %>%
+  mutate(H2_group = ifelse(is.na(H2_group),"low",H2_group)) %>%
+  mutate(CH4_group = ifelse(is.na(CH4_group),"low",CH4_group)) %>%
   tibble::column_to_rownames("V1")
 
 
@@ -1141,16 +1200,60 @@ vegan::adonis(A  ~ Gender * Health * cazotype , data=et_grp[attr(A,"Label"),] )
 vegan::adonis2(B %>% ade4::quasieuclid()  ~ Gender * Health * enterotypes * cazotype , data=et_grp[attr(B,"Label"),] , by="terms")
 
 vegan::adonis2(B %>% ade4::quasieuclid()  ~ Gender * Health * enterotypes * cazotype , data=et_grp[attr(B,"Label"),] , by=NULL)
-vegan::adonis2(A  ~ Gender * Health * enterotypes * cazotype , data=et_grp[attr(A,"Label"),], by="terms" )
-vegan::adonis2(A_species  ~ Gender * Health * enterotypes * cazotype , data=et_grp[attr(A_species,"Label"),], by="terms" )
-vegan::adonis2(A_genus  ~ Gender * Health * enterotypes * cazotype , data=et_grp[attr(A_genus,"Label"),], by="terms" )
-vegan::adonis2(A_unifrac  ~ Gender * Health * enterotypes * cazotype , data=et_grp[attr(A_unifrac,"Label"),], by="terms" )
+
+## test by each taxo ranl
+
+vegan::adonis2(A_unifrac  ~ Gender * Health * enterotypes * cazotype * H2_group * CH4_group , data=et_grp[attr(A_unifrac,"Label"),], by="terms" ) %>% broom::tidy()
+
+vegan::adonis2(A_phylum  ~ Gender * Health * enterotypes * cazotype * H2_group * CH4_group, data=et_grp[attr(A_phylum,"Label"),], by="terms" ) %>% broom::tidy()
+vegan::adonis2(A_genus  ~ Gender * Health * enterotypes * cazotype * H2_group * CH4_group, data=et_grp[attr(A_genus,"Label"),], by="terms" ) %>% broom::tidy()
+vegan::adonis2(A_species  ~ Gender * Health * enterotypes * cazotype * H2_group * CH4_group, data=et_grp[attr(A_species,"Label"),], by="terms" ) %>% broom::tidy()
+vegan::adonis2(A  ~ Gender * Health * enterotypes * cazotype * H2_group * CH4_group, data=et_grp[attr(A,"Label"),], by="terms" ) %>% broom::tidy()
+
+
+# same with Gender blocked permutation
+
+set.seed(222)
+perm <- permute::how(nperm = 999)
+
+permute::setBlocks(perm) <- with(et_grp[attr(A_unifrac,"Label"),], Gender)
+vegan::adonis2(A_unifrac  ~ Health * SS * enterotypes * cazotype * H2_group * CH4_group, data=et_grp[attr(A_unifrac,"Label"),], by="terms", permutations = perm ) %>% broom::tidy()
+
+rbind(
+permute::setBlocks(perm) <- with(et_grp[attr(A_phylum,"Label"),], Gender),
+vegan::adonis2(A_phylum  ~ Health * SS * enterotypes * cazotype * H2_group * CH4_group, data=et_grp[attr(A_phylum,"Label"),], by="terms", permutations = perm  ) %>% broom::tidy() %>% mutate(tax="01_phylum"),
+
+permute::setBlocks(perm) <- with(et_grp[attr(A_genus,"Label"),], Gender),
+vegan::adonis2(A_genus  ~ Health * SS * enterotypes * cazotype * H2_group * CH4_group, data=et_grp[attr(A_genus,"Label"),], by="terms", permutations = perm  ) %>% broom::tidy() %>% mutate(tax="02_genus"),
+
+permute::setBlocks(perm) <- with(et_grp[attr(A_species,"Label"),], Gender),
+vegan::adonis2(A_species  ~ Health * SS * enterotypes * cazotype * H2_group * CH4_group, data=et_grp[attr(A_species,"Label"),], by="terms", permutations = perm  ) %>% broom::tidy() %>% mutate(tax="03_species"),
+
+permute::setBlocks(perm) <- with(et_grp[attr(A,"Label"),], Gender),
+vegan::adonis2(A  ~ Health * SS * enterotypes * cazotype * H2_group * CH4_group, data=et_grp[attr(A,"Label"),], by="terms", permutations = perm  ) %>% broom::tidy() %>% mutate(tax="04_infraspecies")
+) -> jsd_permanova
+
+jsd_permanova %>%
+  filter(term %in% c("Health","SS","enterotypes","cazotype","H2_group","CH4_group")) %>%
+  select(term,R2,p.value,tax) %>%
+  rename(p_value = p.value) %>%
+  ggplot() + 
+  geom_bar(aes(y=R2,x=tax, fill=p_value <=0.05 ), stat="identity") + 
+  facet_wrap(~term) + scale_y_continuous(labels = scales::percent) +
+  coord_flip() + guides(fill=FALSE)
+
+ggsave("jsd_permanova.pdf",h=4,w=8)
+
+permute::setBlocks(perm) <- with(et_grp[attr(B,"Label"),], Gender)
+vegan::adonis2(B  ~ Health * SS * enterotypes * cazotype * H2_group * CH4_group, data=et_grp[attr(B,"Label"),], by="terms", permutations = perm  ) %>% broom::tidy()
+
+vegan::adonis2(B  ~ Health *  enterotypes * cazotype , data=et_grp[attr(B,"Label"),], by=NULL, permutations = perm  ) %>% broom::tidy()
 
 
 
 perm <- permute::how(nperm = 999)
 #vegan::adonis2(A  ~ Health * enterotypes * cazotype , data=et_grp[attr(A,"Label"),])
-#vegan::adonis2(A  ~ Health * enterotypes * cazotype , data=et_grp[attr(A,"Label"),], permutations = perm)
+vegan::adonis2(A  ~ Health * enterotypes * cazotype , data=et_grp[attr(A,"Label"),], permutations = perm)
 permute::setBlocks(perm) <- with(et_grp[attr(A,"Label"),], Gender)
 vegan::adonis2(A  ~ Health * enterotypes * cazotype , data=et_grp[attr(A,"Label"),], permutations = perm)
 vegan::adonis2(B %>% ade4::quasieuclid()  ~ Health * enterotypes * cazotype , data=et_grp[attr(B,"Label"),] ,  permutations = perm)
@@ -1223,7 +1326,7 @@ rbind(infraspecies_food_coi$lX,infraspecies_food_coi_spesup$lisup)[1:3] %>%
   mutate(breath_H2 = ifelse(H2>10,"High_H2","Low_H2"), breath_CH4 = ifelse(CH4>10,"High_CH4","Low_CH4")) %>%
   ggplot() + geom_boxplot(aes( y=AxcX1, x=paste(breath_H2,breath_CH4))) + coord_flip()
 
-
+## enterotypes
 data("enterotypes")
 
 
@@ -1251,6 +1354,29 @@ rbind(infraspecies_food_coi$lX,infraspecies_food_coi_spesup$lisup)[1:3] %>%
   mutate(enterotypes = enterotypes %>% as.character) %>%
   ggplot() + geom_jitter(aes(x=enterotypes,y=AxcX1))
 
+
+## cazotype
+
+rbind(infraspecies_food_coi$lX,infraspecies_food_coi_spesup$lisup)[1:3] %>%
+  merge(.,IBSMicrobiota::IBSData$metadata %>%
+          filter(Visit=="V4",Sample_type=="Stool"), by.x="row.names", by.y="Patient_ID") %>%
+  merge(.,cazotypes, by.x="Row.names", by.y="row.names") %>%
+  mutate(cazotype = cazotype %>% as.character) %>%
+  ggplot() + geom_jitter(aes(x=cazotype,y=AxcX3))
+
+rbind(infraspecies_food_coi$lX,infraspecies_food_coi_spesup$lisup)[1:3] %>%
+  merge(.,IBSMicrobiota::IBSData$metadata %>%
+          filter(Visit=="V4",Sample_type=="Stool"), by.x="row.names", by.y="Patient_ID") %>%
+  merge(.,cazotypes, by.x="Row.names", by.y="row.names") %>%
+  mutate(cazotype = cazotype %>% as.character) %>%
+  ggplot() + geom_jitter(aes(x=cazotype,y=AxcX2))
+
+rbind(infraspecies_food_coi$lX,infraspecies_food_coi_spesup$lisup)[1:3] %>%
+  merge(.,IBSMicrobiota::IBSData$metadata %>%
+          filter(Visit=="V4",Sample_type=="Stool"), by.x="row.names", by.y="Patient_ID") %>%
+  merge(.,cazotypes, by.x="Row.names", by.y="row.names") %>%
+  mutate(cazotype = cazotype %>% as.character) %>%
+  ggplot() + geom_boxplot(aes(x=cazotype,y=AxcX1))
 
 
 rbind(infraspecies_food_coi$lX,infraspecies_food_coi_spesup$lisup)[1:3] %>%
