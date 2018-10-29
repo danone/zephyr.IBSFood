@@ -201,14 +201,116 @@ ggsave("msp_0070_diff.pdf")
 ```
 
 
+```{r}
+
+
+
+msp_target="msp_0113"
+
+infraspecies %>%
+  filter(msp_name == msp_target) %>%
+  select(species,genus,family)
+
+
+merge(counts_rescaled, 
+      MSP_genes_id_corresp %>% 
+        select(msp_name,module_name,gene_name_v2) %>% 
+        filter(msp_name %in% c(msp_target)),
+      by.x="genes.id", by.y="gene_name_v2") -> msp_counts
+
+binarize_MSP(msp_counts=msp_counts, cutoff_med = 10) -> binary_msp
+
+
+infraspecies %>%
+  filter(msp_name == msp_target) %>%
+  select(contains("M"), msp_name, msp_name_partition) %>%
+  reshape2::melt(id.vars=c("msp_name","msp_name_partition")) %>%
+  group_by(variable) %>%
+  top_n(1, wt = value ) %>%
+  rename(partition = msp_name_partition)  -> clusters_msp
+
+
+
+#binary_msp %>% colnames
+
+
+#test_MSP_gene(binary_msp = binary_msp, clusters_msp = clusters_msp)
+
+
+binary_msp %>%
+  filter(module_name != "core") %>%
+  reshape2::melt(id.vars=c("genes.id","module_name")) %>%
+  merge(., clusters_msp,
+        by=c("variable")) %>%
+  group_by(genes.id) %>%
+  mutate(s=sum(value.x),l=length(value.x)) %>%
+  filter(s>0, s<l) %>%
+  do(w = with(.,suppressWarnings(chisq.test(partition,value.x,simulate.p.value = FALSE))  )) %>%
+  broom::tidy(w) %>%
+  ungroup() %>%
+  mutate(fdr=p.adjust(p.value, method="fdr")) %>%
+  filter(fdr<0.05) %>%
+  select(genes.id,p.value,fdr) -> test_msp
+
+
+partitionize_MSP(binary_msp=binary_msp) -> clusters_msp
+
+
+plot_MSP(binary_msp=binary_msp, 
+         clusters_msp=clusters_msp$sample, 
+         clusters_msp_gene = clusters_msp$gene)
+
+ggsave("msp_0113.pdf")
+
+
+test_MSP_gene(binary_msp=binary_msp, 
+         clusters_msp=clusters_msp$sample) -> test_msp
+
+
+
+  test_msp %>%
+    filter(fdr<0.05) %>%
+    left_join(binary_msp) %>%
+    #head %>%
+    select(-p.value,-fdr,-module_name) %>%
+    reshape2::melt(id.vars="genes.id") %>%
+    merge(clusters_msp$sample$partition %>% as.matrix %>% as.data.frame() , by.y = "row.names", by.x="variable" ) %>%
+    #reshape2::dcast(genes.id~variable+V1, value.var="value") %>%
+    ggplot() + geom_tile(aes(x=genes.id,y=variable, fill=value %>% as.character)) + 
+    facet_grid(~V1, scales = "free_x") + ylab("") +
+    theme(axis.text = element_blank()) + coord_flip() + guides(fill=FALSE) + scale_fill_manual(values = c("black","yellow"))
+  
+ggsave("msp_0113_diff.pdf")  
+  
+  
+
+
+```
+
 
 ```{r}
 
+candidate_species = c("msp_0070","msp_0506","msp_0113","msp_0079")
+
+
+
+
+```
+
+
+
+
+```{r eval=FALSE, include=FALSE}
+
 metahit.sqlite.db = src_sqlite("/tmp/metahit.v2.sqlite.db")
 
+# sqlite="~/storage/metahit/metahit.v2.sqlite.db"
+# metahit.sqlite.db = src_sqlite(sqlite)
+ 
 kegg_sqlite = tbl(metahit.sqlite.db, "kegg")
 
 cazy_sqlite = tbl(metahit.sqlite.db, "cazy")
+
 
 
 test_msp %>% 
@@ -225,8 +327,29 @@ test_msp %>%
 ```
 
 
+### with raw file
+
+```{r}
+#kegg_path = "/home/tapju/storage/metahit/rawfiles/metahit.kegg.csv"
+#kegg_df = readr::read_csv2(kegg_path)
+
+#cazy_path = "/home/tapju/storage/metahit/rawfiles/metahit.cazy.csv"
+#cazy_df = readr::read_csv2(cazy_path)
 
 
+
+test_msp %>% 
+  filter(fdr<0.05) %>%
+  #dplyr::rename(genes_id = `genes.id`) %>%
+  left_join(kegg_df,  copy=TRUE ) %>%
+  left_join(cazy_df,  copy=TRUE ) %>%
+  arrange(genes.id) %>%
+  filter(!is.na(KO) | !is.na(cazy.family))
+  #filter(!is.na(KO))
+
+
+
+```
 
 
 
