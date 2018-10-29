@@ -175,7 +175,7 @@ cowplot::plot_grid(
 pB_yoghurt
 )
 
-
+ggsave("yogurt_clustering.pdf")
 
 
 
@@ -216,7 +216,7 @@ cowplot::plot_grid(
 pB_cereals
 )
 
-
+ggsave("cereals_clustering.pdf")
 
 
 ```
@@ -257,8 +257,10 @@ food_data %>%
 food_data %>%
   group_by(Identity, Day, Meal) %>%
   summarise(n=n()) %>%
-  ggplot() + geom_bar(aes(x=Identity,y=n,fill=Meal),stat="identity") + facet_wrap(~Day, ncol=4) + coord_flip()
+  ggplot() + geom_bar(aes(x=Identity,y=n,fill=Meal),stat="identity", color="grey") + 
+  facet_wrap(~Day, ncol=4) + coord_flip() + theme(axis.text.y=element_blank()) + scale_fill_brewer(type="qual")
 
+ggsave("Meal_per_day_subject.pdf")
 
 food_data %>%
   group_by(Identity, Day) %>%
@@ -296,6 +298,7 @@ food_data %>%
 n_nutrient_food_group %>%
   ggplot() + geom_histogram(aes(x=n), bins=30) + xlab("Number of different food nutrient based group")
   
+ggsave("food_otu_count_distribution.pdf")
 
 # mod = mclust::densityMclust(n_nutrient_food_group$n) # no bimodality
 # plot(mod)
@@ -330,6 +333,8 @@ merge(n_nutrient_food_group,n_Gram,by="Identity") %>%
   melt(id.vars=c("Identity","n","Gram")) %>%
   ggplot() + geom_point(aes(x=n,y=Gram, col=value)) + facet_wrap(~variable) + scale_colour_manual(values=rainbow(12))
 
+ggsave("Gram_nb_food_item.pdf")
+
 
  food_data %>%
   select(Identity,Day,Meal,Code,Foodstuffs,Gram) %>%
@@ -351,6 +356,7 @@ merge(n_nutrient_food_group,n_Gram,by="Identity") %>%
    ggplot() +  geom_boxplot(aes(y=Gram, x=value)) + facet_wrap(~variable, scale="free_x") 
 
  
+ggsave("Gram_per_health_status.pdf") 
  
  
 ```
@@ -385,6 +391,7 @@ merge(n_nutrient_food_group,n_Gram,by="Identity") %>%
    ggplot() +  geom_boxplot(aes(y=F_obs, x=value)) + facet_wrap(~variable, scale="free_x") + 
   ylab("Number of food nutrient OTU\n(rarefied for 2500g)")
 
+ggsave("food_otu_rarefied.pdf")
  
  food_data %>%
   select(Identity,Day,Meal,Code,Foodstuffs,Gram) %>%
@@ -821,7 +828,10 @@ diet_plot = cowplot::plot_grid(
 
 
 
-diet_plot  
+print(diet_plot)
+
+ggsave("Diet_PCoA_plot.pdf")
+
 
 ```
 
