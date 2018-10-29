@@ -1262,10 +1262,57 @@ vegan::adonis2(B %>% ade4::quasieuclid()  ~ Health * enterotypes * cazotype , da
      dudi.pco(A,scannf=F, nf=3) %>% .$li %>% merge(.,et_grp, by="row.names") %>%  ggplot() + geom_point(aes(x=A1,y=A2,col=enterotypes %>% as.character))
 
      dudi.pco(B %>% ade4::quasieuclid(),scannf=F, nf=3) %>% .$li %>% merge(.,et_grp, by="row.names") %>%  ggplot() + geom_point(aes(x=A1,y=A2,col=cazotype %>% as.character))
+     
+     dudi.pco(B %>% ade4::quasieuclid(),scannf=F, nf=3) %>% .$li %>% merge(.,et_grp, by="row.names") %>%  ggplot() + geom_point(aes(x=A1,y=A2,col=enterotypes %>% as.character))
 
 ```
 
 
+### between within analysis cazotypes
+
+```{r}
+
+B %>% 
+  broom::tidy() %>%
+  merge(.,et_grp, by.x="item1", by.y="row.names") %>%
+  merge(.,et_grp, by.x="item2", by.y="row.names") %>%
+  mutate(group = ifelse(cazotype.x == cazotype.y, "within","between")) %>%
+  ggplot() + 
+  #geom_violin(aes(y=distance,x=cazotype.x,fill=group))
+  geom_interval(data= . %>% group_by(cazotype.x,group) %>% tidybayes::mean_qi(distance=distance , .prob = c(.5, .66, .95, .99)) , aes(x=paste(cazotype.x,group), y=distance)) +
+  #geom_jitter(aes(x=Gender, y=A1), width=0.1) +
+  geom_point(data = . %>% group_by(cazotype.x,group) %>% summarize(distance=median(distance)), aes(x=paste(cazotype.x,group), y=distance) , size=5, shape=18  ) + 
+  scale_color_brewer("c.i.") +
+  facet_wrap(~paste("cazotype",cazotype.x),nrow = 1, scale="free_x") +
+  xlab("")
+
+B %>% 
+  broom::tidy() %>%
+  merge(.,et_grp, by.x="item1", by.y="row.names") %>%
+  merge(.,et_grp, by.x="item2", by.y="row.names") %>%
+  mutate(group = ifelse(cazotype.x == cazotype.y, "within","between")) %>%
+  group_by(cazotype.x) %>%
+  do(w=with(.,t.test(distance~group))) %>% broom::tidy(w)
+
+
+B %>% 
+  broom::tidy() %>%
+  merge(.,et_grp, by.x="item1", by.y="row.names") %>%
+  merge(.,et_grp, by.x="item2", by.y="row.names") %>%
+  mutate(group = ifelse(enterotypes.x == enterotypes.y, "within","between")) %>%
+  ggplot() + geom_violin(aes(y=distance,x=enterotypes.x,fill=group))
+  
+
+B %>% 
+  broom::tidy() %>%
+  merge(.,et_grp, by.x="item1", by.y="row.names") %>%
+  merge(.,et_grp, by.x="item2", by.y="row.names") %>%
+  mutate(group = ifelse(enterotypes.x == enterotypes.y, "within","between")) %>%
+  group_by(enterotypes.x) %>%
+  do(w=with(.,t.test(distance~group))) %>% broom::tidy(w)
+
+
+```
 
 
 
