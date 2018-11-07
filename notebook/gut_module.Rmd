@@ -1,0 +1,152 @@
+---
+title: "generate the gut metabolism module dataset"
+output: html_notebook
+---
+
+## Load library
+```{r}
+
+library(dplyr)
+library(magrittr)
+library(ggplot2)
+
+devtools::load_all()
+
+
+
+
+
+```
+
+
+## Load data
+```{r}
+
+
+data("hs3_9.genes_length")
+data("counts")
+data("MSP_tax")
+data("MSP_genes_id_corresp")
+
+
+
+
+
+```
+
+
+## normalize count data
+```{r}
+
+
+merge(counts, hs3_9.genes_length, by.x="id_fragment", by.y="row.names") %>%
+  select(-id_fragment, -id_fragment_external, -sample_count) -> counts
+
+
+cols = grep("M", colnames(counts), value=TRUE)
+
+total_reads = apply(counts[cols],2,sum)
+
+remove_sample = which(total_reads < 1000000) %>% names
+
+
+
+counts[cols] = lapply(counts[cols], `/`, counts$length) 
+
+
+#
+
+
+#counts_rescaled = counts %>% select(-one_of(remove_sample))
+
+counts[cols] = prop.table(counts[cols] %>% as.matrix ,2)
+
+counts_rescaled = counts
+
+counts_rescaled[cols] = counts_rescaled[cols] %>% t %>% multiply_by(total_reads %>% as.numeric ) %>% t %>% round()
+
+
+total_reads %>% as.matrix() %>% as.data.frame %>% write.csv2(.,file="total_reads.csv")
+
+
+```
+
+
+
+
+## import metahit database
+```{r}
+
+
+metahit.sqlite.db <- src_sqlite("/tmp/metahit.v2.sqlite.db")
+
+kegg_sqlite <- tbl(metahit.sqlite.db, "kegg")
+
+
+
+
+
+
+```
+
+## aggregate count at KEGG levels
+
+```{r}
+
+
+
+kegg_sqlite %>%
+  merge(.,counts_rescaled, by.x="genes_id", by.y="genes.id") %>%
+  #head %>%
+  select(-genes_id,-kegg_genes,-length) %>%
+  group_by(KO) %>%
+  summarise_all(sum) -> KO_counts
+
+write.csv2(KO_counts, file="KO_counts.csv")
+
+
+
+KO_counts %>% head
+
+counts_rescaled %>% head
+
+```
+
+## generate global gut modules
+
+```{r}
+
+library(omixerRpm)
+
+mods = rpm(KO_counts, minimum.coverage = 0.3, annotation = 1)
+
+save(mods, file="modules.rda")
+
+db = omixerRpm::loadDefaultDB()
+
+mods@annotation
+
+cbind(module=mods@annotation,mods@abundance,annotation=apply(mods@annotation,1,function(x) omixerRpm::getNames(db,x))) %>%
+  write.csv2(.,file="kegg_gut_modules.csv")
+
+
+
+```
+
+
+
+
+```{r}
+
+
+
+
+
+
+
+```
+
+
+
+
+
