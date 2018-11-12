@@ -83,6 +83,20 @@ counts = counts %>% select(-one_of(remove_sample))
 ```
 
 
+### compute gene count after rarefaction
+
+```{r}
+
+counts_rescaled %>% 
+  .[,1:144] %>%
+  vegan::rarefy(.,sample=10^6) -> gene_counts
+  
+
+  
+
+```
+
+
 ### MSP counts correspondance
 
 ```{r, message=FALSE, warning=FALSE}
@@ -205,7 +219,11 @@ ggsave("msp_0070_diff.pdf")
 
 
 
-msp_target="msp_0113"
+msp_target="msp_0071"
+
+
+
+
 
 infraspecies %>%
   filter(msp_name == msp_target) %>%
@@ -260,7 +278,7 @@ plot_MSP(binary_msp=binary_msp,
          clusters_msp=clusters_msp$sample, 
          clusters_msp_gene = clusters_msp$gene)
 
-ggsave("msp_0113.pdf")
+ggsave("msp_0071.pdf")
 
 
 test_MSP_gene(binary_msp=binary_msp, 
@@ -280,7 +298,7 @@ test_MSP_gene(binary_msp=binary_msp,
     facet_grid(~V1, scales = "free_x") + ylab("") +
     theme(axis.text = element_blank()) + coord_flip() + guides(fill=FALSE) + scale_fill_manual(values = c("black","yellow"))
   
-ggsave("msp_0113_diff.pdf")  
+ggsave("msp_0071_diff.pdf")  
   
   
 
@@ -290,9 +308,9 @@ ggsave("msp_0113_diff.pdf")
 
 ```{r}
 
-candidate_species = c("msp_0070","msp_0506","msp_0113","msp_0079")
+candidate_species_ax1 = c("msp_0070","msp_0506","msp_0113","msp_0079")
 
-
+candidate_species_ax2 = c("msp_0071","msp_0033","msp_0387","msp_0127")
 
 
 ```
@@ -347,6 +365,13 @@ test_msp %>%
   filter(!is.na(KO) | !is.na(cazy.family))
   #filter(!is.na(KO))
 
+test_msp %>%
+  filter(fdr<0.05) %>%
+  merge(kegg_df,  by="genes.id", all.x=TRUE ) %>%
+  merge(cazy_df,  by="genes.id", all.x=TRUE ) %>%
+  arrange(p.value) %>%
+  filter(!is.na(KO) | !is.na(cazy.family))
+  
 
 
 ```
