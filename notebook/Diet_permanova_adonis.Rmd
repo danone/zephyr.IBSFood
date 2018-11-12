@@ -1,0 +1,139 @@
+---
+title: "Diet permanova"
+author: "Julien Tap"
+date: "12 novembre 2018"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    number_sections: true
+    code_folding: "hide"
+    code_download: true
+    df_print: "paged"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message=FALSE, cache=FALSE)
+```
+
+# Load library
+```{r}
+
+library(vegan)
+library(dplyr)
+
+
+```
+
+# Load data
+```{r}
+load("metadata_et_grp.rda")
+load("food_B_dist.rda")
+
+et_grp
+```
+
+
+# Permanova with Adonis
+
+## Food diet with euclidean distance {.tabset  .tabset-pills} 
+
+### select tabs
+
+select tabs to see different results
+
+### classic adonis
+```{r}
+
+vegan::adonis(B %>% ade4::quasieuclid() ~ Gender , data=et_grp[attr(B,"Label"),] ) 
+vegan::adonis(B %>% ade4::quasieuclid() ~ Health , data=et_grp[attr(B,"Label"),] )
+vegan::adonis(B %>% ade4::quasieuclid() ~ cazotype , data=et_grp[attr(B,"Label"),] )
+
+vegan::adonis(B %>% ade4::quasieuclid() ~ Gender + Health + cazotype , data=et_grp[attr(B,"Label"),] )
+
+```
+
+### adonis2 sequential
+```{r}
+vegan::adonis2(B %>% ade4::quasieuclid() ~ Gender , data=et_grp[attr(B,"Label"),] ) %>% broom::tidy()
+vegan::adonis2(B %>% ade4::quasieuclid() ~ Health , data=et_grp[attr(B,"Label"),] ) %>% broom::tidy()
+vegan::adonis2(B %>% ade4::quasieuclid() ~ cazotype , data=et_grp[attr(B,"Label"),] ) %>% broom::tidy()
+
+vegan::adonis2(B %>% ade4::quasieuclid() ~ Gender + Health + cazotype , data=et_grp[attr(B,"Label"),] ) %>% broom::tidy()
+
+```
+
+
+### adonis2 marginal
+```{r}
+vegan::adonis2(B %>% ade4::quasieuclid() ~ Gender , data=et_grp[attr(B,"Label"),], by="margin" ) %>% broom::tidy()
+vegan::adonis2(B %>% ade4::quasieuclid() ~ Health , data=et_grp[attr(B,"Label"),], by="margin" ) %>% broom::tidy()
+vegan::adonis2(B %>% ade4::quasieuclid() ~ cazotype , data=et_grp[attr(B,"Label"),], by="margin" ) %>% broom::tidy()
+
+vegan::adonis2(B %>% ade4::quasieuclid() ~ Gender + Health + cazotype , data=et_grp[attr(B,"Label"),], by="margin" ) %>% broom::tidy()
+```
+
+
+
+## Food diet without euclidean distance {.tabset  .tabset-pills} 
+
+### select tabs
+
+select tabs to see different results
+
+### classic adonis
+```{r}
+
+vegan::adonis(B  ~ Gender , data=et_grp[attr(B,"Label"),] ) 
+vegan::adonis(B ~ Health , data=et_grp[attr(B,"Label"),] ) 
+vegan::adonis(B  ~ cazotype , data=et_grp[attr(B,"Label"),] ) 
+
+vegan::adonis(B  ~ Gender + Health + cazotype , data=et_grp[attr(B,"Label"),] ) 
+
+
+
+```
+
+
+### adonis2 sequencial
+```{r}
+
+vegan::adonis2(B  ~ Gender , data=et_grp[attr(B,"Label"),] ) %>% broom::tidy()
+vegan::adonis2(B  ~ Health , data=et_grp[attr(B,"Label"),] ) %>% broom::tidy()
+vegan::adonis2(B  ~ cazotype , data=et_grp[attr(B,"Label"),] ) %>% broom::tidy()
+
+vegan::adonis2(B  ~ Gender + Health + cazotype , data=et_grp[attr(B,"Label"),] ) %>% broom::tidy()
+
+
+
+```
+
+
+### adonis2 margin
+```{r}
+
+vegan::adonis2(B  ~ Gender , data=et_grp[attr(B,"Label"),], by="margin" ) %>% broom::tidy()
+vegan::adonis2(B  ~ Health , data=et_grp[attr(B,"Label"),], by="margin" ) %>% broom::tidy()
+vegan::adonis2(B  ~ cazotype , data=et_grp[attr(B,"Label"),], by="margin" ) %>% broom::tidy()
+
+vegan::adonis2(B  ~ Gender + Health + cazotype , data=et_grp[attr(B,"Label"),], by="margin" ) %>% broom::tidy()
+```
+
+
+## Food diet with severity
+
+
+
+```{r}
+
+vegan::adonis2(B  ~ Gender , data=et_grp[attr(B,"Label"),], by="margin" ) %>% broom::tidy()
+vegan::adonis2(B  ~ Health , data=et_grp[attr(B,"Label"),], by="margin" ) %>% broom::tidy()
+vegan::adonis2(B  ~ SS , data=et_grp[attr(B,"Label"),], by="margin" ) %>% broom::tidy()
+vegan::adonis2(B  ~ cazotype , data=et_grp[attr(B,"Label"),], by="margin" ) %>% broom::tidy()
+
+vegan::adonis2(B  ~ Gender + SS + cazotype , data=et_grp[attr(B,"Label"),], by="margin" ) %>% broom::tidy()
+```
+
+
+
+

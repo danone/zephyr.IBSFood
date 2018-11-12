@@ -1062,6 +1062,8 @@ infraspecies %>%
 
 ```
 
+interaction simple only
+
 
 ```{r, message=FALSE, warning=FALSE}
 data("food_data")
