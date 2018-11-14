@@ -10,4 +10,4 @@ cazotypes = read.csv2("data-raw/cazotypes.csv",row.names=1)
 
 devtools::use_data(enterotypes)
 devtools::use_data(cazy_counts)
-devtools::use_data(cazotypes)
+devtools::use_data(cazotypes, overwrite = TRUE) #13 Nov 2018 version
