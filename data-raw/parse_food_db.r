@@ -24,6 +24,17 @@ food_group %<>%
                   sep=", ", extra = "merge") %>%
   as.data.frame
 
+food_group %<>%
+  mutate(`Food groups lvl1` = ifelse(`Food groups lvl1` == "Dairy","Animal-based",`Food groups lvl1`)) %>%
+  mutate(`Food groups lvl1` = ifelse(`Food groups lvl1` == "Chemicals","Others",`Food groups lvl1`)) %>%
+  mutate(`Food groups lvl1` = ifelse(`Food groups lvl3` == "substitutes for milk","Plant-based",`Food groups lvl1`)) %>%
+  mutate(`Food groups lvl2` = ifelse(`Food groups lvl3` == "substitutes for milk","substitutes for milk",`Food groups lvl2`)) %>%
+  mutate(`Food groups lvl2` = ifelse(`Food groups lvl2`=="Salts and minerals","Salts and sauces",`Food groups lvl2`)) %>%
+  mutate(`Food groups lvl2` = ifelse(`Food groups lvl3`=="beverage","Salts and sauce",`Food groups lvl2`))  %>%
+  mutate(`Food groups lvl3` = ifelse(`Food groups lvl3`=="beverage","Sauce",`Food groups lvl3`))
+
+
+
 # this code shows that this two database do not match with food ids
 # food_swe %>%
 #   merge(.,food_eng, by="Livsmedelsnummer", all.x = TRUE) %>%
@@ -150,7 +161,7 @@ food_swe_eng =
 
 food_swe_eng_fab =
 food_fab %>%
-  rename(
+  dplyr::rename(
     Livsmedelsnamn = Foodstuffs,
     Livsmedelsgrupp = food_group,
     Livsmedelsnummer = Code,
@@ -193,6 +204,11 @@ food_swe_eng_fab %>%
   mutate(Foodstuffs = ifelse(is.na(Foodstuffs) & used == "yes", Livsmedelsnamn, Foodstuffs )) %>%
   mutate(Livsmedelsnamn_eng = ifelse(used == "yes", Foodstuffs, Livsmedelsnamn_eng)) %>% # keep original english name from the study
   merge(food_group,., by.y="Livsmedelsgrupp", by.x="num_lvl3", all.y=TRUE) -> food_group_levels
+
+#grep("Popcorn", food_group_levels$Livsmedelsnamn_eng, value = TRUE)
+
+#snack=c("Crisps flavoured 34% fat","Popcorn microwave fat 22%","Popcorn popped")
+
 
 
 ## the code below create an html data tree
@@ -258,6 +274,13 @@ food_swe_eng_fab %>%
 #   dcast(Foodstuffs+Code~variable) %>%
 #   arrange(desc(`Fibers(g)`))
 #
+
+
+######################
+#                    #
+# Start DMM modeling #
+#                    #
+######################
 
 
 food_cluster_lvl4 = NULL
