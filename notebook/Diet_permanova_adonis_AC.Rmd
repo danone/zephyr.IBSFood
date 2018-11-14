@@ -1,0 +1,337 @@
+---
+title: "Diet permanova"
+author: "Julien Tap"
+date: "12 novembre 2018"
+output: 
+  danr::html_danr_document:
+    toc: true
+    toc_float: true
+    number_sections: true
+    code_folding: "hide"
+    code_download: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message=FALSE, cache=TRUE)
+```
+
+# Load library
+```{r}
+
+library(vegan)
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+library(glue)
+
+```
+
+# Load data
+```{r}
+load("metadata_et_grp.rda")
+load("food_B_dist.rda")
+
+
+```
+
+
+# Permanova with Adonis
+
+## Food diet with euclidean distance - betadisper
+```{r}
+set.seed(2109181)
+mod <- betadisper(B %>% ade4::quasieuclid(),et_grp[attr(B,"Label"),"Gender"])
+permutest(mod, pairwise = TRUE, permutations = 999)
+mod <- betadisper(B %>% ade4::quasieuclid(),et_grp[attr(B,"Label"),"Health"])
+permutest(mod, pairwise = TRUE, permutations = 999)
+mod <- betadisper(B %>% ade4::quasieuclid(),et_grp[attr(B,"Label"),"cazotype"])
+permutest(mod, pairwise = TRUE, permutations = 999)
+
+
+```
+
+## Food diet with euclidean distance - sequential
+```{r}
+set.seed(2109181)
+vegan::adonis(B %>% ade4::quasieuclid() ~ Gender , data=et_grp[attr(B,"Label"),] )
+vegan::adonis(B %>% ade4::quasieuclid() ~ Health , data=et_grp[attr(B,"Label"),] )
+vegan::adonis(B %>% ade4::quasieuclid() ~ cazotype , data=et_grp[attr(B,"Label"),] )
+
+set.seed(2109181)
+vegan::adonis(B %>% ade4::quasieuclid() ~ Gender + Health + cazotype , data=et_grp[attr(B,"Label"),] )
+
+set.seed(2109181)
+vegan::adonis2(B %>% ade4::quasieuclid() ~ Gender , data=et_grp[attr(B,"Label"),] )
+vegan::adonis2(B %>% ade4::quasieuclid() ~ Health , data=et_grp[attr(B,"Label"),] )
+vegan::adonis2(B %>% ade4::quasieuclid() ~ cazotype , data=et_grp[attr(B,"Label"),] )
+
+set.seed(2109181)
+vegan::adonis2(B %>% ade4::quasieuclid() ~ Gender + Health + cazotype , data=et_grp[attr(B,"Label"),] )
+
+```
+
+## Food diet with euclidean distance - sequential - stability
+```{r}
+OneRun <- function() {
+  
+  veg_G <- vegan::adonis(B %>% ade4::quasieuclid() ~ Gender , data=et_grp[attr(B,"Label"),] )
+  veg_H <- vegan::adonis(B %>% ade4::quasieuclid() ~ Health , data=et_grp[attr(B,"Label"),] )
+  veg_C <- vegan::adonis(B %>% ade4::quasieuclid() ~ cazotype , data=et_grp[attr(B,"Label"),] )
+  
+  res <- c(veg_G$aov.tab$`Pr(>F)`[1], veg_H$aov.tab$`Pr(>F)`[1], veg_C$aov.tab$`Pr(>F)`[1])
+  names(res) <- c("Gender","Health","cazotype")
+  return(res)
+  
+}
+
+set.seed(2109181)
+for (i in 1:100) {
+  if (i == 1) {
+    res_glob <- OneRun()
+  } else {
+    res_glob <- rbind(res_glob,OneRun())
+  }
+}
+
+res_long <- gather(data.frame(res_glob), variable, pvalue, Gender:cazotype, factor_key=TRUE)
+
+g <- ggplot(res_long, aes(x=pvalue, color=variable)) +
+  geom_histogram(fill="white", alpha=0.5, position="identity")
+g
+
+```
+
+## Food diet with euclidean distance - marginal
+```{r}
+# set.seed(2109181)
+# vegan::adonis(B %>% ade4::quasieuclid() ~ Gender , data=et_grp[attr(B,"Label"),], by="margin" )
+# vegan::adonis(B %>% ade4::quasieuclid() ~ Health , data=et_grp[attr(B,"Label"),], by="margin" )
+# vegan::adonis(B %>% ade4::quasieuclid() ~ cazotype , data=et_grp[attr(B,"Label"),], by="margin" )
+# 
+# set.seed(2109181)
+# vegan::adonis(B %>% ade4::quasieuclid() ~ Gender + Health + cazotype , data=et_grp[attr(B,"Label"),], by="margin" )
+
+# set.seed(2109181)
+# ord <- dbrda(B %>% ade4::quasieuclid() ~ Gender, data=et_grp[attr(B,"Label"),])
+# set.seed(2109181)
+# anova(ord, by="terms")
+# set.seed(2109181)
+# anova(ord, by="margin")
+
+set.seed(2109181)
+vegan::adonis2(B %>% ade4::quasieuclid() ~ Gender , data=et_grp[attr(B,"Label"),], by="margin" )
+vegan::adonis2(B %>% ade4::quasieuclid() ~ Health , data=et_grp[attr(B,"Label"),], by="margin" )
+vegan::adonis2(B %>% ade4::quasieuclid() ~ cazotype , data=et_grp[attr(B,"Label"),], by="margin" )
+
+set.seed(2109181)
+vegan::adonis2(B %>% ade4::quasieuclid() ~ Gender + Health + cazotype , data=et_grp[attr(B,"Label"),], by="margin" )
+
+```
+
+## Food diet with euclidean distance - margin - stability
+```{r}
+OneRun <- function() {
+  
+  veg_G <- vegan::adonis2(B %>% ade4::quasieuclid() ~ Gender , data=et_grp[attr(B,"Label"),], by="margin" )
+  veg_H <- vegan::adonis2(B %>% ade4::quasieuclid() ~ Health , data=et_grp[attr(B,"Label"),], by="margin" )
+  veg_C <- vegan::adonis2(B %>% ade4::quasieuclid() ~ cazotype , data=et_grp[attr(B,"Label"),], by="margin" )
+  
+  res <- c(veg_G$`Pr(>F)`[1], veg_H$`Pr(>F)`[1], veg_C$`Pr(>F)`[1])
+  names(res) <- c("Gender","Health","cazotype")
+  return(res)
+  
+}
+
+set.seed(2109181)
+for (i in 1:100) {
+  if (i == 1) {
+    res_glob <- OneRun()
+  } else {
+    res_glob <- rbind(res_glob,OneRun())
+  }
+}
+
+res_long <- gather(data.frame(res_glob), variable, pvalue, Gender:cazotype, factor_key=TRUE)
+
+g <- ggplot(res_long, aes(x=pvalue, color=variable)) +
+  geom_histogram(fill="white", alpha=0.5, position="identity")
+g
+
+```
+
+
+## Food diet with euclidean distance - margin - stability - several factors
+```{r}
+OneRun <- function() {
+  
+  veg <- vegan::adonis2(B %>% ade4::quasieuclid() ~ Gender + Health + cazotype , data=et_grp[attr(B,"Label"),], by="margin" )
+  
+  res <- veg$`Pr(>F)`[1:3]
+  names(res) <- c("Gender","Health","cazotype")
+  return(res)
+  
+}
+
+set.seed(2109181)
+for (i in 1:100) {
+  if (i == 1) {
+    res_glob <- OneRun()
+  } else {
+    res_glob <- rbind(res_glob,OneRun())
+  }
+}
+
+res_long <- gather(data.frame(res_glob), variable, pvalue, Gender:cazotype, factor_key=TRUE)
+
+g <- ggplot(res_long, aes(x=pvalue, color=variable)) +
+  geom_histogram(fill="white", alpha=0.5, position="identity")
+g
+
+```
+
+## Food diet with euclidean distance - PcoA
+```{r}
+
+# PcoA
+data <- as.matrix(B %>% ade4::quasieuclid())
+pcoa <- cmdscale(data, k = ncol(data)-1, eig=T, add=T)
+eig <- eigenvals(pcoa)
+var_exp <- 100*eig/sum(eig)
+
+# Merge mapping and PcoA results
+data_map <- merge(pcoa$points[,1:4],et_grp[,4:6],by=0)
+rownames(data_map) <- data_map$Row.names
+data_map <- data_map[,-1]
+
+OnePlot <- function(param) {
+  
+  p <- vector(mode="list",length=2)
+  
+  # Loop on comp 1-2 or comp 3-4
+  for (j in c(1,3)) {
+    
+    comp <- c(j,j+1)
+    
+    p[[comp[2]/2]] <- ggplot(data_map, aes_string(x = glue("V{comp[1]}"), y = glue("V{comp[2]}"),
+      group=param, color=param), shape=20) +
+      scale_x_continuous(name=glue("Axis {comp[1]} [{round(var_exp[comp[1]],2)} %]")) +
+      scale_y_continuous(name=glue("Axis {comp[2]} [{round(var_exp[comp[2]],2)} %]")) +
+      geom_hline(yintercept=0, linetype="dashed", color="grey", size=0.3) +
+      geom_vline(xintercept=0, linetype="dashed", color="grey", size=0.3) +
+      theme_bw() +
+      ggtitle(glue("Colored by {param}")) +
+      theme(plot.title = element_text(hjust = 0.5, face="bold")) +
+      theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+      geom_point(size=1.5) +
+      stat_ellipse(type="t", level=0.95)
+
+  }
+  
+  return(p)
+  
+}
+
+p <- OnePlot("Gender")
+print(p[[1]])
+print(p[[2]])
+p <- OnePlot("Health")
+print(p[[1]])
+print(p[[2]])
+p <- OnePlot("cazotype")
+print(p[[1]])
+print(p[[2]])
+
+```
+
+
+
+## Food diet with non-euclidean distance - sequential
+```{r}
+set.seed(2109181)
+vegan::adonis(B  ~ Gender , data=et_grp[attr(B,"Label"),] )
+vegan::adonis(B ~ Health , data=et_grp[attr(B,"Label"),] )
+vegan::adonis(B  ~ cazotype , data=et_grp[attr(B,"Label"),] )
+
+set.seed(2109181)
+vegan::adonis(B  ~ Gender + Health + cazotype , data=et_grp[attr(B,"Label"),] )
+
+set.seed(2109181)
+vegan::adonis2(B  ~ Gender , data=et_grp[attr(B,"Label"),] )
+vegan::adonis2(B  ~ Health , data=et_grp[attr(B,"Label"),] )
+vegan::adonis2(B  ~ cazotype , data=et_grp[attr(B,"Label"),] )
+
+set.seed(2109181)
+vegan::adonis2(B  ~ Gender + Health + cazotype , data=et_grp[attr(B,"Label"),] )
+
+```
+
+
+
+## Food diet with non-euclidean distance - margin
+```{r}
+set.seed(2109181)
+vegan::adonis2(B  ~ Gender , data=et_grp[attr(B,"Label"),], by="margin" )
+vegan::adonis2(B  ~ Health , data=et_grp[attr(B,"Label"),], by="margin" )
+vegan::adonis2(B  ~ cazotype , data=et_grp[attr(B,"Label"),], by="margin" )
+
+set.seed(2109181)
+vegan::adonis2(B  ~ Gender + Health + cazotype , data=et_grp[attr(B,"Label"),], by="margin" )
+
+```
+
+
+
+## Food diet with non-euclidean distance - PcoA
+```{r}
+
+# PcoA
+data <- as.matrix(B)
+pcoa <- cmdscale(data, k = ncol(data)-1, eig=T, add=T)
+eig <- eigenvals(pcoa)
+var_exp <- 100*eig/sum(eig)
+
+# Merge mapping and PcoA results
+data_map <- merge(pcoa$points[,1:4],et_grp[,4:6],by=0)
+rownames(data_map) <- data_map$Row.names
+data_map <- data_map[,-1]
+
+OnePlot <- function(param) {
+  
+  p <- vector(mode="list",length=2)
+  
+  # Loop on comp 1-2 or comp 3-4
+  for (j in c(1,3)) {
+    
+    comp <- c(j,j+1)
+    
+    p[[comp[2]/2]] <- ggplot(data_map, aes_string(x = glue("V{comp[1]}"), y = glue("V{comp[2]}"),
+      group=param, color=param), shape=20) +
+      scale_x_continuous(name=glue("Axis {comp[1]} [{round(var_exp[comp[1]],2)} %]")) +
+      scale_y_continuous(name=glue("Axis {comp[2]} [{round(var_exp[comp[2]],2)} %]")) +
+      geom_hline(yintercept=0, linetype="dashed", color="grey", size=0.3) +
+      geom_vline(xintercept=0, linetype="dashed", color="grey", size=0.3) +
+      theme_bw() +
+      ggtitle(glue("Colored by {param}")) +
+      theme(plot.title = element_text(hjust = 0.5, face="bold")) +
+      theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+      geom_point(size=1.5) +
+      stat_ellipse(type="t", level=0.95)
+
+  }
+  
+  return(p)
+  
+}
+
+p <- OnePlot("Gender")
+print(p[[1]])
+print(p[[2]])
+p <- OnePlot("Health")
+print(p[[1]])
+print(p[[2]])
+p <- OnePlot("cazotype")
+print(p[[1]])
+print(p[[2]])
+
+```
+
