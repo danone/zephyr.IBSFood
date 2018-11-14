@@ -1,6 +1,10 @@
 ---
-title: "IBS food exploration"
+title: "IBS food and dietary habits"
 output:
+  danr::html_danr_document:
+    toc: yes
+    df_print: paged
+    highlight: tango
   html_notebook:
     author: "Julien Tap"
     code_folding: hide
@@ -9,11 +13,14 @@ output:
     theme: cerulean
     toc: yes
     toc_float: yes
-  html_document:
-    toc: yes
 date: '`r Sys.Date()`'
 ---
 
+```{r setup, include=TRUE}
+knitr::opts_chunk$set(echo = TRUE, cache=FALSE, message=FALSE, warning=FALSE)
+library(ggplot2)
+library(danr)
+```
 
 ## Introduction 
 
@@ -68,11 +75,12 @@ data("food_swe")
 ## Basics statistics
 
 IBS dataset had OTU count table, taxonomic table and several metadata asssociated to sample.
+Let's focus on metadata only.
 
 ```{r}
 
 
-IBSData
+IBSData$metadata %>% select(Patient_ID,Health,Gender,Age,BMI,H2,CH4,SSgroup,transit.days) %>% head(20)
 
 
 ```
@@ -103,7 +111,7 @@ let's explore de *food_group_levels*
 #a bit of cleaning
 food_group_levels =
 food_group_levels %>%
-  rename(Food_items_swe = Livsmedelsnamn, Food_items_eng = Livsmedelsnamn_eng, Food_items_id = Livsmedelsnummer) %>%
+  dplyr::rename(Food_items_swe = Livsmedelsnamn, Food_items_eng = Livsmedelsnamn_eng, Food_items_id = Livsmedelsnummer) %>%
   filter(used == "yes") %>%
   select(contains("Food")) %>%
   mutate(`Food groups lvl1` = `Food groups lvl1` %>% gsub("Chemicals","Others",.)) %>%
@@ -130,7 +138,7 @@ Here is the complete nutrient table with associated hierachy
 ```{r}
 
 food_swe %>%
-  rename(Food_items_swe = Livsmedelsnamn, Food_items_id = Livsmedelsnummer) %>%
+  dplyr::rename(Food_items_swe = Livsmedelsnamn, Food_items_id = Livsmedelsnummer) %>%
   merge(food_group_levels,.,by=c("Food_items_swe","Food_items_id")) 
 
 
@@ -151,7 +159,7 @@ Focus on some food category **"Food groups lvl3"** to explore how DMM divided in
 ## focus on "yogurt"
 
 food_swe %>%
-  rename(Food_items_swe = Livsmedelsnamn, Food_items_id = Livsmedelsnummer) %>%
+  dplyr::rename(Food_items_swe = Livsmedelsnamn, Food_items_id = Livsmedelsnummer) %>%
   merge(food_group_levels %>% select(Food_items_swe,Food_items_eng,Food_items_id,`Food groups lvl3`,`Food groups lvl4`),.,by=c("Food_items_swe","Food_items_id")) %>%
   filter(`Food groups lvl3` == "yoghurt") %>%
   select(-Livsmedelsgrupp, -`Energi (kJ)(kJ)`) %>% 
@@ -164,7 +172,7 @@ food_swe %>%
 
 
 food_swe %>%
-  rename(Food_items_swe = Livsmedelsnamn, Food_items_id = Livsmedelsnummer) %>%
+  dplyr::rename(Food_items_swe = Livsmedelsnamn, Food_items_id = Livsmedelsnummer) %>%
   merge(food_group_levels,.,by=c("Food_items_swe","Food_items_id")) %>%
   filter(`Food groups lvl3` == "yoghurt") %>%
   ggplot() + geom_point(aes(x=`Energi (kcal)(kcal)`, y=`Fett(g)`, col=`Food groups lvl4`)) +
@@ -192,7 +200,7 @@ ggsave("yogurt_clustering.pdf")
 
 
 food_swe %>%
-  rename(Food_items_swe = Livsmedelsnamn, Food_items_id = Livsmedelsnummer) %>%
+  dplyr::rename(Food_items_swe = Livsmedelsnamn, Food_items_id = Livsmedelsnummer) %>%
   merge(food_group_levels %>% select(Food_items_swe,Food_items_eng,Food_items_id,`Food groups lvl3`,`Food groups lvl4`),.,by=c("Food_items_swe","Food_items_id")) %>%
   filter(`Food groups lvl3` == "pasta, rice cereals") %>%
   select(-Livsmedelsgrupp, -`Energi (kJ)(kJ)`) %>% 
@@ -205,7 +213,7 @@ food_swe %>%
 
 
 food_swe %>%
-  rename(Food_items_swe = Livsmedelsnamn, Food_items_id = Livsmedelsnummer) %>%
+  dplyr::rename(Food_items_swe = Livsmedelsnamn, Food_items_id = Livsmedelsnummer) %>%
   merge(food_group_levels,.,by=c("Food_items_swe","Food_items_id")) %>%
   filter(`Food groups lvl3` == "pasta, rice cereals") %>%
   ggplot() + geom_point(aes(x=`Salt(g)`, y=`Protein(g)`, col=`Food groups lvl4`), size=4, alpha=0.5) +
@@ -227,7 +235,7 @@ ggsave("cereals_clustering.pdf")
 ```{r, fig.height=10, fig.width=10}
 
 food_swe %>%
-  rename(Food_items_swe = Livsmedelsnamn, Food_items_id = Livsmedelsnummer) %>%
+  dplyr::rename(Food_items_swe = Livsmedelsnamn, Food_items_id = Livsmedelsnummer) %>%
   merge(food_group_levels,.,by=c("Food_items_swe","Food_items_id")) %>%
     mutate(pathString=paste(`Food groups lvl0`,`Food groups lvl1`,`Food groups lvl2`,`Food groups lvl3`, `Food groups lvl4`, Foodstuffs, sep="//")) %>%
     data.tree::as.Node(pathDelimiter = "//") -> food_tree
@@ -467,7 +475,7 @@ TAX = tax_table(food_group_levels %>%
               select(`Food groups lvl1`, `Food groups lvl2`, `Food groups lvl3`,`Food groups lvl4`) %>%
               unique %>%
               na.omit() %>%
-              filter(`Food groups lvl4` %in% rownames(food_otu)) %>% tibble::column_to_rownames("Food groups lvl4")%>% as.matrix)
+              filter(`Food groups lvl4` %in% rownames(food_otu)) %>% as.data.frame %>% arrange(`Food groups lvl4`) %>% tibble::column_to_rownames("Food groups lvl4")%>% as.matrix)
 
 
 OTU = otu_table(food_otu, taxa_are_rows = TRUE)
@@ -537,7 +545,7 @@ unifrac_pco$li %>%
 
 
 merge(OTU %>% prop.table(2) ,TAX, by="row.names") %>%
-  rename(`Food groups lvl4` = Row.names) %>%
+  dplyr::rename(`Food groups lvl4` = Row.names) %>%
   melt(id.vars=c("Food groups lvl1","Food groups lvl2","Food groups lvl3","Food groups lvl4")) %>%
   melt(id.vars=c("variable","value")) -> food_df_tree
   
@@ -640,7 +648,7 @@ Check asssociations with Nutriscore and food items
 
 
 merge(OTU %>% prop.table(2) ,TAX, by="row.names") %>%
-  rename(`Food groups lvl4` = Row.names) %>%
+  dplyr::rename(`Food groups lvl4` = Row.names) %>%
   melt(id.vars=c("Food groups lvl1","Food groups lvl2","Food groups lvl3","Food groups lvl4")) %>%
   melt(id.vars=c("variable","value")) -> food_df_tree
   
@@ -658,7 +666,7 @@ merge(OTU %>% prop.table(2) ,TAX, by="row.names") %>%
 # compute Meat/Plant ratio
   merge(OTU %>% prop.table(2) ,TAX, by="row.names") %>%
     as.data.frame %>%
-    rename(`Food groups lvl4` = Row.names) %>%
+    dplyr::rename(`Food groups lvl4` = Row.names) %>%
     melt(id.vars=c("Food groups lvl1","Food groups lvl2","Food groups lvl3","Food groups lvl4")) %>%
     group_by(variable,`Food groups lvl1`) %>%
     summarize(Gram_prop = sum(value)) %>%
@@ -684,7 +692,7 @@ merge(OTU %>% prop.table(2) ,TAX, by="row.names") %>%
   
   merge(OTU %>% prop.table(2) ,TAX, by="row.names") %>%
     as.data.frame %>%
-    rename(`Food groups lvl4` = Row.names) %>%
+    dplyr::rename(`Food groups lvl4` = Row.names) %>%
     melt(id.vars=c("Food groups lvl1","Food groups lvl2","Food groups lvl3","Food groups lvl4")) %>%
     group_by(variable,`Food groups lvl1`) %>%
     summarize(Gram_prop = sum(value)) %>%
@@ -698,24 +706,24 @@ merge(OTU %>% prop.table(2) ,TAX, by="row.names") %>%
  
   merge(OTU %>% prop.table(2) ,TAX, by="row.names") %>%
     as.data.frame %>%
-    rename(`Food groups lvl4` = Row.names) %>%
+    dplyr::rename(`Food groups lvl4` = Row.names) %>%
     melt(id.vars=c("Food groups lvl1","Food groups lvl2","Food groups lvl3","Food groups lvl4")) %>%
     group_by(variable,`Food groups lvl1`) %>%
     summarize(Gram_prop = sum(value)) %>%
     dcast(variable~`Food groups lvl1`) %>%
-    mutate(meat_plant_ratio = log2(`Meat-based`+0.001/`Plant-based`+0.001)) %>%
+    mutate(meat_plant_ratio = log2(`Meat-based`+0.01/`Plant-based`+0.01)) %>%
     merge(.,unifrac_pco$li, by.x="variable", by.y="row.names") %>%
     write.csv2(., file="../inst/tables/meat_plant_ratio.csv")
    
   
   merge(OTU %>% prop.table(2) ,TAX, by="row.names") %>%
     as.data.frame %>%
-    rename(`Food groups lvl4` = Row.names) %>%
+    dplyr::rename(`Food groups lvl4` = Row.names) %>%
     melt(id.vars=c("Food groups lvl1","Food groups lvl2","Food groups lvl3","Food groups lvl4")) %>%
     group_by(variable,`Food groups lvl1`) %>%
     summarize(Gram_prop = sum(value)) %>%
     dcast(variable~`Food groups lvl1`) %>%
-    mutate(meat_plant_ratio = log2(`Meat-based`+0.001/`Plant-based`+0.001)) %>%
+    mutate(meat_plant_ratio = log2(`Meat-based`+0.01/`Plant-based`+0.01)) %>%
     merge(.,unifrac_pco$li, by.x="variable", by.y="row.names") %>%
     ggplot() + geom_point(aes(x=A1*2,y=meat_plant_ratio, col=meat_plant_ratio %>% scale(scale = FALSE)), size=4, alpha=0.75) + 
     scale_color_gradient2("Meat/Plant\nratio\n(log2)",low="green",mid="grey",high="red") + theme_bw() +
@@ -751,7 +759,7 @@ food_group_levels %>%
 #TO DO: add "drink" boolean value in food table
 food_swe %>%
   merge(food_group_levels, by.x="Livsmedelsnummer" , by.y="Food_items_id") %>%
-  rename(Food_items_id = Livsmedelsnummer) %>%
+  dplyr::rename(Food_items_id = Livsmedelsnummer) %>%
   merge(food_fruit, by="Foodstuffs") %>% 
   group_by(Foodstuffs,Food_items_id,`Food groups lvl1`,`Food groups lvl2`,`Food groups lvl3`,`Food groups lvl4`) %>%
   mutate(type=ifelse(`Food groups lvl3` %in% 
@@ -840,7 +848,7 @@ ggsave("Diet_PCoA_plot.pdf")
 ```{r, eval=FALSE, include=FALSE}
   merge(OTU %>% prop.table(2) ,TAX, by="row.names") %>%
     as.data.frame %>%
-    rename(`Food groups lvl4` = Row.names) %>%
+    dplyr::rename(`Food groups lvl4` = Row.names) %>%
     melt(id.vars=c("Food groups lvl1","Food groups lvl2","Food groups lvl3","Food groups lvl4")) %>%
     group_by(variable,`Food groups lvl1`) %>%
     summarize(Gram_prop = sum(value)) %>%
@@ -864,7 +872,7 @@ ggsave("Diet_PCoA_plot.pdf")
 
 Nutrient intake is associated with food tree
 
-```{r}
+```{r, eval=FALSE, include=FALSE}
 
 data("nutrients_data")
 

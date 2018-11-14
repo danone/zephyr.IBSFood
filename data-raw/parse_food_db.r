@@ -30,8 +30,8 @@ food_group %<>%
   mutate(`Food groups lvl1` = ifelse(`Food groups lvl3` == "substitutes for milk","Plant-based",`Food groups lvl1`)) %>%
   mutate(`Food groups lvl2` = ifelse(`Food groups lvl3` == "substitutes for milk","substitutes for milk",`Food groups lvl2`)) %>%
   mutate(`Food groups lvl2` = ifelse(`Food groups lvl2`=="Salts and minerals","Salts and sauces",`Food groups lvl2`)) %>%
-  mutate(`Food groups lvl2` = ifelse(`Food groups lvl3`=="beverage","Salts and sauce",`Food groups lvl2`))  %>%
-  mutate(`Food groups lvl3` = ifelse(`Food groups lvl3`=="beverage","Sauce",`Food groups lvl3`))
+  mutate(`Food groups lvl2` = ifelse(`Food groups lvl3`=="beverages","Salts and sauce",`Food groups lvl2`))  %>%
+  mutate(`Food groups lvl3` = ifelse(`Food groups lvl3`=="beverages","Sauce",`Food groups lvl3`))
 
 
 
@@ -331,10 +331,20 @@ food_cluster_lvl4 = rbind(food_cluster_lvl4,res)
 
 
 food_group_levels %<>%
+
   merge(food_cluster_lvl4, by="Livsmedelsnamn", all.x=TRUE) %>%
   as_tibble() %>%
   mutate(cl = as.character(cl)) %>%
   dplyr::rename(`Food groups lvl4` = cl)
+
+food_group_levels %<>%
+mutate(`Food groups lvl1` = ifelse(`Food groups lvl1` == "Dairy","Animal-based",`Food groups lvl1`)) %>%
+  mutate(`Food groups lvl1` = ifelse(`Food groups lvl1` == "Chemicals","Others",`Food groups lvl1`)) %>%
+  mutate(`Food groups lvl1` = ifelse(`Food groups lvl3` == "substitutes for milk","Plant-based",`Food groups lvl1`)) %>%
+  mutate(`Food groups lvl2` = ifelse(`Food groups lvl3` == "substitutes for milk","substitutes for milk",`Food groups lvl2`)) %>%
+  mutate(`Food groups lvl2` = ifelse(`Food groups lvl2`=="Salts and minerals","Salts and sauces",`Food groups lvl2`)) %>%
+  mutate(`Food groups lvl2` = ifelse(`Food groups lvl3`=="beverages","Salts and sauce",`Food groups lvl2`))  %>%
+  mutate(`Food groups lvl3` = ifelse(`Food groups lvl3`=="beverages","Sauce",`Food groups lvl3`))
 
 
 devtools::use_data(food_group_levels, overwrite = TRUE)
@@ -433,16 +443,14 @@ df2newick <- function(df, innerlabel=FALSE){
 
 
 
-
-
 food_group_levels %>%
-  select(`Food groups lvl1`, `Food groups lvl2`, `Food groups lvl3`,`Food groups lvl4`) %>%
+  select(`Food groups lvl0`,`Food groups lvl1`, `Food groups lvl2`, `Food groups lvl3`,`Food groups lvl4`) %>%
   unique %>%
   na.omit() %>%
   filter(`Food groups lvl4` %in% rownames(food_otu)) %>%
-  as.data.frame %>%
-  df2newick(.) %>%
-  writeLines(con="inst/biom/food.tree")
+  as.data.frame -> df
+
+df2newick(df) %>% writeLines(con="inst/biom/food.tree")
 
 
 
