@@ -622,16 +622,33 @@ unifrac_pco$li %>%
   scale_color_brewer("CI") + ylab("PCoA2") -> Health_pcoa_plot
 
 
+
 unifrac_pco$li %>%
   merge(.,
      IBSData$metadata %>% 
        select(Patient_ID,Health,Gender,SSgroup,IBS_subtypes,Methanogens_qPCR, H2_group, CH4_group) %>% unique(),
    by.y="Patient_ID",
    by.x="row.names") %>%
+  mutate(Health_severe = ifelse(SSgroup == "severe","severe","non-severe")) %>%
+  select(A2,Health_severe, SSgroup) %>%
+  #filter(SSgroup %in% c("control","severe")) %>%
+  #na.omit() %>%
+  with(.,wilcox.test(.$A2~.$Health_severe))
+
+
+unifrac_pco$li %>%
+  merge(.,
+     IBSData$metadata %>% 
+       select(Patient_ID,Health,Gender,SSgroup,IBS_subtypes,Methanogens_qPCR, H2_group, CH4_group) %>% unique(),
+   by.y="Patient_ID",
+   by.x="row.names") %>%
+  mutate(Health_severe = ifelse(SSgroup == "severe","severe","non\nsevere")) %>%
+  select(A2,Health_severe) %>%
+  na.omit() %>%
  ggplot() + 
-  geom_interval(data= . %>% group_by(SSgroup) %>% tidybayes::mean_qi(A2=A2*2 , .prob = c(.5, .66, .95, .99)) , aes(x=SSgroup, y=A2)) +
+  geom_interval(data= . %>% group_by(Health_severe) %>% tidybayes::mean_qi(A2=A2*2 , .prob = c(.5, .66, .95, .99)) , aes(x=Health_severe, y=A2)) +
   #geom_jitter(aes(x=Gender, y=A1), width=0.1) +
-  geom_point(data = . %>% group_by(SSgroup) %>% summarize(A2=median(A2*2)), aes(x=SSgroup, y=A2) , size=5, shape=18  ) + 
+  geom_point(data = . %>% group_by(Health_severe) %>% summarize(A2=median(A2*2)), aes(x=Health_severe, y=A2) , size=5, shape=18  ) + 
   scale_color_brewer("CI") + ylab("PCoA2") -> Severity_pcoa_plot
 
 
@@ -817,8 +834,175 @@ nutriscore_pcoa_plot
 
 ```
 
+### Nutriscore diet index 
 
-```{r, fig.height=10, fig.width=12, message=FALSE, warning=FALSE}
+
+```{r}
+
+
+food_data %>%
+  group_by(Identity,Day,Meal) %>%
+  summarize(n=sum(Gram)) %>%
+  mutate(snack = ifelse(Meal %in% c("Breakfast","Dinner","Lunch"),"no","yes"  )) %>%
+  ungroup() %>%
+  group_by(Identity,Day,snack) %>%
+  summarize(n=n()) %>%
+  filter(snack=="yes") %>%
+  ungroup() %>%
+  group_by(Identity) %>%
+  summarize(snack_per_day = mean(n)) -> snack_per_day
+
+
+
+```
+
+
+
+
+nutriscore_DI = sum(nutriscore per food x energy intake) / (total energy intake)
+
+```{r}
+
+
+food_data %>%
+  merge(food_group_levels, by.x="Code",by.y="Food_items_id", all = FALSE) %>%
+  select(-Foodstuffs.y) %>%
+  dplyr::rename(Foodstuffs = Foodstuffs.x) %>%
+  group_by(Identity, `Food groups lvl1`, `Food groups lvl2`, `Food groups lvl3`,`Food groups lvl4`) %>%
+  summarise(`Energy kJ` = sum(`Energy kJ`)) %>%
+  na.omit() %>%
+  dcast(Identity ~ `Food groups lvl4`, value.var = "Energy kJ",fill = 0 ) %>%
+    tibble::column_to_rownames("Identity") %>%
+  t() %>%
+  #as_tibble %>%
+  round() -> food_otu_EnergyKJ
+
+
+
+nutriscore_food_group
+
+food_otu_EnergyKJ %>% 
+  reshape2::melt() %>%
+  merge(nutriscore_food_group,.,by.x="Food groups lvl4", by="Var1") %>%
+  mutate(nutriscore_weighted = nutriscore * value) %>%
+  group_by(Var2) %>%
+  summarize(nutriscore_DI = sum(nutriscore_weighted)/sum(value)) %>%
+  dplyr::rename(Patient_ID = Var2) -> nutriscore_DI
+
+
+merge(nutriscore_DI,unifrac_pco$li,by.x="Patient_ID",by.y="row.names") %>%
+   merge(.,snack_per_day,by.x="Patient_ID",by.y="Identity") %>%
+  with(.,cor.test( .$nutriscore_DI, .$A2, method="spearman" ))
+  
+
+merge(nutriscore_DI,unifrac_pco$li,by.x="Patient_ID",by.y="row.names") %>%
+  merge(.,snack_per_day,by.x="Patient_ID",by.y="Identity") %>%
+    ggplot() + geom_point(aes(x=A2,y=nutriscore_DI)) + 
+  geom_smooth(aes(x=A2,y=nutriscore_DI), method = "lm") +
+  ylab("Nutriscore\nDiet index") + xlab("PCoA2") -> nutriscore_DI_plot
+
+
+
+nutriscore_DI_plot
+
+ggsave(filename = "nutriscore_DI_plot.pdf")
+
+```
+
+```{r}
+
+food_data %>%
+  select(
+    Foodstuffs,
+    Gram,
+    `Energy kJ`,
+    `Protein(g)`,
+    `Saturated fatty acids(g)`,
+    `Mono+disaccharides(g)`,
+    `Fibers(g)`,
+    `Sodium(mg)` ) %>%
+  na.omit() %>%
+#head(100) %>%
+  group_by(Foodstuffs) %>%
+  filter(row_number()==1) %>%
+  melt(id.vars=c("Foodstuffs","Gram")) %>%
+  mutate(value = (value/Gram) * 100) %>%
+  select(-Gram) %>%
+  dcast(Foodstuffs ~ variable) %>%
+  na.omit() -> food_test
+
+food_test = merge(food_test,food_fruit, by="Foodstuffs")
+
+#write.csv2(food_test, file="food_test.csv")
+
+
+apply(food_test, 1, function(x) {nutriscore(
+
+  cal=x[2]%>%as.numeric,
+  protein=x[3]%>%as.numeric,
+  fat=x[4]%>%as.numeric,
+  carbohydrate=x[5]%>%as.numeric,
+  fibre=x[6]%>%as.numeric,
+  sodium=x[7]%>%as.numeric,
+  fruit = x[8] %>% as.numeric,
+  type= "others"
+
+) %>% nutriscore_qual })  -> res
+
+food_data %>%
+  select(Identity,Foodstuffs, Meal) %>%
+  merge(cbind(Foodstuffs=food_test[,1],res), by="Foodstuffs") %>%
+  ggplot() + geom_bar(aes(x=Identity, fill=res), position="fill", width=1) +
+  facet_wrap(~Meal) +
+  scale_fill_brewer(type="div")
+
+food_data %>%
+  select(Identity,Foodstuffs, Meal) %>%
+  merge(cbind(Foodstuffs=food_test[,1],res), by="Foodstuffs") %>%
+  ggplot() + geom_bar(aes(x=Meal, fill=res), position="fill", width=1) +
+  #facet_wrap(~Meal) +
+  scale_fill_brewer("Nutriscore\nCategory",type="div", direction=-1)
+
+food_data %>%
+  select(Identity,Foodstuffs, Meal, Day) %>%
+  merge(cbind(Foodstuffs=food_test[,1],res), by="Foodstuffs") %>%
+  group_by(Identity,Meal,res) %>%
+  summarise(n=n()) %>%
+  ungroup() %>%
+  group_by(Identity,Meal) %>%
+  mutate(prop=n/sum(n)) %>%
+  filter(res %in% c("A","E")) %>%
+  ggplot() + geom_boxplot(aes(x=Meal,y=prop, fill=res)) + 
+  scale_fill_brewer("Nutriscore\nCategory",type="qual", direction=-1) + 
+  ylab("Proportion of food items\nper subject") + scale_y_continuous(labels=scales::percent)-> nutriscore_meal_plot
+
+nutriscore_meal_plot
+
+
+```
+
+```{r, fig.height=10, fig.width=7}
+
+food_data %>%
+  select(Identity,Foodstuffs, Meal, Day) %>%
+  merge(cbind(Foodstuffs=food_test[,1],res), by="Foodstuffs") %>%
+  group_by(Identity,Meal,res) %>%
+  summarise(n=n()) %>%
+  ungroup() %>%
+  group_by(Identity,Meal) %>%
+  mutate(prop=n/sum(n)) %>%
+  ggplot() + geom_boxplot(aes(x=Meal,y=prop, fill=res)) + 
+  scale_fill_brewer("Nutriscore\nCategory",type="div", direction=-1) + facet_wrap(.~res, ncol= 1) +
+  ylab("Proportion of food items\nper subject")
+
+
+```
+
+
+
+## Final plot
+
+```{r, fig.height=10, fig.width=14, message=FALSE, warning=FALSE}
 
 diet_plot = cowplot::plot_grid(
   
@@ -834,6 +1018,22 @@ diet_plot = cowplot::plot_grid(
     meat_plant_pcoa_plot+ cowplot::theme_cowplot(),
     nutriscore_pcoa_plot+ cowplot::theme_cowplot(), rel_widths = c(1,1.3)), nrow = 2, rel_heights = c(2,1))
 
+
+diet_plot = cowplot::plot_grid(
+  
+  cowplot::plot_grid(
+    food_tree_unifrac_pcoa_plot + cowplot::theme_cowplot(),  
+    
+    cowplot::plot_grid(
+      Gender_pcoa_plot+ cowplot::theme_cowplot(),
+      Severity_pcoa_plot+ cowplot::theme_cowplot() + xlab("Symptoms severity"), nrow=2, labels=c("B","C")),
+    rel_widths = c(4,1.2), labels=c("A","")),
+  
+  cowplot::plot_grid(
+    meat_plant_pcoa_plot+ cowplot::theme_cowplot(),
+    nutriscore_DI_plot+ cowplot::theme_cowplot(), 
+    nutriscore_meal_plot + cowplot::theme_cowplot() + theme(axis.text.x = element_text(angle = 45, hjust = 1)), 
+    rel_widths = c(1,1,1.3),nrow=1, labels=c("D","E","F")), nrow = 2, rel_heights = c(2,1))
 
 
 print(diet_plot)
@@ -952,9 +1152,41 @@ wilcox.test(data=., .$AxcX2~.$Health) %>% broom::tidy()
 ```
 
 
+## FODMAPs
+
+Axis 1 is linked with total of FODMAPS without Lactose (GOS & Fructans)
+Axis 2 is negatively linked to Polyols amounts
+
+```{r}
+data("nutrients_data")
+
+nutrients_data %>%
+  select(ID,GOS,Fructans,Polyols,Lactose,`Total FODMAPs`) %>%
+  merge(unifrac_pco$li,by.x="ID",by.y="row.names") %>%
+  reshape2::melt(id.vars=c("A1","A2","A3","ID")) %>%
+  dplyr::rename(fodmap_value=value,fodmap_variable=variable) %>%
+  reshape2::melt(id.vars=c("ID","fodmap_value","fodmap_variable")) %>%
+  group_by(fodmap_variable,variable) %>%
+  do(r=with(.,cor.test(fodmap_value,value, method="spearman") %>% broom::tidy() )) %>%
+  tidyr::unnest(r, .drop = TRUE) %>%
+  mutate(p.value= round(p.value,4)) %>%
+  arrange(desc(abs(estimate)))
 
 
+  nutrients_data %>% .$ID
+  
+  cor(unifrac_pco$li, nutrients_data %>%
+  select(GOS,Fructans,Polyols,Lactose,`Excess fructose`,`Total FODMAPs`) %>%
+    mutate(total=GOS+Fructans+Polyols+`Excess fructose`)
+    , method="spearman")
+  
+  
+nutrients_data %>%
+   select(Fructose,GOS,Fructans,Polyols,Lactose,`Excess fructose`,`Total FODMAPs`) %>%
+  mutate(total=GOS+Fructans+Polyols+Lactose+`Excess fructose`)
 
+
+```
 
 
 
