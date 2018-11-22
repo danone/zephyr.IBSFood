@@ -1,0 +1,194 @@
+---
+title: "IBS and food metagenome functional analysis"
+output: html_notebook
+---
+
+```{r}
+library(ggplot2)
+library(reshape2)
+library(magrittr)
+library(ade4)
+library(dplyr)
+devtools::load_all()
+
+
+```
+
+
+## load data
+
+- co-inertia analysis and supplemental predicted data
+- MSP gut modules data by GoMixer
+- infraspecies data
+
+```{r, message=FALSE, warning=FALSE}
+
+load(system.file("data-raw","infraspecies_food_coi_foodsup.rda", package = "IBSFood"))
+load(system.file("data-raw","infraspecies_food_coi_spesup.rda",  package = "IBSFood"))
+load(system.file("data-raw","infraspecies_food_coi.rda",         package = "IBSFood"))
+
+infraspecies = readr::read_csv2(system.file("infraspecies", "infraspecies_table_full.csv", package="IBSFood"))[,-1]
+
+# MSP_KO_counts=
+# read.csv2(system.file("data-raw","MSP_KO_counts.csv",         package = "IBSFood"), row.names = 1)
+# 
+# KO_counts=
+# read.csv2(system.file("data-raw","KO_counts.csv",         package = "IBSFood"), row.names = 1)
+
+# from gomixer
+load(system.file("data-raw","modules.rda",         package = "IBSFood"))
+
+load(system.file("data-raw","msp_ko_gut_modules.rda",         package = "IBSFood"))
+
+
+total_reads = read.csv2(system.file("data-raw","total_reads.csv",         package = "IBSFood"), row.names = 1)
+
+
+```
+
+
+```{r}
+# Axis 2 and Axis 4 are linked to gas metabolism, food quality and symptoms severity
+
+microbiota_coinertia = 
+rbind(infraspecies_food_coi$lX,infraspecies_food_coi_spesup$lisup) %>%
+  select(AxcX1, AxcX2,AxcX4)
+
+
+
+```
+
+
+
+
+
+```{r, message=FALSE, warning=FALSE}
+
+modules_global = cbind(mods@annotation, mods@abundance/total_reads$V1)
+
+modules_per_MSP = cbind(mods2@annotation, mods2@abundance/total_reads$V1)
+
+
+modules_global %>%
+  melt(id.vars="Module") %>%
+  merge(.,microbiota_coinertia, by.x="variable",by.y="row.names") %>%
+  group_by(Module) %>%
+  do(
+    ax1_cor=with(., cor.test(.$value,.$AxcX1, method="spearman") %>% broom::tidy()),  
+    ax2_cor=with(., cor.test(.$value,.$AxcX2, method="spearman") %>% broom::tidy()),  
+    ax4_cor=with(., cor.test(.$value,.$AxcX4, method="spearman") %>% broom::tidy())
+    ) %>%
+  tidyr::unnest(ax1_cor, ax2_cor,ax4_cor, .drop = TRUE) %>%
+  dplyr::rename(ax1_cor=estimate, ax1_p = `p.value`, ax2_cor=estimate1, ax2_p = `p.value1`, ax4_cor = estimate2, ax4_p = `p.value2`) %>%
+  select(Module, ax1_cor, ax1_p, ax2_cor, ax2_p, ax4_cor, ax4_p) %>%
+  filter(ax1_p < 0.05 | ax2_p < 0.05 | ax4_p < 0.05) -> modules_cor
+
+module_global_name = 
+apply(modules_cor, 1, function(x)getNames(db, x[1]))
+
+#%>%
+ # group_by(Module) %>%
+  #do(annot=with(.,getNames(db, .$Module ))) %>%
+  #tidyr::unnest(annot)
+
+
+
+modules_per_MSP %>%
+  melt(id.vars=c("Taxon","Module")) %>%
+  merge(.,microbiota_coinertia, by.x="variable",by.y="row.names") %>%
+  group_by(Taxon,Module) %>%
+  do(
+    ax1_cor=with(., cor.test(.$value,.$AxcX1, method="spearman") %>% broom::tidy()),  
+    ax2_cor=with(., cor.test(.$value,.$AxcX2, method="spearman") %>% broom::tidy()),  
+    ax4_cor=with(., cor.test(.$value,.$AxcX4, method="spearman") %>% broom::tidy())
+    ) %>%
+  tidyr::unnest(ax1_cor, ax2_cor,ax4_cor, .drop = TRUE) %>%
+  dplyr::rename(ax1_cor=estimate, ax1_p = `p.value`, ax2_cor=estimate1, ax2_p = `p.value1`, ax4_cor = estimate2, ax4_p = `p.value2`) %>%
+  select(Taxon,Module, ax1_cor, ax1_p, ax2_cor, ax2_p, ax4_cor, ax4_p) %>%
+  filter(ax1_p < 0.05 | ax2_p < 0.05 | ax4_p < 0.05) -> MSP_modules_cor
+
+module_name = 
+apply(MSP_modules_cor, 1, function(x)getNames(db, x[2]))
+
+  
+save(MSP_modules_cor, file="MSP_modules_cor.rda")
+
+```
+
+
+```{r}
+
+modules_cor %>%
+  cbind(module_global_name) %>%
+  filter( abs(ax4_cor) > 0.2) %>%
+  arrange(desc(ax4_cor)) %>%
+  select(module_global_name,ax4_cor)
+
+
+
+```
+
+
+```{r}
+
+module_name = 
+apply(MSP_modules_cor, 1, function(x)getNames(db, x[2]))
+
+
+
+MSP_modules_cor %>%
+  cbind(module_name) %>%
+  merge(infraspecies %>% select(msp_name,species, genus) %>% unique, by.x="Taxon", by.y="msp_name") %>%
+  #filter( abs(ax2_cor) > 0.4 | abs(ax4_cor) > 0.4 ) %>%
+  #arrange(desc(ax2_cor))
+  filter( abs(ax1_cor) > 0.4) %>%
+  arrange(desc(ax1_cor))
+
+MSP_modules_cor %>%
+  cbind(module_name) %>%
+  merge(infraspecies %>% select(msp_name,species, genus) %>% unique, by.x="Taxon", by.y="msp_name") %>%
+  filter( abs(ax2_cor) > 0.4 ) %>%
+  arrange(desc(ax2_cor)) %>%
+  select(species,ax2_cor,module_name)
+
+
+MSP_modules_cor %>%
+  cbind(module_name) %>%
+  merge(infraspecies %>% select(msp_name,species, genus) %>% unique, by.x="Taxon", by.y="msp_name") %>%
+  filter( abs(ax4_cor) > 0.4 ) %>%
+  arrange(desc(ax4_cor)) %>%
+  select(species,ax4_cor,module_name)
+
+
+
+```
+
+
+
+```{r}
+
+MPS_modules_cor %>%
+  group_by(Taxon , Module) %>%
+  do(annot=with(.,getNames(db, .$Module ))) %>%
+  tidyr::unnest(annot)
+
+```
+
+
+
+
+```{r}
+library(omixerRpm)
+
+
+# Load the default mapping database
+db <- loadDefaultDB()
+# get the name of the first predicted module
+getNames(db, mods@annotation %>% filter(Module == "MF0062") %>% .[1,])
+
+mods@annotation[1,]
+
+
+```
+
+

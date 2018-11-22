@@ -1171,15 +1171,8 @@ nutrients_data %>%
   tidyr::unnest(r, .drop = TRUE) %>%
   mutate(p.value= round(p.value,4)) %>%
   arrange(desc(abs(estimate)))
+ 
 
-
-  nutrients_data %>% .$ID
-  
-  cor(unifrac_pco$li, nutrients_data %>%
-  select(GOS,Fructans,Polyols,Lactose,`Excess fructose`,`Total FODMAPs`) %>%
-    mutate(total=GOS+Fructans+Polyols+`Excess fructose`)
-    , method="spearman")
-  
   
 nutrients_data %>%
    select(Fructose,GOS,Fructans,Polyols,Lactose,`Excess fructose`,`Total FODMAPs`) %>%
