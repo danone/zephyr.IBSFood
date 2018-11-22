@@ -1424,6 +1424,12 @@ infraspecies_food_coi
 
 ```{r}
 
+
+save(infraspecies_food_coi,file = "infraspecies_food_coi.rda")
+save(infraspecies_food_coi_spesup, file="infraspecies_food_coi_spesup.rda")
+save(infraspecies_food_coi_foodsup, file="infraspecies_food_coi_foodsup.rda")
+
+
 ggplot() + 
   geom_segment(data= merge(infraspecies_food_coi$lX,infraspecies_food_coi$lY, by="row.names"), aes(x=AxcX1,y=AxcX2,xend=AxcY1,yend=AxcY2),col="grey") +
   geom_point(data = rbind(infraspecies_food_coi$lX,infraspecies_food_coi_spesup$lisup), aes(AxcX1,AxcX2), col="lightblue") +
@@ -1433,6 +1439,8 @@ ggplot() +
 ggsave("coinertia_subject.pdf")
 
 ## to do: compute euclidean distance between diet and microbiota within co-inertia and bootstrap
+
+
 
 ```
 
@@ -1679,6 +1687,14 @@ The goal is to predict exhaled gas based on diet and microbiota co-inertia compo
 #infraspecies_food_coi_foodsup => food sup
 
 #
+
+rbind(cbind(group="train",infraspecies_food_coi$lX),cbind(group="test",infraspecies_food_coi_spesup$lisup))[1:6] %>%
+  merge(.,IBSMicrobiota::IBSData$metadata %>%
+          filter(Visit=="V4",Sample_type=="Stool"), by.x="row.names", by.y="Patient_ID") %>%
+  mutate(H2_CH4 = log2((H2+1)/(CH4+1))) %>%
+  ggplot() + geom_jitter(aes(x=(H2+1) %>% log10(),y=(CH4+1) %>% log10()))
+
+
 
 
 rbind(cbind(group="train",infraspecies_food_coi$lX),cbind(group="test",infraspecies_food_coi_spesup$lisup))[1:6] %>%
