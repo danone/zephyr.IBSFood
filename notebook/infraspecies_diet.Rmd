@@ -2074,6 +2074,23 @@ food_coi_cor %>%
   xlab("association with Coi1") + ylab("association with Coi5")
 
 
+
+food_coi_cor %>%
+  merge(.,nutriscore_food_group, by.y="Food groups lvl4", by.x="Var1") %>%
+  #merge(food_group_levels %>%
+  #select(-Livsmedelsnamn, -Livsmedelsnummer, -Livsmedelsnamn_eng, -Foodstuffs) %>% 
+  #  filter(used == "yes") %>%  
+  #unique %>%
+  #arrange(`Food groups lvl4`), by.x="Var1", by.y="Food groups lvl4") %>%
+  unique() %>%
+  filter(abs(A2_cor)>0.3|abs(A4_cor)>0.3) %>% arrange(A4_cor) %>%
+  ggplot() + ggrepel::geom_label_repel(aes(x=A2_cor, y=A4_cor, label=Var1, color=nutriscore), size=2, label.size = NA, fill=NA) +
+  ggrepel::geom_label_repel(aes(x=A2_cor, y=A4_cor, label=`Food groups lvl3`, color=nutriscore), size=2, label.size = NA, fill=NA) +
+  xlab("association with Coi2") + ylab("association with Coi4")
+
+
+
+
 food_coi_cor %>%
   merge(.,nutriscore_food_group, by.y="Food groups lvl4", by.x="Var1") %>%
   #merge(food_group_levels %>%

@@ -47,6 +47,10 @@ total_reads = read.csv2(system.file("data-raw","total_reads.csv",         packag
 ```
 
 
+
+
+
+## check coinertia
 ```{r}
 # Axis 2 and Axis 4 are linked to gas metabolism, food quality and symptoms severity
 
@@ -59,15 +63,87 @@ rbind(infraspecies_food_coi$lX,infraspecies_food_coi_spesup$lisup) %>%
 ```
 
 
+```{r}
+
+rbind(
+  cbind(group="train",infraspecies_food_coi$lX),
+  cbind(group="test",infraspecies_food_coi_spesup$lisup))[1:6] %>% 
+  merge(.,
+        IBSMicrobiota::IBSData$metadata %>%
+           filter(Visit=="V4",Sample_type=="Stool"), 
+        by.x="row.names", 
+        by.y="Patient_ID") %>%
+  mutate(H2_CH4 = log2((H2+1)/(CH4+1))) %>%
+  #filter((H2<10&CH4>10)|(H2>10&CH4<10)) %>% 
+  ggplot() + geom_point(aes(x=H2_CH4, y=AxcX2, col=H2>10))
+
+rbind(
+  cbind(group="train",infraspecies_food_coi$lX),
+  cbind(group="test",infraspecies_food_coi_spesup$lisup))[1:6] %>% 
+  merge(.,
+        IBSMicrobiota::IBSData$metadata %>%
+           filter(Visit=="V4",Sample_type=="Stool"), 
+        by.x="row.names", 
+        by.y="Patient_ID") %>%
+  mutate(H2_CH4 = log2((H2+1)/(CH4+1))) %>%
+  #filter((H2<10&CH4>10)|(H2>10&CH4<10)) %>% 
+  ggplot() + geom_point(aes(x=H2_CH4, y=AxcX4, col=H2>10))
 
 
 
+rbind(
+  cbind(group="train",infraspecies_food_coi$lX),
+  cbind(group="test",infraspecies_food_coi_spesup$lisup))[1:6] %>% 
+  merge(.,
+        IBSMicrobiota::IBSData$metadata %>%
+           filter(Visit=="V4",Sample_type=="Stool"), 
+        by.x="row.names", 
+        by.y="Patient_ID") %>%
+  mutate(H2_CH4 = log2((H2+1)/(CH4+1))) %>%
+  with(.,cor.test(.$H2_CH4,.$AxcX2, method="spearman"))
+
+rbind(
+  cbind(group="train",infraspecies_food_coi$lX),
+  cbind(group="test",infraspecies_food_coi_spesup$lisup))[1:6] %>% 
+  merge(.,
+        IBSMicrobiota::IBSData$metadata %>%
+           filter(Visit=="V4",Sample_type=="Stool"), 
+        by.x="row.names", 
+        by.y="Patient_ID") %>%
+  mutate(H2_CH4 = log2((H2+1)/(CH4+1))) %>%
+  with(.,cor.test(.$H2_CH4,.$AxcX4, method="spearman"))
+
+
+rbind(
+  cbind(group="train",infraspecies_food_coi$lX),
+  cbind(group="test",infraspecies_food_coi_spesup$lisup))[1:6] %>% 
+  merge(.,
+        IBSMicrobiota::IBSData$metadata %>%
+           filter(Visit=="V4",Sample_type=="Stool"), 
+        by.x="row.names", 
+        by.y="Patient_ID") %>%
+  mutate(H2_CH4 = log2((H2+1)/(CH4+1))) %>%
+  #filter((H2<10&CH4>10)|(H2>10&CH4<10)) %>% 
+  ggplot() + geom_point(aes(x=H2_CH4, y=AxcX4-AxcX2, col=H2>10))
+
+
+
+
+
+```
+
+
+
+
+## gut modules correlations
+
+
+### correlation to coinertia axis
 ```{r, message=FALSE, warning=FALSE}
 
-modules_global = cbind(mods@annotation, mods@abundance/total_reads$V1)
+modules_global = cbind(mods@annotation, sweep(mods@abundance, 2, total_reads[mods2@abundance %>% colnames(),], "/"))
 
-modules_per_MSP = cbind(mods2@annotation, mods2@abundance/total_reads$V1)
-
+modules_per_MSP = cbind(mods2@annotation, sweep(mods2@abundance, 2, total_reads[mods2@abundance %>% colnames(),], "/"))
 
 modules_global %>%
   melt(id.vars="Module") %>%
@@ -116,13 +192,22 @@ save(MSP_modules_cor, file="MSP_modules_cor.rda")
 ```
 
 
+
+
 ```{r}
+
+modules_cor %>%
+  cbind(module_global_name) %>%
+  filter( abs(ax2_cor) > 0.2) %>%
+  arrange(desc(ax2_cor)) %>%
+  select(module_global_name,ax2_cor)
 
 modules_cor %>%
   cbind(module_global_name) %>%
   filter( abs(ax4_cor) > 0.2) %>%
   arrange(desc(ax4_cor)) %>%
   select(module_global_name,ax4_cor)
+
 
 
 
@@ -142,14 +227,15 @@ MSP_modules_cor %>%
   #filter( abs(ax2_cor) > 0.4 | abs(ax4_cor) > 0.4 ) %>%
   #arrange(desc(ax2_cor))
   filter( abs(ax1_cor) > 0.4) %>%
-  arrange(desc(ax1_cor))
+  arrange(desc(ax1_cor)) %>%
+   select(species,ax1_cor,module_name, Module)
 
 MSP_modules_cor %>%
   cbind(module_name) %>%
   merge(infraspecies %>% select(msp_name,species, genus) %>% unique, by.x="Taxon", by.y="msp_name") %>%
   filter( abs(ax2_cor) > 0.4 ) %>%
   arrange(desc(ax2_cor)) %>%
-  select(species,ax2_cor,module_name)
+  select(species,ax2_cor,module_name, Module)
 
 
 MSP_modules_cor %>%
@@ -157,7 +243,7 @@ MSP_modules_cor %>%
   merge(infraspecies %>% select(msp_name,species, genus) %>% unique, by.x="Taxon", by.y="msp_name") %>%
   filter( abs(ax4_cor) > 0.4 ) %>%
   arrange(desc(ax4_cor)) %>%
-  select(species,ax4_cor,module_name)
+  select(species,ax4_cor,module_name, Module)
 
 
 
@@ -176,17 +262,183 @@ MPS_modules_cor %>%
 
 
 
+### check H2/CH4 ratio
+
+```{r, eval=FALSE, message=FALSE, warning=FALSE, include=FALSE}
+
+modules_per_MSP %>%
+  melt(id.vars=c("Taxon","Module")) %>%
+  merge(.,IBSData$metadata %>% 
+          filter(Visit=="V4", Sample_type=="Stool"), by.y="Patient_ID", by.x="variable") %>%
+  group_by(Taxon,Module) %>%
+  do(H2_CH4_cor=with(., cor.test(.$value,log2((.$H2+1)/(.$CH4+1)), method="spearman") %>% broom::tidy())) %>%
+  tidyr::unnest(H2_CH4_cor, .drop=TRUE) %>%
+  filter(p.value<0.05) -> modules_H2_CH4_MSP_cor
+
+
+module_H2_CH4_MSP_cor_name = 
+apply(modules_H2_CH4_MSP_cor, 1, function(x)getNames(db, x[2]))
+
+modules_H2_CH4_MSP_cor %>%
+  cbind(module_H2_CH4_MSP_cor_name) %>%
+  merge(infraspecies %>% select(msp_name,species, genus) %>% unique, by.x="Taxon", by.y="msp_name") %>%
+  filter(abs(estimate) > 0.3) %>%
+  select(estimate,module_H2_CH4_MSP_cor_name, species) %>%
+  arrange(estimate)
+
+
+modules_per_MSP %>%
+  melt(id.vars=c("Taxon","Module")) %>%
+  merge(.,IBSData$metadata %>% 
+          filter(Visit=="V4", Sample_type=="Stool"), by.y="Patient_ID", by.x="variable") %>%
+  group_by(Taxon,Module) %>%
+  do(H2_cor=with(., cor.test(.$value,.$H2, method="spearman") %>% broom::tidy())) %>%
+  tidyr::unnest(H2_cor, .drop=TRUE) %>%
+  filter(p.value<0.05) -> modules_H2_MSP_cor
+
+
+module_H2_MSP_cor_name = 
+apply(modules_H2_MSP_cor, 1, function(x)getNames(db, x[2]))
+
+modules_H2_MSP_cor %>%
+  cbind(module_H2_MSP_cor_name) %>%
+  merge(infraspecies %>% select(msp_name,species, genus) %>% unique, by.x="Taxon", by.y="msp_name") %>%
+  filter(abs(estimate) > 0.3) %>%
+  select(estimate,module_H2_MSP_cor_name, species) %>%
+  arrange(estimate)
+
+
+
+
+modules_global %>%
+  melt(id.vars=c("Module")) %>%
+  merge(.,IBSData$metadata %>% 
+          filter(Visit=="V4", Sample_type=="Stool"), by.y="Patient_ID", by.x="variable") %>%
+  group_by(Module) %>%
+  do(  H2_CH4_cor=with(., cor.test(.$value,log2((.$H2+1)/(.$CH4+1)), method="spearman") %>% broom::tidy())) %>%
+  tidyr::unnest(H2_CH4_cor, .drop=TRUE) %>%
+  filter(p.value<0.05) -> modules_H2_CH4_cor
+
+module_H2_CH4_cor_name = 
+apply(modules_H2_CH4_cor, 1, function(x)getNames(db, x[1]))
+
+
+modules_H2_CH4_cor %>%
+  cbind(module_H2_CH4_cor_name) %>%
+  select(estimate,module_H2_CH4_cor_name) %>%
+  arrange(estimate)
+
+
+
+modules_global %>%
+  melt(id.vars=c("Module")) %>%
+  merge(.,IBSData$metadata %>% 
+          filter(Visit=="V4", Sample_type=="Stool"), by.y="Patient_ID", by.x="variable") %>%
+  group_by(Module) %>%
+  do(  H2_cor=with(., cor.test(.$value,.$H2, method="spearman") %>% broom::tidy())) %>%
+  tidyr::unnest(H2_cor, .drop=TRUE) %>%
+  filter(p.value<0.05) -> modules_H2_cor
+
+module_H2_cor_name = 
+apply(modules_H2_cor, 1, function(x)getNames(db, x[1]))
+
+
+modules_H2_cor %>%
+  cbind(module_H2_cor_name) %>%
+  select(estimate,module_H2_cor_name) %>%
+  arrange(estimate)
+
+
+
+
+```
+
+
+## check infraspecies modules
+
+
+
+```{r, fig.height=5, fig.width=10}
+
+
+msp_target = "msp_0071"
+
+infraspecies_select=
+infraspecies %>% 
+  filter(msp_name==msp_target) %>%
+  select(contains("M", ignore.case = FALSE), msp_name_partition,msp_name,species) %>%
+  melt(id.vars=c("msp_name_partition","msp_name","species")) %>%
+  group_by(variable) %>%
+  top_n(1)
+
+
+
+modules_per_MSP %>%
+  filter(Taxon==msp_target) %>%
+  melt(id.vars=c("Taxon","Module")) %>%
+  merge(infraspecies_select, by="variable") %>%
+  ungroup %>%
+  ggplot() + geom_point(aes(x=value.x,y=value.y,col=msp_name_partition))
+  
+
+modules_per_MSP %>%
+  filter(Taxon==msp_target) %>%
+  melt(id.vars=c("Taxon","Module")) %>%
+  merge(infraspecies_select, by="variable") %>%
+  ungroup %>% 
+  group_by(msp_name_partition) %>%
+  mutate(value= log10(value.x+10^-6) %>% scale) %>%
+  filter(!(msp_name_partition %in% grep("unassigned",msp_name_partition, value=TRUE )) ) %>%
+  #filter(Module %in% c("MF0001","MF0038")) %>%
+  ggplot() + 
+  geom_tile(aes(y=Module,x=variable,fill=value)) + 
+  facet_wrap(~msp_name_partition, scales = "free_x") + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0, size=2), axis.text.y  = element_text(size=4))
+
+
+
+modules_per_MSP %>%
+  filter(Taxon==msp_target) %>%
+  melt(id.vars=c("Taxon","Module")) %>%
+  merge(infraspecies_select, by="variable") %>%
+  ungroup %>% 
+  group_by(msp_name_partition) %>%
+  mutate(value= log10(value.x+10^-6) %>% scale) %>%
+  filter(!(msp_name_partition %in% grep("unassigned",msp_name_partition, value=TRUE )) ) %>%
+  ggplot() + geom_boxplot(aes(y=value ,x=Module, fill=msp_name_partition)) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0, size=10))
+
+
+
+
+```
+
+
+
 
 ```{r}
-library(omixerRpm)
+
+modules_per_MSP = cbind(mods2@annotation, sweep(mods2@abundance, 2, total_reads[mods2@abundance %>% colnames(),], "/"))
 
 
-# Load the default mapping database
-db <- loadDefaultDB()
-# get the name of the first predicted module
-getNames(db, mods@annotation %>% filter(Module == "MF0062") %>% .[1,])
 
-mods@annotation[1,]
+modules_per_MSP %>%
+  melt(id.vars=c("Taxon","Module")) %>%
+  group_by(variable) %>%
+  summarize(s = sum(value)) %>%
+  ggplot() + geom_histogram(aes(x=s %>% as.character %>% as.numeric()))
+
+
+mods2@abundance %>%
+  melt() %>%
+  group_by(variable) %>%
+  summarize(s = sum(value) %>% round(1)) %>%
+  merge(total_reads, by.x="variable", by.y="row.names") %>%
+  mutate(p=s/V1) %>%
+  arrange(desc(p))
+  
+  
+  ggplot() + geom_histogram(aes(x=s %>% as.character %>% as.numeric()))
 
 
 ```
