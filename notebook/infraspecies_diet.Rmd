@@ -13,6 +13,7 @@ library(ggplot2)
 library(reshape2)
 library(phyloseq)
 library(cowplot)
+library(tidybayes)
 devtools::load_all()
 
 
@@ -1793,7 +1794,7 @@ gas_food_predict =
 
 
 
-cbind(predicted_gas=gas_predict,observed_gas=food_data_gas %>% filter(group=="test") %>% .$H2_CH4) %>% na.omit %>% as.data.frame %>%
+cbind(predicted_gas=gas_food_predict,observed_gas=food_data_gas %>% filter(group=="test") %>% .$H2_CH4) %>% na.omit %>% as.data.frame %>%
   filter(predicted_gas < 0.25 & observed_gas > -2) %>%
   ggplot(aes(x=observed_gas %>% as.character %>% as.numeric , y=predicted_gas %>% as.character %>% as.numeric )) + 
   geom_point() + geom_smooth(method="lm") + 
@@ -1857,6 +1858,8 @@ cbind(predicted_gas=gas_microbiota_predict,observed_gas=microbiota_data_gas %>% 
 
 
 ## visualisations
+
+### infraspecies co-inertia
 
 ```{r}
 
@@ -1939,7 +1942,7 @@ ggsave("co-inertia_drivers_infraspecies_ax5.pdf")
 
 ```
 
-
+### Food co-inertia
 ```{r, message=FALSE, warning=FALSE}
 
 
@@ -2040,7 +2043,9 @@ food_coi_cor %>%
   #arrange(`Food groups lvl4`), by.x="Var1", by.y="Food groups lvl4") %>%
   unique() %>%
   filter(abs(A1_cor)>0.3|abs(A2_cor)>0.3|abs(A4_cor)>0.3) %>% arrange(A4_cor) %>%
-  ggplot() + ggrepel::geom_label_repel(aes(x=A1_cor, y=A4_cor, label=`Food groups lvl3`, color=nutriscore), size=2, label.size = NA, fill=NA) +
+  ggplot() + 
+  ggrepel::geom_label_repel(aes(x=A1_cor, y=A4_cor, label=`Food groups lvl3`, color=nutriscore), size=2, label.size = NA, fill=NA) + 
+  ggrepel::geom_label_repel(aes(x=A1_cor, y=A4_cor, label=`Var1`), size=2, label.size = NA, fill=NA) + 
   xlab("association with Coi1") + ylab("association with Coi4")
 
 ggsave("co_inertia_food_ax4.pdf")
@@ -2108,18 +2113,78 @@ merge(.,nutriscore_food_group, by.y="Food groups lvl4", by.x="Var1") %>%
 select(A1_cor,A2_cor,A3_cor,A5_cor,nutriscore,cor_A1,cor_A2) %>%
   ggplot() + geom_point(aes(x=nutriscore, y=A2_cor, col=nutriscore)) + ylab("Coinertia PC2")
 
+food_coi_cor %>%
+merge(.,nutriscore_food_group, by.y="Food groups lvl4", by.x="Var1") %>%
+select(A1_cor,A2_cor,A3_cor,A4_cor,A5_cor,nutriscore,cor_A1,cor_A2) %>%
+  ggplot() + geom_point(aes(x=nutriscore, y=A4_cor, col=nutriscore)) + ylab("Coinertia PC4")
 
 
 food_coi_cor %>%
 merge(.,nutriscore_food_group, by.y="Food groups lvl4", by.x="Var1") %>%
-select(A1_cor,A2_cor,A3_cor,A5_cor,nutriscore,cor_A1,cor_A2) %>%
+select(A1_cor,A2_cor,A3_cor,A4_cor,A5_cor,nutriscore,cor_A1,cor_A2) %>%
   reshape2::melt(id.vars="nutriscore") %>%
   group_by(variable) %>%
   do(w = with(.,cor.test(nutriscore,value, p.adjust="none", method="spearman"))) %>% broom::tidy(w)
 
 
 
+
 ```
+
+
+```{r}
+
+food_coi_cor %>%
+  merge(.,nutriscore_food_group, by.y="Food groups lvl4", by.x="Var1") %>%
+  #merge(food_group_levels %>%
+  #select(-Livsmedelsnamn, -Livsmedelsnummer, -Livsmedelsnamn_eng, -Foodstuffs) %>% 
+  #  filter(used == "yes") %>%  
+  #unique %>%
+  #arrange(`Food groups lvl4`), by.x="Var1", by.y="Food groups lvl4") %>%
+  unique() %>%
+  filter(abs(A1_cor)>0.3|abs(A2_cor)>0.3|abs(A4_cor)>0.3) %>% arrange(A4_cor) %>%
+  ggplot() + 
+  ggrepel::geom_label_repel(aes(x=A1_cor, y=A2_cor, label=`Food groups lvl3`, color=nutriscore), size=2, label.size = NA, fill=NA) + 
+  ggrepel::geom_label_repel(aes(x=A1_cor, y=A2_cor, label=`Var1`), size=2, label.size = NA, fill=NA) + 
+  xlab("association with Coi1") + ylab("association with Coi2")
+
+food_coi_cor %>%
+  merge(.,nutriscore_food_group, by.y="Food groups lvl4", by.x="Var1") %>%
+  #merge(food_group_levels %>%
+  #select(-Livsmedelsnamn, -Livsmedelsnummer, -Livsmedelsnamn_eng, -Foodstuffs) %>% 
+  #  filter(used == "yes") %>%  
+  #unique %>%
+  #arrange(`Food groups lvl4`), by.x="Var1", by.y="Food groups lvl4") %>%
+  unique() %>%
+  filter(abs(A1_cor)>0.3|abs(A2_cor)>0.3|abs(A4_cor)>0.3) %>% arrange(A4_cor) %>%
+  ggplot() + 
+  ggrepel::geom_label_repel(aes(x=A1_cor, y=A4_cor, label=`Food groups lvl3`, color=nutriscore), size=2, label.size = NA, fill=NA) + 
+  ggrepel::geom_label_repel(aes(x=A1_cor, y=A4_cor, label=`Var1`), size=2, label.size = NA, fill=NA) + 
+  xlab("association with Coi1") + ylab("association with Coi4")
+
+
+food_coi_cor %>%
+  merge(.,nutriscore_food_group, by.y="Food groups lvl4", by.x="Var1") %>%
+  #merge(food_group_levels %>%
+  #select(-Livsmedelsnamn, -Livsmedelsnummer, -Livsmedelsnamn_eng, -Foodstuffs) %>% 
+  #  filter(used == "yes") %>%  
+  #unique %>%
+  #arrange(`Food groups lvl4`), by.x="Var1", by.y="Food groups lvl4") %>%
+  unique() %>%
+  filter(abs(A1_cor)>0.3|abs(A2_cor)>0.3|abs(A4_cor)>0.3) %>% arrange(A4_cor) %>%
+  ggplot() + 
+  geom_point(aes(x=A2_cor, y=A4_cor)) +
+  ggrepel::geom_label_repel(aes(x=A2_cor, y=A4_cor, label=`Food groups lvl3`, color=nutriscore), size=2, label.size = NA, fill=NA) + 
+  ggrepel::geom_label_repel(aes(x=A2_cor, y=A4_cor, label=`Var1`), size=2, label.size = NA, fill=NA) + 
+  geom_hline(yintercept = c(-0.3,0.3)) + geom_vline(xintercept = c(-0.3,0.3)) +
+  xlab("association with Coi2") + ylab("association with Coi4")
+
+ggsave("co_inertia_food_ax2_ax4.pdf")
+
+```
+
+
+
 
 ```{r}
 food_group_levels %>% filter(`Food groups lvl4` == "17_1")
