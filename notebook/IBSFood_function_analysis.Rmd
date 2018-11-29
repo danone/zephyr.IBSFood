@@ -3,7 +3,7 @@ title: "IBS and food metagenome functional analysis"
 output: html_notebook
 ---
 
-```{r}
+```{r, message=FALSE, warning=FALSE}
 library(ggplot2)
 library(reshape2)
 library(magrittr)
@@ -42,6 +42,8 @@ load(system.file("data-raw","msp_ko_gut_modules.rda",         package = "IBSFood
 
 
 total_reads = read.csv2(system.file("data-raw","total_reads.csv",         package = "IBSFood"), row.names = 1)
+
+db <- loadDefaultDB() #load modules annotation
 
 
 ```
@@ -139,11 +141,19 @@ rbind(
 
 
 ### correlation to coinertia axis
-```{r, message=FALSE, warning=FALSE}
+
+normalisation : original count where already normalized by gene length and scaled, here we computed proportion
+```{r}
 
 modules_global = cbind(mods@annotation, sweep(mods@abundance, 2, total_reads[mods2@abundance %>% colnames(),], "/"))
 
 modules_per_MSP = cbind(mods2@annotation, sweep(mods2@abundance, 2, total_reads[mods2@abundance %>% colnames(),], "/"))
+
+```
+
+
+```{r, message=FALSE, warning=FALSE}
+
 
 modules_global %>%
   melt(id.vars="Module") %>%
@@ -161,11 +171,23 @@ modules_global %>%
 
 module_global_name = 
 apply(modules_cor, 1, function(x)getNames(db, x[1]))
-
 #%>%
  # group_by(Module) %>%
   #do(annot=with(.,getNames(db, .$Module ))) %>%
   #tidyr::unnest(annot)
+
+```
+
+
+
+
+```{r, message=FALSE, warning=FALSE}
+
+
+
+
+
+
 
 
 
@@ -253,7 +275,7 @@ MSP_modules_cor %>%
 
 ```{r}
 
-MPS_modules_cor %>%
+MSP_modules_cor %>%
   group_by(Taxon , Module) %>%
   do(annot=with(.,getNames(db, .$Module ))) %>%
   tidyr::unnest(annot)
@@ -435,7 +457,7 @@ mods2@abundance %>%
   summarize(s = sum(value) %>% round(1)) %>%
   merge(total_reads, by.x="variable", by.y="row.names") %>%
   mutate(p=s/V1) %>%
-  arrange(desc(p))
+  arrange(desc(p)) %>%
   
   
   ggplot() + geom_histogram(aes(x=s %>% as.character %>% as.numeric()))
