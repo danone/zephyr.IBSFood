@@ -53,6 +53,24 @@ db <- loadDefaultDB() #load modules annotation
 
 
 ## check coinertia
+
+It is important to note that Food PCoA Axis 2 associated with degraded food quality
+and symptoms severity is negatively correlated with the Axis 2 of the co-inertia. 
+
+Axis 2 of the co-inertia is then correlated with a **BETTER** food quality.
+
+
+```{r}
+infraspecies_food_coi
+s.corcircle(infraspecies_food_coi$aY)
+
+
+
+
+```
+
+
+
 ```{r}
 # Axis 2 and Axis 4 are linked to gas metabolism, food quality and symptoms severity
 
@@ -64,6 +82,70 @@ rbind(infraspecies_food_coi$lX,infraspecies_food_coi_spesup$lisup) %>%
 
 ```
 
+So Axis 2 and Axis 4 from the co-inertia analysis are respectively associated positively and negatively with a lower H2/CH4 ratio
+
+
+```{r}
+
+rbind(cbind(group="train",infraspecies_food_coi$lX),
+  cbind(group="test",infraspecies_food_coi_spesup$lisup))[1:6] %>% 
+  merge(.,
+        IBSMicrobiota::IBSData$metadata %>%
+           filter(Visit=="V4",Sample_type=="Stool"), 
+        by.x="row.names", 
+        by.y="Patient_ID") %>%
+  ggplot() + geom_point(aes(x=H2, y=CH4))
+
+rbind(cbind(group="train",infraspecies_food_coi$lX),
+  cbind(group="test",infraspecies_food_coi_spesup$lisup))[1:6] %>% 
+  merge(.,
+        IBSMicrobiota::IBSData$metadata %>%
+           filter(Visit=="V4",Sample_type=="Stool"), 
+        by.x="row.names", 
+        by.y="Patient_ID") %>%
+  ggplot() + geom_boxplot(aes(y=AxcX4, x=SSgroup))
+
+
+rbind(cbind(group="train",infraspecies_food_coi$lX),
+  cbind(group="test",infraspecies_food_coi_spesup$lisup))[1:6] %>% 
+  merge(.,
+        IBSMicrobiota::IBSData$metadata %>%
+           filter(Visit=="V4",Sample_type=="Stool"), 
+        by.x="row.names", 
+        by.y="Patient_ID") %>%
+  with(.,cor.test(transit.days, AxcX4, method="pearson"))
+  
+  
+
+rbind(cbind(group="train",infraspecies_food_coi$lX),
+  cbind(group="test",infraspecies_food_coi_spesup$lisup))[1:6] %>% 
+  merge(.,
+        IBSMicrobiota::IBSData$metadata %>%
+           filter(Visit=="V4",Sample_type=="Stool"), 
+        by.x="row.names", 
+        by.y="Patient_ID") %>%
+  mutate(gas_group = ifelse(CH4>10,"methane\nproducers",ifelse(CH4<10 & H2>10, "high H2\nproducers","low exhaled gas\nproducers"))) %>%
+  filter(!is.na(H2)) %>%
+  ggplot() + geom_boxplot(aes(x=gas_group,y=AxcX4))
+
+
+rbind(cbind(group="train",infraspecies_food_coi$lX),
+  cbind(group="test",infraspecies_food_coi_spesup$lisup))[1:6] %>% 
+  merge(.,
+        IBSMicrobiota::IBSData$metadata %>%
+           filter(Visit=="V4",Sample_type=="Stool"), 
+        by.x="row.names", 
+        by.y="Patient_ID") %>%
+  mutate(gas_group = ifelse(CH4>10,"methane\nproducers",ifelse(CH4<10 & H2>10, "high H2\nproducers","low exhaled gas\nproducers"))) %>%
+  filter(!is.na(H2)) %>%
+  ggplot() + geom_boxplot(aes(x=gas_group,y=AxcX2))
+
+
+
+```
+
+transit time is associated with higher gas production (H2 based or CH4 based). 
+to do: test higher transit time with CH4 or with H2 regarding symptoms severity
 
 ```{r}
 
@@ -129,9 +211,6 @@ rbind(
   ggplot() + geom_point(aes(x=H2_CH4, y=AxcX4-AxcX2, col=H2>10))
 
 
-
-
-
 ```
 
 
@@ -145,9 +224,17 @@ rbind(
 normalisation : original count where already normalized by gene length and scaled, here we computed proportion
 ```{r}
 
-modules_global = cbind(mods@annotation, sweep(mods@abundance, 2, total_reads[mods2@abundance %>% colnames(),], "/"))
+modules_global = 
+  cbind(
+    mods@annotation, 
+    sweep(mods@abundance, 2, total_reads[mods2@abundance %>% colnames(),], "/")
+    )
 
-modules_per_MSP = cbind(mods2@annotation, sweep(mods2@abundance, 2, total_reads[mods2@abundance %>% colnames(),], "/"))
+modules_per_MSP = 
+  cbind(
+    mods2@annotation, 
+    sweep(mods2@abundance, 2, total_reads[mods2@abundance %>% colnames(),], "/")
+    )
 
 ```
 
@@ -182,13 +269,6 @@ apply(modules_cor, 1, function(x)getNames(db, x[1]))
 
 
 ```{r, message=FALSE, warning=FALSE}
-
-
-
-
-
-
-
 
 
 modules_per_MSP %>%
