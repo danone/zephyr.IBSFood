@@ -2352,7 +2352,7 @@ align = "v"
 
 prepare data for all the map
 
-```{r, fig.height=8, fig.width=4}
+```{r, eval=FALSE, fig.height=8, fig.width=4, message=FALSE, warning=FALSE, include=FALSE}
 
 
 df_bar_data =
@@ -2462,6 +2462,65 @@ df_bar_data %>% ggplot() + geom_point(aes(x=A1,y=AxcX1,color=cazotype))
 
 
 ```
+
+
+## Multiple co-inertia analysis
+
+
+
+```{r, fig.height=6, fig.width=6}
+
+
+food_pco$li %>% row.names
+
+infraspecies_pco$li %>% row.names
+
+
+metadata_79ind =
+IBSMicrobiota::IBSData$metadata %>% 
+  filter(Visit == "V4", Sample_type =="Stool") %>%
+  filter(Patient_ID %in% row.names(infraspecies_pco$li)) %>%
+  select(Patient_ID, Health, Age, BMI, H2, CH4, IBS.Severity.Score, HAD.ANXIETY, HAD.DEPRES, BSF.Mean_Stoolform_total, BSF.Mean_Frequenc_StoolPerDay, transit.days) %>%
+  mutate(IBS.Severity.Score = ifelse(Health=="control", 0,  IBS.Severity.Score)) %>%
+  select(-Health) %>%
+  melt(id.vars="Patient_ID") %>%
+  group_by(variable) %>%
+  mutate(value = ifelse(is.na(value), median(value %>% na.omit), value)) %>%
+  dcast(Patient_ID~variable) %>%
+  tibble::column_to_rownames("Patient_ID") %>%
+  .[infraspecies_pco$li %>% row.names,]
+
+
+?ade4::mcoa
+
+
+food_pco$li %>% dim
+
+metadata_79ind %>% scale(scale=TRUE)
+
+
+w.ktab = cbind(infraspecies_pco$li[1:5],food_pco$li[1:5], metadata_79ind %>% scale(scale=TRUE)) %>%
+  ktab.data.frame(blocks = c(5,5,10), tabnames = c("microbiota","food","metadata"))
+
+
+microbiota_food_mcoa <- mcoa(w.ktab,  scan = FALSE)
+
+microbiota_food_mcoa
+summary(microbiota_food_mcoa)
+plot(microbiota_food_mcoa)
+
+
+s.corcircle(microbiota_food_mcoa$axis, clabel = 0.5, yax = 2)
+
+
+cumsum(microbiota_food_mcoa$pseudoeig)/sum(microbiota_food_mcoa$pseudoeig)
+
+
+
+
+```
+
+
 
 
 
