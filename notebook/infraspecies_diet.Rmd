@@ -2516,6 +2516,40 @@ s.corcircle(microbiota_food_mcoa$axis, clabel = 0.5, yax = 2)
 cumsum(microbiota_food_mcoa$pseudoeig)/sum(microbiota_food_mcoa$pseudoeig)
 
 
+microbiota_food_mcoa$Tli
+
+
+
+
+```
+
+```{r}
+
+cbind(microbiota_food_mcoa$SynVar,metadata_79ind, food_pco$li[1:5]) %>%
+  select(SynVar2,A2,IBS.Severity.Score,A4) %>%
+  melt(id.vars="SynVar2") %>%
+  
+  ggplot(aes(x=SynVar2, y=value)) + geom_point() + geom_smooth(method = "lm") + facet_wrap(~variable, scale="free_y")
+
+
+cbind(microbiota_food_mcoa$SynVar,metadata_79ind, food_pco$li[1:5]) %>%
+  select(SynVar2,A2,IBS.Severity.Score,A4) %>%
+  melt(id.vars="SynVar2") %>% 
+  group_by(variable) %>%
+  do(with(., cor.test(SynVar2,value) %>% broom::tidy() ))
+
+
+cbind(microbiota_food_mcoa$SynVar,metadata_79ind, infraspecies_pco$li[1:5]) %>%
+  select(SynVar2,A1,IBS.Severity.Score,A4) %>%
+  melt(id.vars="SynVar2") %>% 
+  group_by(variable) %>%
+  do(with(., cor.test(SynVar2,value) %>% broom::tidy() ))
+
+
+
+
+
+
 
 
 ```
