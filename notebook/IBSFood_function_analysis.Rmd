@@ -62,8 +62,8 @@ Axis 2 of the co-inertia is then correlated with a **BETTER** food quality.
 
 ```{r}
 infraspecies_food_coi
-s.corcircle(infraspecies_food_coi$aY)
-
+s.corcircle(infraspecies_food_coi$aY, yax=3)
+s.corcircle(infraspecies_food_coi$aX, yax=5)
 
 
 
@@ -544,5 +544,41 @@ mods2@abundance %>%
 
 
 ```
+
+
+## Modules associations on infraspecies PCOa
+
+> TO DO: check axis direction!!
+
+```{r}
+modules_per_MSP %>%
+  melt(id.vars=c("Taxon","Module")) %>%
+  merge(.,infraspecies_all_pco$li, by.x="variable",by.y="row.names") %>%
+  group_by(Taxon,Module) %>%
+  do(
+    #ax1_cor=with(., cor.test(.$value,.$A1, method="spearman") %>% broom::tidy()),  
+    #ax2_cor=with(., cor.test(.$value,.$AxcX2, method="spearman") %>% broom::tidy()),  
+    ax1_cor=with(., cor.test(.$value,.$A1, method="spearman") %>% broom::tidy())
+    ) %>%
+  tidyr::unnest(ax1_cor,  .drop = TRUE) %>%
+  dplyr::rename(ax1_cor=estimate, ax1_p = `p.value`) %>%
+  select(Taxon,Module, ax1_cor, ax1_p) %>%
+  filter(ax1_p < 0.05) -> MSP_modules_PCO_cor
+
+MSP_modules_PCO_cor_name = 
+apply(MSP_modules_PCO_cor, 1, function(x)getNames(db, x[2]))
+
+
+MSP_modules_PCO_cor %>%
+  cbind(name=MSP_modules_PCO_cor_name) %>%
+  merge(infraspecies %>% select(msp_name,species, genus) %>% unique, by.x="Taxon", by.y="msp_name") %>%
+  filter(abs(ax1_cor)>0.4) %>%
+  arrange(ax1_cor)
+
+
+
+```
+
+
 
 
