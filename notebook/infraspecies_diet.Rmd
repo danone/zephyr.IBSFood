@@ -921,7 +921,7 @@ table(rv_obs >= rv_sim)
 with unifrac Food and JSD infraspecies
 
 
-```{r, eval=FALSE, message=FALSE, warning=FALSE, include=FALSE}
+```{r, message=FALSE, warning=FALSE}
 
 
 A = merge(infraspecies_jsd %>% broom::tidy(diagonal=TRUE, upper=TRUE),
@@ -1401,23 +1401,33 @@ B %>%
 
 ### co-inertia plot
 
+
+
 ```{r}
 
-scatter(food_pco) %>% unclass
+#scatter(food_pco) %>% unclass
 
 food_pco$li
 
-infraspecies_food_coi$aX
-infraspecies_food_coi$aY
-
 infraspecies_food_coi
+
+infraspecies_food_coi$aX %>% tibble::rownames_to_column("pco")   %>% melt %>% filter(abs(value)>0.5)
+infraspecies_food_coi$aY %>% tibble::rownames_to_column("pco")   %>% melt %>% filter(abs(value)>0.5)
+
+
+
+plot(infraspecies_food_coi)
 
 
 cor(food_pco$li,infraspecies_food_coi$lY) %>% melt %>% group_by(Var2) %>% arrange(Var2,desc(value)) %>% top_n(3)
 
 
 
-infraspecies_food_coi
+infraspecies_food_coi %>% unclass
+
+
+
+
 
 
 ```
@@ -1541,6 +1551,11 @@ rbind(infraspecies_food_coi$lY,infraspecies_food_coi_foodsup$cosup)[1:5] %>%
 #   ggplot() + geom_point(aes( y=AxcX3, x=(H2+1)/(CH4+1) %>% log2))  + geom_smooth(aes( y=AxcX3, x=(H2+1)/(CH4+1) %>% log2), method = "lm")
 # 
 
+
+
+```
+
+```{r}
 
 
 rbind(infraspecies_food_coi$lX,infraspecies_food_coi_spesup$lisup)[1:5] %>%
@@ -1670,7 +1685,6 @@ rbind(infraspecies_food_coi$lX,infraspecies_food_coi_spesup$lisup)[1:5] %>%
   xtabs( ~ cazotype + paste(breath_H2,breath_CH4), data=.) %>% prop.table(1)
 
 #to do: predict H2/CH4 from diet or microbiota
-
 ```
 
 
@@ -1855,6 +1869,8 @@ cbind(predicted_gas=gas_microbiota_predict,observed_gas=microbiota_data_gas %>% 
 
 ```
 
+
+> TO DO: predict severity with logistics regression based on Principal Component
 
 
 ## visualisations
@@ -2468,18 +2484,56 @@ df_bar_data %>% ggplot() + geom_point(aes(x=A1,y=AxcX1,color=cazotype))
 
 
 
-```{r, fig.height=6, fig.width=6}
+```{r, eval=FALSE, fig.height=6, fig.width=6, include=FALSE}
+
+load("nutriscore_DI.rda")
+load("infraspecies_jsd")
+
+load(system.file("biom", "food_unifrac.dist", package="IBSFood"))
 
 
-food_pco$li %>% row.names
+unifrac_all_pco  = ade4::dudi.pco(food_unifrac %>% ade4::quasieuclid(), scannf=F, nf=5)
+infraspecies_all_pco = dudi.pco(infraspecies_jsd, scannf = F, nf=10)
 
-infraspecies_pco$li %>% row.names
+select_sample_mcoa = intersect(infraspecies_all_pco$li %>% row.names, unifrac_all_pco$li %>% row.names)
+
+
+IBSMicrobiota::IBSData$metadata %>% 
+  filter(Visit == "V4", Sample_type =="Stool") %>%
+  select(Patient_ID, Health, Age, BMI, H2, CH4, IBS.Severity.Score, HAD.ANXIETY, HAD.DEPRES, BSF.Mean_Stoolform_total, BSF.Mean_Frequenc_StoolPerDay, transit.days) %>%
+  mutate(IBS.Severity.Score = ifelse(Health=="control", 0,  IBS.Severity.Score)) %>%
+  select(-Health) %>%
+  melt(id.vars="Patient_ID") %>%
+  group_by(variable) %>%
+  mutate(value = ifelse(is.na(value), median(value %>% na.omit), value)) %>%
+  dcast(Patient_ID~variable) %>%
+  merge(infraspecies_all_pco$li, by.x="Patient_ID", by.y="row.names") %>%
+  tibble::column_to_rownames("Patient_ID") %>% 
+  cor(method="spearman") %>%
+  melt() %>%
+  filter(abs(value)>0.2 & value != 1)
+  
+
+IBSMicrobiota::IBSData$metadata %>% 
+  filter(Visit == "V4", Sample_type =="Stool") %>%
+  select(Patient_ID, Health, Age, BMI, H2, CH4, IBS.Severity.Score, HAD.ANXIETY, HAD.DEPRES, BSF.Mean_Stoolform_total, BSF.Mean_Frequenc_StoolPerDay, transit.days) %>%
+  mutate(IBS.Severity.Score = ifelse(Health=="control", 0,  IBS.Severity.Score)) %>%
+  select(-Health) %>%
+  melt(id.vars="Patient_ID") %>%
+  group_by(variable) %>%
+  mutate(value = ifelse(is.na(value), median(value %>% na.omit), value)) %>%
+  dcast(Patient_ID~variable) %>%
+  merge(unifrac_all_pco$li, by.x="Patient_ID", by.y="row.names") %>%
+  tibble::column_to_rownames("Patient_ID") %>% 
+  cor(method="spearman") %>%
+  melt() %>%
+  filter(abs(value)>0.2 & value != 1)
 
 
 metadata_79ind =
 IBSMicrobiota::IBSData$metadata %>% 
   filter(Visit == "V4", Sample_type =="Stool") %>%
-  filter(Patient_ID %in% row.names(infraspecies_pco$li)) %>%
+  filter(Patient_ID %in% select_sample_mcoa) %>%
   select(Patient_ID, Health, Age, BMI, H2, CH4, IBS.Severity.Score, HAD.ANXIETY, HAD.DEPRES, BSF.Mean_Stoolform_total, BSF.Mean_Frequenc_StoolPerDay, transit.days) %>%
   mutate(IBS.Severity.Score = ifelse(Health=="control", 0,  IBS.Severity.Score)) %>%
   select(-Health) %>%
@@ -2488,7 +2542,25 @@ IBSMicrobiota::IBSData$metadata %>%
   mutate(value = ifelse(is.na(value), median(value %>% na.omit), value)) %>%
   dcast(Patient_ID~variable) %>%
   tibble::column_to_rownames("Patient_ID") %>%
-  .[infraspecies_pco$li %>% row.names,]
+  .[select_sample_mcoa,] %>%
+  merge(.,nutriscore_DI, by.y="Patient_ID", by.x="row.names") %>%
+  tibble::column_to_rownames("Row.names")
+
+
+metadata_111ind =
+IBSMicrobiota::IBSData$metadata %>% 
+  filter(Visit == "V4", Sample_type =="Stool") %>%
+  select(Patient_ID, Health, Age, BMI, H2, CH4, IBS.Severity.Score, HAD.ANXIETY, HAD.DEPRES, BSF.Mean_Stoolform_total, BSF.Mean_Frequenc_StoolPerDay, transit.days) %>%
+  mutate(IBS.Severity.Score = ifelse(Health=="control", 0,  IBS.Severity.Score)) %>%
+  select(-Health) %>%
+  melt(id.vars="Patient_ID") %>%
+  group_by(variable) %>%
+  mutate(value = ifelse(is.na(value), median(value %>% na.omit), value)) %>%
+  dcast(Patient_ID~variable) %>%
+  tibble::column_to_rownames("Patient_ID") %>%
+  merge(.,nutriscore_DI, by.y="Patient_ID", by.x="row.names") %>%
+  tibble::column_to_rownames("Row.names") 
+
 
 
 ?ade4::mcoa
@@ -2496,22 +2568,33 @@ IBSMicrobiota::IBSData$metadata %>%
 
 food_pco$li %>% dim
 
-metadata_79ind %>% scale(scale=TRUE)
+metadata_79ind %>% 
+  scale(scale=TRUE) %>%
+  as.data.frame %>%
+  select(CH4,H2,IBS.Severity.Score, transit.days, nutriscore_DI)
 
 
-w.ktab = cbind(infraspecies_pco$li[1:5],food_pco$li[1:5], metadata_79ind %>% scale(scale=TRUE)) %>%
-  ktab.data.frame(blocks = c(5,5,10), tabnames = c("microbiota","food","metadata"))
+w.ktab = cbind(infraspecies_all_pco$li[select_sample_mcoa,1:5],unifrac_all_pco$li[select_sample_mcoa,1:5], metadata_79ind[select_sample_mcoa,] %>% 
+  scale(scale=TRUE) %>%
+  as.data.frame %>%
+  select(CH4,H2,IBS.Severity.Score, BSF.Mean_Stoolform_total, nutriscore_DI)) %>%
+  ktab.data.frame(blocks = c(5,5,5), tabnames = c("microbiota","food","metadata"))
 
 
-microbiota_food_mcoa <- mcoa(w.ktab,  scan = FALSE)
+microbiota_food_mcoa <- mcoa(w.ktab,  scan = FALSE, nf = 5)
 
 microbiota_food_mcoa
 summary(microbiota_food_mcoa)
 plot(microbiota_food_mcoa)
 
 
-s.corcircle(microbiota_food_mcoa$axis, clabel = 0.5, yax = 2)
+s.corcircle(microbiota_food_mcoa$axis  , clabel = 0.5, yax = 2)
 
+s.corcircle(microbiota_food_mcoa$axis, clabel = 0.5, yax = 3)
+
+s.corcircle(microbiota_food_mcoa$axis, clabel = 0.5, yax = 4)
+
+s.corcircle(microbiota_food_mcoa$axis, clabel = 0.5, yax = 5)
 
 cumsum(microbiota_food_mcoa$pseudoeig)/sum(microbiota_food_mcoa$pseudoeig)
 
@@ -2523,30 +2606,59 @@ microbiota_food_mcoa$Tli
 
 ```
 
-```{r}
+```{r, eval=FALSE, include=FALSE}
 
-cbind(microbiota_food_mcoa$SynVar,metadata_79ind, food_pco$li[1:5]) %>%
-  select(SynVar2,A2,IBS.Severity.Score,A4) %>%
+sample_sup <- as.matrix((infraspecies_all_pco$li[,1:5])) %*% (as.matrix(microbiota_food_mcoa$axis[1:5,]))
+
+sample_sup[c("M172","M097"),]
+
+
+as.matrix(microbiota_food_mcoa$Tli[c("M172.microbiota","M097.microbiota"),])
+
+
+unclass(microbiota_food_mcoa)
+
+microbiota_food_mcoa$Tco
+
+ade4::plot.mcoa
+
+
+```
+
+
+
+```{r, eval=FALSE, include=FALSE}
+
+data.frame(microbiota_food_mcoa$SynVar,metadata_79ind, unifrac_all_pco$li[select_sample_mcoa,1:5], infraspecies_all_pco$li[select_sample_mcoa,1:5]) %>%
+  select(SynVar2,A2,A1.1,nutriscore_DI) %>%
   melt(id.vars="SynVar2") %>%
-  
   ggplot(aes(x=SynVar2, y=value)) + geom_point() + geom_smooth(method = "lm") + facet_wrap(~variable, scale="free_y")
 
 
-cbind(microbiota_food_mcoa$SynVar,metadata_79ind, food_pco$li[1:5]) %>%
-  select(SynVar2,A2,IBS.Severity.Score,A4) %>%
+data.frame(microbiota_food_mcoa$SynVar,metadata_79ind, unifrac_all_pco$li[select_sample_mcoa,1:5], infraspecies_all_pco$li[select_sample_mcoa,1:5])  %>%
+  select(SynVar2,A2,A1.1,nutriscore_DI) %>%
   melt(id.vars="SynVar2") %>% 
   group_by(variable) %>%
-  do(with(., cor.test(SynVar2,value) %>% broom::tidy() ))
+  do(with(., cor.test(SynVar2,value, method="spearman") %>% broom::tidy() ))
 
 
-cbind(microbiota_food_mcoa$SynVar,metadata_79ind, infraspecies_pco$li[1:5]) %>%
-  select(SynVar2,A1,IBS.Severity.Score,A4) %>%
+
+cbind(microbiota_food_mcoa$SynVar,metadata_79ind, unifrac_all_pco$li[select_sample_mcoa,1:5]) %>%
+  #merge(.,nutriscore_DI, by.y="Patient_ID", by.x="row.names") %>%
+  select(SynVar2,A2,IBS.Severity.Score,A4, nutriscore_DI) %>%
+  melt(id.vars="nutriscore_DI") %>% 
+  group_by(variable) %>%
+  do(with(., cor.test(nutriscore_DI,value, method="spearman") %>% broom::tidy() ))
+
+
+
+
+cbind(microbiota_food_mcoa$SynVar,metadata_79ind, infraspecies_all_pco$li[select_sample_mcoa,1:5]) %>%
+  #merge(.,nutriscore_DI, by.y="Patient_ID", by.x="row.names") %>%
+  select(SynVar2,A1,IBS.Severity.Score,A4, nutriscore_DI) %>%
   melt(id.vars="SynVar2") %>% 
   group_by(variable) %>%
-  do(with(., cor.test(SynVar2,value) %>% broom::tidy() ))
-
-
-
+  do(with(., cor.test(SynVar2,value, method="spearman") %>% broom::tidy() ))
 
 
 
@@ -2556,6 +2668,26 @@ cbind(microbiota_food_mcoa$SynVar,metadata_79ind, infraspecies_pco$li[1:5]) %>%
 
 
 
+```{r, eval=FALSE, include=FALSE}
+
+
+data.frame(microbiota_food_mcoa$SynVar,metadata_79ind, unifrac_all_pco$li[select_sample_mcoa,1:5], infraspecies_all_pco$li[select_sample_mcoa,1:5]) %>%
+  select(SynVar4,IBS.Severity.Score,A5,A4.1) %>%
+  melt(id.vars="SynVar4") %>%
+  ggplot(aes(x=SynVar4, y=value)) + geom_point() + geom_smooth(method = "lm") + facet_wrap(~variable, scale="free_y")
+
+
+
+data.frame(microbiota_food_mcoa$SynVar,metadata_79ind, unifrac_all_pco$li[select_sample_mcoa,1:5], infraspecies_all_pco$li[select_sample_mcoa,1:5])  %>%
+  select(SynVar4,IBS.Severity.Score,A5,A4.1) %>%
+  melt(id.vars="SynVar4") %>%
+  group_by(variable) %>%
+  do(with(., cor.test(SynVar4,value, method="pearson") %>% broom::tidy() ))
+
+
+
+
+```
 
 
 

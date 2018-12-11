@@ -500,7 +500,7 @@ Compare first component with metadata
 
 ```{r, fig.height=6, fig.width=10, message=FALSE, warning=FALSE}
 
-unifrac_pco  = ade4::dudi.pco(food_unifrac %>% ade4::quasieuclid(), scannf=F, nf=3)
+unifrac_pco  = ade4::dudi.pco(food_unifrac %>% ade4::quasieuclid(), scannf=F, nf=5)
 
 unifrac_pco$li %>%
   merge(.,
@@ -901,6 +901,7 @@ merge(nutriscore_DI,unifrac_pco$li,by.x="Patient_ID",by.y="row.names") %>%
   geom_smooth(aes(x=A2,y=nutriscore_DI), method = "lm") +
   ylab("Nutriscore\nDiet index") + xlab("PCoA2") -> nutriscore_DI_plot
 
+save(nutriscore_DI, file="nutriscore_DI.rda")
 
 
 nutriscore_DI_plot

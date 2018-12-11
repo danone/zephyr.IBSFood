@@ -480,7 +480,7 @@ modules_per_MSP %>%
   melt(id.vars=c("Taxon","Module")) %>%
   merge(infraspecies_select, by="variable") %>%
   ungroup %>%
-  ggplot() + geom_point(aes(x=value.x,y=value.y,col=msp_name_partition))
+  ggplot() + geom_point(aes(x=sqrt(value.x),y=sqrt(value.y),col=msp_name_partition))
   
 
 modules_per_MSP %>%
@@ -546,11 +546,22 @@ mods2@abundance %>%
 ```
 
 
-## Modules associations on infraspecies PCOa
+## Modules associations on infraspecies PCoA
 
 > TO DO: check axis direction!!
 
-```{r}
+
+
+Coinertia Axis 1 is **positively** associated with plant/meat based ratio (food axis 1) and **negatively** with microbiota axis 3.
+Coinertia Axis 2 (associated with higher CH4) is **negatively** associated with nutriscore & symptoms (food axis 2) and **positevely** with microbiota axis 2. 
+Coinertia Axis 4 (associated with higher H2) is **negatively** associated microbiota axis 1.  microbiota Axis 1 is associated with higher Prevotella and lower bacteroides.
+
+
+### microbiota axis 1
+
+Microbiota axis 1 is associated with lower H2
+
+```{r, message=FALSE, warning=FALSE}
 modules_per_MSP %>%
   melt(id.vars=c("Taxon","Module")) %>%
   merge(.,infraspecies_all_pco$li, by.x="variable",by.y="row.names") %>%
@@ -579,6 +590,101 @@ MSP_modules_PCO_cor %>%
 
 ```
 
+### microbiota axis 3
+
+Microbiota axis 3 is associated with higher meat conso.
+
+```{r, message=FALSE, warning=FALSE}
+
+modules_per_MSP %>%
+  melt(id.vars=c("Taxon","Module")) %>%
+  merge(.,infraspecies_all_pco$li, by.x="variable",by.y="row.names") %>%
+  group_by(Taxon,Module) %>%
+  do(
+    #ax1_cor=with(., cor.test(.$value,.$A1, method="spearman") %>% broom::tidy()),  
+    #ax2_cor=with(., cor.test(.$value,.$AxcX2, method="spearman") %>% broom::tidy()),  
+    ax3_cor=with(., cor.test(.$value,.$A3, method="spearman") %>% broom::tidy())
+    ) %>%
+  tidyr::unnest(ax3_cor,  .drop = TRUE) %>%
+  dplyr::rename(ax3_cor=estimate, ax3_p = `p.value`) %>%
+  select(Taxon,Module, ax3_cor, ax3_p) %>%
+  filter(ax3_p < 0.05) -> MSP_modules_PCO_cor
+
+MSP_modules_PCO_cor_name = 
+apply(MSP_modules_PCO_cor, 1, function(x)getNames(db, x[2]))
+
+
+MSP_modules_PCO_cor %>%
+  cbind(name=MSP_modules_PCO_cor_name) %>%
+  merge(infraspecies %>% select(msp_name,species, genus) %>% unique, by.x="Taxon", by.y="msp_name") %>%
+  filter(abs(ax3_cor)>0.4) %>%
+  arrange(ax3_cor)
 
 
 
+```
+
+### microbiota axis 2
+
+microbiota axis 2 is associated with higher CH4 and lower nutriscore (so better food quality)
+
+```{r}
+
+modules_per_MSP %>%
+  melt(id.vars=c("Taxon","Module")) %>%
+  merge(.,infraspecies_all_pco$li, by.x="variable",by.y="row.names") %>%
+  group_by(Taxon,Module) %>%
+  do(
+    #ax1_cor=with(., cor.test(.$value,.$A1, method="spearman") %>% broom::tidy()),  
+    #ax2_cor=with(., cor.test(.$value,.$AxcX2, method="spearman") %>% broom::tidy()),  
+    ax2_cor=with(., cor.test(.$value,.$A2, method="spearman") %>% broom::tidy())
+    ) %>%
+  tidyr::unnest(ax2_cor,  .drop = TRUE) %>%
+  dplyr::rename(ax2_cor=estimate, ax2_p = `p.value`) %>%
+  select(Taxon,Module, ax2_cor, ax2_p) %>%
+  filter(ax2_p < 0.05) -> MSP_modules_PCO_cor
+
+MSP_modules_PCO_cor_name = 
+apply(MSP_modules_PCO_cor, 1, function(x)getNames(db, x[2]))
+
+
+MSP_modules_PCO_cor %>%
+  cbind(name=MSP_modules_PCO_cor_name) %>%
+  merge(infraspecies %>% select(msp_name,species, genus) %>% unique, by.x="Taxon", by.y="msp_name") %>%
+  filter(abs(ax2_cor)>0.4) %>%
+  arrange(ax2_cor)
+
+
+```
+
+
+
+
+```{r}
+
+modules_per_MSP %>%
+  melt(id.vars=c("Taxon","Module")) %>%
+  merge(.,infraspecies_all_pco$li, by.x="variable",by.y="row.names") %>%
+  group_by(Taxon,Module) %>%
+  do(
+    #ax1_cor=with(., cor.test(.$value,.$A1, method="spearman") %>% broom::tidy()),  
+    #ax2_cor=with(., cor.test(.$value,.$AxcX2, method="spearman") %>% broom::tidy()),  
+    ax4_cor=with(., cor.test(.$value,.$A4, method="spearman") %>% broom::tidy())
+    ) %>%
+  tidyr::unnest(ax4_cor,  .drop = TRUE) %>%
+  dplyr::rename(ax4_cor=estimate, ax4_p = `p.value`) %>%
+  select(Taxon,Module, ax4_cor, ax4_p) %>%
+  filter(ax4_p < 0.05) -> MSP_modules_PCO_cor
+
+MSP_modules_PCO_cor_name = 
+apply(MSP_modules_PCO_cor, 1, function(x)getNames(db, x[2]))
+
+
+MSP_modules_PCO_cor %>%
+  cbind(name=MSP_modules_PCO_cor_name) %>%
+  merge(infraspecies %>% select(msp_name,species, genus) %>% unique, by.x="Taxon", by.y="msp_name") %>%
+  filter(abs(ax4_cor)>0.4) %>%
+  arrange(ax4_cor)
+
+
+```
