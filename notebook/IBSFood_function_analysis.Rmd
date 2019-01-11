@@ -10,6 +10,7 @@ library(magrittr)
 library(ade4)
 library(dplyr)
 devtools::load_all()
+library(IBSMicrobiota)
 
 
 ```
@@ -22,6 +23,14 @@ devtools::load_all()
 - infraspecies data
 
 ```{r, message=FALSE, warning=FALSE}
+
+data(IBSData)
+data("nutriscore_DI")
+
+#meat_plant_ratio = read.csv2(file="../inst/tables/meat_plant_ratio.csv", row.names=1)
+
+meat_plant_ratio = readr::read_csv2(system.file("tables", "meat_plant_ratio.csv", package="IBSFood"))[,-1]
+
 
 load(system.file("data-raw","infraspecies_food_coi_foodsup.rda", package = "IBSFood"))
 load(system.file("data-raw","infraspecies_food_coi_spesup.rda",  package = "IBSFood"))
@@ -584,7 +593,9 @@ MSP_modules_PCO_cor %>%
   cbind(name=MSP_modules_PCO_cor_name) %>%
   merge(infraspecies %>% select(msp_name,species, genus) %>% unique, by.x="Taxon", by.y="msp_name") %>%
   filter(abs(ax1_cor)>0.4) %>%
-  arrange(ax1_cor)
+  arrange(ax1_cor) -> microbiota_associations_with_low_H2
+
+write.csv2(microbiota_associations_with_low_H2,file="microbiota_associations_with_low_H2.csv")
 
 
 
@@ -652,13 +663,15 @@ MSP_modules_PCO_cor %>%
   cbind(name=MSP_modules_PCO_cor_name) %>%
   merge(infraspecies %>% select(msp_name,species, genus) %>% unique, by.x="Taxon", by.y="msp_name") %>%
   filter(abs(ax2_cor)>0.4) %>%
-  arrange(ax2_cor)
+  arrange(ax2_cor) -> microbiota_associations_with_higher_CH4_better_food_quality
+
+write.csv2(microbiota_associations_with_higher_CH4_better_food_quality,file="microbiota_associations_with_higher_CH4_better_food_quality.csv")
 
 
 ```
 
 
-
+### microbiota axis 4
 
 ```{r}
 
@@ -688,3 +701,129 @@ MSP_modules_PCO_cor %>%
 
 
 ```
+
+
+
+
+## Modules associations
+
+we will do spearman correlation with:
+
+- H2/CH4
+- Nutriscore diet index
+- IBS symptoms severity
+- Meat/plan ratio
+
+
+### prepare metadata
+
+
+```{r, message=FALSE, warning=FALSE}
+
+IBSData$metadata %>%
+  filter(Visit=="V4", Sample_type=="Stool") %>%
+  select(Patient_ID,Health,H2,CH4,IBS.Severity.Score) %>%
+  mutate(`IBS.Severity.Score` = ifelse(Health=="control", 0, `IBS.Severity.Score` )) %>%
+  mutate(H2_CH4_ratio = log2((H2+1)/(CH4+1))) %>%
+  merge(.,nutriscore_DI, by="Patient_ID", all.x=TRUE) %>%
+  merge(.,meat_plant_ratio %>% select(variable,meat_plant_ratio), by.x="Patient_ID", by.y="variable", all.x=TRUE) %>%
+  select(-H2,-CH4) %>%
+  melt(id.vars=c("Patient_ID","Health")) -> ibs_metadata_select
+  
+
+modules_global %>% 
+  melt(id.vars=c("Module")) %>%
+  merge(ibs_metadata_select,., by.y="variable", by.x="Patient_ID") %>%
+  group_by(variable,Module) %>%
+  do(  rho_cor=with(., cor.test(.$value.x, .$value.y, method="spearman") %>% broom::tidy())) %>%
+  tidyr::unnest(rho_cor, .drop=TRUE) %>%
+  select(variable,Module,estimate,p.value) -> modules_global_rho_test
+  
+
+modules_global_rho_test_name = 
+apply(modules_global_rho_test, 1, function(x)getNames(db, x[2]))
+
+
+modules_global_rho_test$Modules_names = modules_global_rho_test_name
+ 
+
+
+```
+
+```{r, fig.height=7, fig.width=9}
+
+modules_global_rho_test %>%
+  rename(rho = estimate) %>%
+  group_by(Module,Modules_names) %>%
+  filter(any(p.value<0.05)) %>%
+  ggplot() + geom_tile(aes(y=paste0(Module," - ",Modules_names),x=variable,fill=rho,alpha=-log10(p.value))) + 
+  scale_fill_gradient2() + theme_classic() + ylab("") + xlab("")
+
+
+```
+
+
+
+
+### Modules Global
+
+
+
+```{r}
+
+
+modules_global %>%
+  melt(id.vars=c("Module")) %>%
+  merge(.,IBSData$metadata %>% 
+          filter(Visit=="V4", Sample_type=="Stool"), by.y="Patient_ID", by.x="variable") %>%
+  group_by(Module) %>%
+  do(  H2_CH4_cor=with(., cor.test(.$value,log2((.$H2+1)/(.$CH4+1)), method="spearman") %>% broom::tidy())) %>%
+  tidyr::unnest(H2_CH4_cor, .drop=TRUE) %>%
+  filter(p.value<0.05) -> modules_H2_CH4_cor
+
+module_H2_CH4_cor_name = 
+apply(modules_H2_CH4_cor, 1, function(x)getNames(db, x[1]))
+
+
+modules_H2_CH4_cor %>%
+  cbind(module_H2_CH4_cor_name) %>%
+  select(estimate,module_H2_CH4_cor_name) %>%
+  arrange(estimate)
+
+
+
+
+```
+
+
+### Modules per MSP
+
+```{r}
+
+modules_per_MSP %>%
+  melt(id.vars=c("Taxon","Module")) %>%
+  merge(.,IBSData$metadata %>% 
+          filter(Visit=="V4", Sample_type=="Stool"), by.y="Patient_ID", by.x="variable") %>%
+  group_by(Taxon,Module) %>%
+  do(H2_CH4_cor=with(., cor.test(.$value,log2((.$H2+1)/(.$CH4+1)), method="spearman") %>% broom::tidy())) %>%
+  tidyr::unnest(H2_CH4_cor, .drop=TRUE) %>%
+  filter(p.value<0.05) -> modules_H2_CH4_MSP_cor
+
+
+module_H2_CH4_MSP_cor_name = 
+apply(modules_H2_CH4_MSP_cor, 1, function(x)getNames(db, x[2]))
+
+modules_H2_CH4_MSP_cor %>%
+  cbind(module_H2_CH4_MSP_cor_name) %>%
+  merge(infraspecies %>% select(msp_name,species, genus) %>% unique, by.x="Taxon", by.y="msp_name") %>%
+  filter(abs(estimate) > 0.3) %>%
+  select(estimate,module_H2_CH4_MSP_cor_name, species) %>%
+  arrange(estimate)
+
+
+
+
+```
+
+
+

@@ -1739,12 +1739,18 @@ gas_microbiota_predict =
           filter(group=="test") %>%
           select(AxcX1,AxcX2,AxcX3,AxcX4,AxcX5,H2_CH4))
 
+microbiota_H2_CH4_plot = 
 cbind(predicted_gas=gas_microbiota_predict,observed_gas=microbiota_data_gas %>% filter(group=="test") %>% .$H2_CH4) %>% na.omit %>% as.data.frame %>%
   ggplot(aes(x=observed_gas %>% as.character %>% as.numeric , y=predicted_gas %>% as.character %>% as.numeric )) + 
   geom_point() + geom_smooth(method="lm") + 
   ylab("predicted exaled\nH2/CH4 ratio (log2)") + xlab("observed exaled\nH2/CH4 ratio (log2)") #+ 
   #scale_x_continuous(trans="log2") + scale_y_continuous(trans="log2") + 
   #xlim(0,8) + ylim(0,8)
+
+microbiota_H2_CH4_plot
+
+ggsave("microbiota_H2_CH4_plot.pdf")
+
 
 cbind(predicted_gas=gas_microbiota_predict,observed_gas=microbiota_data_gas %>% filter(group=="test") %>% .$H2_CH4) %>% na.omit %>% as.data.frame %>%
   
@@ -1815,6 +1821,9 @@ cbind(predicted_gas=gas_food_predict,observed_gas=food_data_gas %>% filter(group
   ylab("predicted exaled\nH2/CH4 ratio (log2)") + xlab("observed exaled\nH2/CH4 ratio (log2)") #+ 
   #scale_x_continuous(trans="log2") + scale_y_continuous(trans="log2") + 
   #xlim(0,8) + ylim(0,8)
+
+ggsave("food_based_microbiota_H2_CH4_plot.pdf")
+
 
 cbind(predicted_gas=gas_food_predict,observed_gas=food_data_gas %>% filter(group=="test") %>% .$H2_CH4) %>% na.omit %>% as.data.frame %>%
   filter(predicted_gas < 0.25 & observed_gas > -2) %>%
@@ -2109,6 +2118,7 @@ food_coi_cor %>%
   ggrepel::geom_label_repel(aes(x=A2_cor, y=A4_cor, label=`Food groups lvl3`, color=nutriscore), size=2, label.size = NA, fill=NA) +
   xlab("association with Coi2") + ylab("association with Coi4")
 
+ggsave("food_association_with_coinertia.pdf")
 
 
 
