@@ -472,7 +472,7 @@ modules_H2_cor %>%
 ```{r, fig.height=5, fig.width=10}
 
 
-msp_target = "msp_0071"
+msp_target = "msp_0151"
 
 infraspecies_select=
 infraspecies %>% 
@@ -731,6 +731,15 @@ IBSData$metadata %>%
   melt(id.vars=c("Patient_ID","Health")) -> ibs_metadata_select
   
 
+
+```
+
+
+### Global Modules
+
+
+```{r}
+
 modules_global %>% 
   melt(id.vars=c("Module")) %>%
   merge(ibs_metadata_select,., by.y="variable", by.x="Patient_ID") %>%
@@ -746,8 +755,6 @@ apply(modules_global_rho_test, 1, function(x)getNames(db, x[2]))
 
 modules_global_rho_test$Modules_names = modules_global_rho_test_name
  
-
-
 ```
 
 ```{r, fig.height=7, fig.width=9}
@@ -762,7 +769,86 @@ modules_global_rho_test %>%
 
 ```
 
+### Modules per MSP
 
+```{r, message=FALSE, warning=FALSE}
+
+IBSData$metadata %>%
+  filter(Visit=="V4", Sample_type=="Stool") %>%
+  select(Patient_ID,Health,H2,CH4,IBS.Severity.Score) %>%
+  mutate(`IBS.Severity.Score` = ifelse(Health=="control", 0, `IBS.Severity.Score` )) %>%
+  mutate(H2_CH4_ratio = log2((H2+1)/(CH4+1))) %>%
+  merge(.,nutriscore_DI, by="Patient_ID", all.x=TRUE) %>%
+  merge(.,meat_plant_ratio %>% select(variable,meat_plant_ratio), by.x="Patient_ID", by.y="variable", all.x=TRUE) %>%
+  select(-H2,-CH4, -Health) %>%
+  tibble::column_to_rownames("Patient_ID") -> ibs_metadata_select_transp
+  
+modules_per_MSP %>%
+  mutate(Taxon_modules = paste0(Taxon,"__",Module)) %>% 
+  select(-Taxon, -Module) %>%
+  tibble::column_to_rownames("Taxon_modules") %>%
+  t -> modules_per_MSP_transp
+  
+modules_per_MSP_metadata_cor = 
+cor(modules_per_MSP_transp, ibs_metadata_select_transp[row.names(modules_per_MSP_transp),], method="spearman", use = "complete.obs")
+
+
+modules_per_MSP_metadata_cor %>%
+  melt() %>%
+  filter(!is.na(value)) %>% 
+  #filter(abs(value)>0.3) %>%
+  tidyr::separate(col="Var1", into=c("Taxon","Module"), sep="__"  ) -> modules_per_msp_rho_test
+
+
+ 
+modules_per_msp_rho_test_name = 
+apply(modules_per_msp_rho_test, 1, function(x)getNames(db, x[2]))
+
+
+modules_per_msp_rho_test$Modules_names = modules_per_msp_rho_test_name
+  
+  
+
+
+```
+
+
+
+```{r, fig.height=10, fig.width=20}
+
+
+modules_per_msp_rho_test %>%
+  rename(rho = value, variable = Var2) %>%
+  group_by(Module,Taxon,Modules_names) %>%
+  filter(any(abs(rho)>0.4)) %>%
+  ggplot() + geom_tile(aes(y=paste0(Module," - ",Modules_names),x=Taxon,fill=rho)) + 
+  facet_wrap(~variable, scales = "free_x", nrow = 1) +
+  scale_fill_gradient2() + theme_dark() + ylab("") + xlab("") + 
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+ggsave("gut_modules_per_msp.pdf", h=10, w=20)
+
+
+```
+
+
+```{r}
+
+
+modules_per_msp_rho_test %>%
+  rename(rho = value, variable = Var2) %>%
+  group_by(Module,Taxon,Modules_names) %>%
+  filter(any(abs(rho)>0.4)) %>%
+  ggplot() + geom_tile(aes(x=variable,y=Taxon,fill=rho)) + 
+  facet_wrap(~paste0(Module," - ",Modules_names), scales = "free_y") +
+  scale_fill_gradient2() + theme_dark() + ylab("") + xlab("") + 
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+
+
+
+## Misc
 
 
 ### Modules Global
