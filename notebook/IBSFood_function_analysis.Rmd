@@ -773,6 +773,9 @@ modules_global_rho_test %>%
 
 ```{r, message=FALSE, warning=FALSE}
 
+data(MSP_tax)
+
+
 IBSData$metadata %>%
   filter(Visit=="V4", Sample_type=="Stool") %>%
   select(Patient_ID,Health,H2,CH4,IBS.Severity.Score) %>%
@@ -808,6 +811,9 @@ apply(modules_per_msp_rho_test, 1, function(x)getNames(db, x[2]))
 modules_per_msp_rho_test$Modules_names = modules_per_msp_rho_test_name
   
   
+modules_per_msp_rho_test %>%
+  merge(.,MSP_tax %>% select(MSP_ID, species,phylum), by.x="Taxon", by.y="MSP_ID") -> modules_per_msp_rho_test
+
 
 
 ```
@@ -819,17 +825,47 @@ modules_per_msp_rho_test$Modules_names = modules_per_msp_rho_test_name
 
 modules_per_msp_rho_test %>%
   rename(rho = value, variable = Var2) %>%
-  group_by(Module,Taxon,Modules_names) %>%
+  group_by(Module,Taxon,Modules_names,species,phylum) %>%
   filter(any(abs(rho)>0.4)) %>%
-  ggplot() + geom_tile(aes(y=paste0(Module," - ",Modules_names),x=Taxon,fill=rho)) + 
+  ggplot() + geom_tile(aes(y=paste0(Module," - ",Modules_names),x=species,fill=rho)) + 
   facet_wrap(~variable, scales = "free_x", nrow = 1) +
   scale_fill_gradient2() + theme_dark() + ylab("") + xlab("") + 
-  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust=0.25))
 
 ggsave("gut_modules_per_msp.pdf", h=10, w=20)
 
 
+
+
+
+
+
 ```
+
+
+```{r, fig.height=15, fig.width=30}
+
+modules_per_msp_rho_test %>%
+  rename(rho = value, variable = Var2) %>%
+  filter(variable %in% c("IBS.Severity.Score", "nutriscore_DI","meat_plant_ratio")) %>%
+  group_by(Module,Taxon,Modules_names,species,phylum) %>%
+  filter(any(abs(rho)>0.25)) %>%
+  ungroup() %>%
+  group_by(Module,Modules_names, variable) %>%
+  mutate(n=n()) %>% 
+  filter(n>=2) %>%
+  filter(all(abs(rho)> 0.25))  %>%
+  ggplot() + geom_tile(aes(x=paste0(Module," - ",Modules_names),y=paste(species),fill=rho)) + 
+  facet_grid(phylum~variable, scales = "free_y", drop = TRUE, space="free") +
+  scale_fill_gradient2() + theme_dark() + ylab("") + xlab("") + 
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust=0.25))
+
+
+
+
+```
+
+
 
 
 ```{r}
@@ -843,6 +879,40 @@ modules_per_msp_rho_test %>%
   facet_wrap(~paste0(Module," - ",Modules_names), scales = "free_y") +
   scale_fill_gradient2() + theme_dark() + ylab("") + xlab("") + 
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+
+
+
+#### circos plot
+
+```{r}
+
+par(mar=c(5,5,5,5))
+
+circos.clear()
+
+
+circos.par(cell.padding=c(0,0,0,0), track.margin=c(0,0), start.degree = 0, gap.degree = 1, points.overflow.warning=FALSE)
+
+chordDiagram(na.omit(data.frame(test$ClusterDTU.x, test$egg)[order(test[,3]),]), col= c("red","green")[as.numeric(test[order(test[,3]),3]>0)+1], annotationTrack= "grid")
+
+circos.trackPlotRegion(track.index = 1, panel.fun = function(x, y) {
+    xlim  = get.cell.meta.data("xlim")
+    xplot = get.cell.meta.data("xplot")
+    ylim  = get.cell.meta.data("ylim")
+    sector.name = get.cell.meta.data("sector.index")
+
+    if(abs(xplot[2] - xplot[1]) < 80) {
+        circos.text(mean(xlim), ylim[1], sector.name, facing = "clockwise",
+            niceFacing = TRUE, adj = c(0, 0.5), cex=0.5)
+    } else {
+        circos.text(mean(xlim), ylim[1], sector.name, facing = "inside", 
+            niceFacing = TRUE, adj = c(0.5, 0), cex=0.5)
+    }
+}, bg.border = NA)
+
+
 ```
 
 
