@@ -1073,7 +1073,7 @@ ggsave("Diet_PCoA_plot.pdf")
 
 Nutrient intake is associated with food tree
 
-```{r, eval=FALSE, include=FALSE}
+```{r, eval=FALSE, include=TRUE}
 
 data("nutrients_data")
 
@@ -1151,6 +1151,71 @@ wilcox.test(data=., .$AxcX2~.$Health) %>% broom::tidy()
 
 
 ```
+
+### nutrient univariate analysis
+
+```{r, fig.height=6, fig.width=6}
+
+data("nutrients_data")
+
+data("IBSData")
+  
+#IBS vs healthy
+readxl::read_excel(system.file("data-raw","MOSAIC food groups.xlsx", package = "IBSFood"), sheet = "Nutr & food groups") %>%
+  filter(!is.na(kcal)) %>%
+  select(1,2,10:58) %>%
+  rename(Health = `Patient(1=patient)`) %>%
+  mutate(Health = ifelse(Health=="1","Patient","Control")) %>%
+ 
+  melt(id.vars=c("ID","Health")) %>%
+  filter(variable != "kJ") %>%
+  group_by(variable) %>%
+  mutate(value=scale(value %>% as.numeric)) %>%
+  do(t.test(.$value ~ .$Health, data=.) %>% broom::tidy()) %>%
+  mutate(delta_Z = estimate1 - estimate2) %>%
+  select(variable,p.value,delta_Z) %>%
+  ggplot() + geom_bar(aes(x=variable,y=abs(delta_Z), fill=delta_Z>0, alpha=p.value<0.05 ), stat="identity") + 
+  ylim(0,1) + coord_flip() + scale_fill_brewer(type="qual", palette = "Set1") + 
+  scale_alpha_discrete(range=c(0.4,1)) + theme_classic() + xlab("") + ylab("Z-score\n(mean difference)")
+
+# 
+# 
+# #severe vs non-severe
+# readxl::read_excel(system.file("data-raw","MOSAIC food groups.xlsx", package = "IBSFood"), sheet = "Nutr & food groups") %>%
+#   filter(!is.na(kcal)) %>%
+#   select(1,2,10:58) %>%
+#   rename(Health = `Patient(1=patient)`) %>%
+#   mutate(Health = ifelse(Health=="1","Patient","Control")) %>%
+#  merge(.,
+#      IBSData$metadata %>% 
+#        select(Patient_ID, SSgroup) %>% unique(),
+#    by.y="Patient_ID",
+#    by.x="ID") %>%
+#   mutate(Health_severe = ifelse(SSgroup == "severe","severe","non\nsevere")) %>%
+#   
+# melt(id.vars=c("ID","Health_severe","Health", "SSgroup")) %>%
+#   na.omit() %>%
+#   mutate(Health_severe = Health_severe %>% as.character) %>%
+#   group_by(variable) %>%
+#   filter(variable != "kJ") %>%
+#   group_by(variable) %>%
+#   mutate(value=scale(value %>% as.numeric)) %>%
+#   filter(Health_severe %in% c("severe","non\nsevere") ) %>%
+#   mutate(Health_severe = Health_severe %>% as.character) %>%
+#   do(t.test(.$value ~ .$Health_severe, data=.) %>% broom::tidy()) %>% 
+#   mutate(delta_Z = estimate1 - estimate2) %>%
+#   select(variable,p.value,delta_Z) %>%
+#   ggplot() + geom_bar(aes(x=variable,y=abs(delta_Z), fill=delta_Z>0, alpha=p.value<0.05 ), stat="identity") + 
+#   ylim(0,1) + coord_flip() + scale_fill_brewer(type="qual", palette = "Set1") + 
+#   scale_alpha_discrete(range=c(0.4,1)) + theme_classic() + xlab("") + ylab("Z-score\n(mean difference)")
+# 
+# 
+# 
+# 
+
+
+```
+
 
 
 ## FODMAPs
