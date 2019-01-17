@@ -1,0 +1,62 @@
+---
+title: "R Notebook MSP IBS severity"
+output: html_notebook
+---
+
+
+```{r}
+
+
+library(IBSMicrobiota)
+library(magrittr)
+devtools::load_all()
+
+
+
+
+```
+
+
+```{r}
+data("IBSData")
+
+MSP_abundance = read.csv2(system.file("data-raw","MSP_abundance.csv", package="IBSFood"), row.names=1)
+OTU_severity_names = read.table(system.file("data-raw","associated_OTU_severity.txt", package="IBSFood"), row.names=1)
+
+
+data("MSP_tax")
+
+```
+
+```{r}
+
+IBSData$otu %>% head
+
+
+idx=match(paste0(names(MSP_abundance)[-1],"V4"), gsub("bis","",names(IBSData$otu)))
+otu_severity_df = prop.table(as.matrix(IBSData$otu),2)[row.names(OTU_severity_names), idx]
+
+MSP_abundance %<>%
+  mutate(msp_name = msp_name %>% as.character) %>%
+  tibble::column_to_rownames("msp_name")
+
+
+metagenomics_16S_cor = 
+  cor(t(otu_severity_df), t(MSP_abundance), method="spearman") %>% 
+  melt() %>% {.[which(.$value >0.60),]} %>%
+  cbind(q50=OTU_severity_names[as.character(.[,1]),] , IBSData$tax[as.character(.[,1]),]  )
+
+
+
+metagenomics_16S_cor %>%
+  merge(.,MSP_tax, by.x="Var2", by.y="MSP_ID") %>%
+  select(Var1,Var2,value,q50,family.x,genus.x,species.y,family.y) %>%
+  arrange(q50)
+
+
+metagenomics_16S_cor %>%
+  merge(.,MSP_tax, by.x="Var2", by.y="MSP_ID") %>% write.csv2("MSP_severity.csv")
+
+
+```
+

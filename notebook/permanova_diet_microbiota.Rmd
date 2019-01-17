@@ -1,0 +1,160 @@
+---
+title: "permanova microbiota diet"
+output: html_notebook
+---
+
+
+
+```{r}
+
+devtools::load_all()
+library(dplyr)
+library(magrittr)
+library(vegan)
+library(ggplot)
+
+
+
+```
+
+
+## load data
+
+```{r}
+
+data("nutrients_data")
+
+
+
+load("species_jsd.rda")
+load("genus_jsd")
+load("phylum_jsd")
+load("infraspecies_jsd")
+
+load("food_otu.rda")
+
+
+```
+
+
+
+```{r}
+
+
+
+
+nutrients_data %>% dim
+food_otu %>% dim
+
+
+
+nutrients_data %>%
+  merge(., food_otu %>% t, by.x="ID", by.y="row.names") %>%
+  tibble::column_to_rownames("ID") -> food_nutrient
+  
+
+
+
+
+
+
+
+
+```
+
+
+
+# permanova
+```{r, message=FALSE, warning=FALSE}
+
+
+  #vegan::adonis2(infraspecies_jsd %>% as.matrix %>% .[id,id] %>% as.dist  ~ kJ , data=food_nutrient[id,] ) %>% broom::tidy() %>% slice(1)
+
+
+
+id = intersect(attr(infraspecies_jsd, "Label"), row.names(food_nutrient))
+
+
+
+food_nutrient_phylum_permanova =
+
+food_nutrient[id,] %>%
+  tibble::rownames_to_column("ID") %>%
+  melt(id.vars="ID") %>%
+  #filter(variable %in%  c("kJ","kcal")) %>%
+  group_by(variable) %>%
+  do(vegan::adonis2(phylum_jsd %>% as.matrix %>% .[id,id] %>% as.dist  ~ value , data=. ) %>% broom::tidy() %>% slice(1)  ) %>%
+  mutate(tax="phylum")
+  
+  
+
+
+food_nutrient_genus_permanova =
+
+food_nutrient[id,] %>%
+  tibble::rownames_to_column("ID") %>%
+  melt(id.vars="ID") %>%
+  #filter(variable %in%  c("kJ","kcal")) %>%
+  group_by(variable) %>%
+  do(vegan::adonis2(genus_jsd %>% as.matrix %>% .[id,id] %>% as.dist  ~ value , data=. ) %>% broom::tidy() %>% slice(1)  ) %>%
+  mutate(tax="genus")
+
+
+food_nutrient_species_permanova =
+
+food_nutrient[id,] %>%
+  tibble::rownames_to_column("ID") %>%
+  melt(id.vars="ID") %>%
+  #filter(variable %in%  c("kJ","kcal")) %>%
+  group_by(variable) %>%
+  do(vegan::adonis2(species_jsd %>% as.matrix %>% .[id,id] %>% as.dist  ~ value , data=. ) %>% broom::tidy() %>% slice(1)  ) %>%
+  mutate(tax="species")
+  
+
+food_nutrient_infraspecies_permanova =
+
+food_nutrient[id,] %>%
+  tibble::rownames_to_column("ID") %>%
+  melt(id.vars="ID") %>%
+  #filter(variable %in%  c("kJ","kcal")) %>%
+  group_by(variable) %>%
+  do(vegan::adonis2(infraspecies_jsd %>% as.matrix %>% .[id,id] %>% as.dist  ~ value , data=. ) %>% broom::tidy() %>% slice(1)  ) %>%
+  mutate(tax="infraspecies")
+  
+  
+
+
+
+```
+
+```{r, fig.height=10, fig.width=10, message=FALSE, warning=FALSE}
+
+rbind(
+        
+        food_nutrient_phylum_permanova,
+        food_nutrient_genus_permanova,
+        food_nutrient_species_permanova,
+        food_nutrient_infraspecies_permanova
+        
+        
+        ) %>%
+  group_by(variable) %>%
+  filter(any(p.value<0.05)) %>%
+  ggplot() + geom_bar(aes(x=reorder(variable,R2), y=R2, fill=p.value < 0.05), stat="identity") + 
+  facet_wrap(~tax, nrow=1) + coord_flip() + theme_minimal() + xlab("") + ylab("")
+
+
+
+
+```
+
+
+
+
+
+
+```{r}
+
+
+```
+
