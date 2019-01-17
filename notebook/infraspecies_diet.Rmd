@@ -1086,6 +1086,9 @@ food_data %>%
   #as_tibble %>%
   round() -> food_otu
 
+save(food_otu, file="food_otu.rda")
+
+
 infraspecies_food_coi$lY %>% head
 
 
@@ -1346,6 +1349,22 @@ jsd_permanova %>%
 
 
 ```
+
+
+### Permanova with each food and nutrient
+
+
+```{r}
+
+
+
+
+
+
+
+```
+
+
 
 
 ### between within analysis cazotypes

@@ -472,7 +472,7 @@ modules_H2_cor %>%
 ```{r, fig.height=5, fig.width=10}
 
 
-msp_target = "msp_0151"
+msp_target = "msp_0071"
 
 infraspecies_select=
 infraspecies %>% 
@@ -820,14 +820,14 @@ modules_per_msp_rho_test %>%
 
 
 
-```{r, fig.height=10, fig.width=20}
+```{r, fig.height=15, fig.width=30}
 
 
 modules_per_msp_rho_test %>%
   rename(rho = value, variable = Var2) %>%
   group_by(Module,Taxon,Modules_names,species,phylum) %>%
   filter(any(abs(rho)>0.4)) %>%
-  ggplot() + geom_tile(aes(y=paste0(Module," - ",Modules_names),x=species,fill=rho)) + 
+  ggplot() + geom_tile(aes(x=paste0(Module," - ",Modules_names),y=paste(species,Taxon),fill=rho)) + 
   facet_wrap(~variable, scales = "free_x", nrow = 1) +
   scale_fill_gradient2() + theme_dark() + ylab("") + xlab("") + 
   theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust=0.25))
@@ -838,6 +838,18 @@ ggsave("gut_modules_per_msp.pdf", h=10, w=20)
 
 
 
+
+
+```
+
+
+```{r}
+
+modules_per_msp_rho_test %>%
+  rename(rho = value, variable = Var2) %>%
+  group_by(Module,Taxon,Modules_names,species,phylum) %>%
+  filter(Taxon=="msp_0070") %>%
+  arrange(desc(abs(rho)))
 
 
 ```
@@ -982,4 +994,49 @@ modules_H2_CH4_MSP_cor %>%
 ```
 
 
+
+
+## Modules MSP IBS severity
+
+
+
+```{r}
+
+MSP_severity = read.csv2("MSP_severity.csv", row.names=1)
+
+
+
+
+modules_per_MSP %>%
+  select(Taxon,Module) %>%
+  merge(.,MSP_severity %>% select(Var2,q50,species.y), by.x="Taxon", by.y="Var2") -> modules_per_MSP_severity
+
+
+modules_per_MSP_severity_name = 
+apply(modules_per_MSP_severity, 1, function(x)getNames(db, x[2]))
+
+
+modules_per_MSP_severity$Module_name = modules_per_MSP_severity_name
+
+
+
+
+```
+
+
+
+
+
+```{r, fig.height=15, fig.width=15}
+
+
+modules_per_MSP_severity %>%
+  mutate(IBSseverityMSP = ifelse(q50>0,"Healthy","Severe")) %>%
+  ggplot() + geom_tile(aes(y=paste(Module,Module_name), x=species.y)) + facet_wrap(~ IBSseverityMSP, scales = "free_x") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+  
+  
+
+
+```
 
