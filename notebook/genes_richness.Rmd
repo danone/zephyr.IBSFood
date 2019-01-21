@@ -1,0 +1,90 @@
+---
+title: "Genes richness"
+output: html_notebook
+---
+
+
+
+```{r}
+
+devtools::load_all()
+
+
+library(IBSMicrobiota)
+
+
+```
+
+
+
+```{r}
+
+data("IBSData")
+
+data("genes_richness_1M")
+
+
+
+
+```
+
+
+
+```{r}
+
+
+IBSData$metadata %>%
+  filter(Visit == "V4", Sample_type == "Stool") %>%
+  merge(.,genes_richness_1M, by.x="Patient_ID", by.y="row.names") %>%
+  with(., wilcox.test(richness~Health,data=.))
+  
+
+IBSData$metadata %>%
+  filter(Visit == "V4", Sample_type == "Stool") %>%
+  merge(.,genes_richness_1M, by.x="Patient_ID", by.y="row.names") %>%
+  ggplot() + geom_density(aes(x=richness, col=Health))
+
+
+
+  
+IBSData$metadata %>%
+  filter(Visit == "V4", Sample_type == "Stool") %>%
+  merge(.,genes_richness_1M, by.x="Patient_ID", by.y="row.names") %>%
+  with(., pairwise.wilcox.test(richness,SSgroup,data=., p.adjust="none"))  
+
+
+
+
+```
+
+
+
+```{r}
+
+
+
+IBSData$metadata %>%
+  filter(Visit == "V4", Sample_type == "Stool") %>%
+  merge(.,genes_richness_1M, by.x="Patient_ID", by.y="row.names") %>%
+  merge(nutriscore_DI, by="Patient_ID") %>%
+  #filter(SSgroup %in% c("severe","control")) %>%
+  with(., cor.test(nutriscore_DI, richness, data=.))
+  
+  
+
+```
+
+
+```{r}
+
+IBSData$metadata %>%
+  filter(Visit == "V4", Sample_type == "Stool") %>%
+  merge(.,genes_richness_1M, by.x="Patient_ID", by.y="row.names") %>%
+  merge(nutriscore_DI, by="Patient_ID") %>%
+  merge(meat_plant_ratio_df, by.x="Patient_ID", by.y="variable") %>%
+   with(., cor.test(meat_plant_ratio, richness, data=.))
+
+
+
+```
+
