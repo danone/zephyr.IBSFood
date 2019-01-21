@@ -3,12 +3,21 @@ title: "IBS metagenomes by CAZy"
 output: html_notebook
 ---
 
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, cache=TRUE)
+library(ggplot2)
+library(danr)
+```
+
+
 The goal is to create CAZotypes using Dirrichlet mixture multinomial approach
 
 ## load IBS metagenomics package
 
 ```{r, message=FALSE, warning=FALSE}
 devtools::load_all()
+#library(IBSFood)
 
 library(magrittr)
 
@@ -157,10 +166,10 @@ cazy_sqlite <- tbl(metahit.sqlite.db, "cazy")
 
 
 cazy_sqlite %>%
-  merge(.,counts_rescaled, by.x="genes_id", by.y="row.names") %>%
+  merge(.,counts_rescaled, by.x="genes.id", by.y="row.names") %>% 
   #head %>%
-  group_by(cazy_family) %>%
-  select(-genes_id) %>%
+  group_by(cazy.family) %>%
+  select(-genes.id) %>%
   summarise_all(sum) -> cazy_counts
 
 write.csv2(cazy_counts, file="cazy_counts.csv")
@@ -174,21 +183,23 @@ write.csv2(cazy_counts, file="cazy_counts.csv")
 ## DMM clustering
 
 
-```{r}
+```{r, message=FALSE, warning=FALSE}
+
+fiber_cazy_select = c("GH3","GH5","GH8","GH9","GH10","GH13","GH16","GH26","GH28","GH30","GH32","GH39","GH32","GH39","GH43","GH44","GH48","GH51","GH74","GH91","GH115","GH120","GH127","PL1","PL9","PL11")
+
+cazy_select = cazy_counts$cazy.family %>% grep("GH|PL",., value = TRUE)
 
 cazy_counts %>%
-  tibble::column_to_rownames("cazy_family") %>%
+  #filter(cazy.family %in% cazy_select) %>%
+  tibble::column_to_rownames("cazy.family") %>%
   t -> counts_tmp
 
 set.seed(131082)
 
-fit = lapply(1:10,   dmn,   count=counts_tmp,   verbose=TRUE)
+fit = lapply(1:6,   dmn,   count=counts_tmp[rowSums(counts_tmp)>0,],   verbose=TRUE)
 
 
-
-
-
-
+  
 
 ```
 
@@ -217,35 +228,36 @@ heatmapdmn(counts_tmp, fit[[1]], best, 20)
  mixture(best, assign = TRUE) %>% 
    as.matrix %>%
    as.data.frame %>%
-  dplyr::rename(cazotype="V1") %>% write.csv2(file="cazotypes.csv")
+  dplyr::rename(cazotype=V1) %>% write.csv2(file="cazotypes.csv")
 
 ```
 
 ```{r}
 cazy_counts %>%
   as.data.frame %>%
-  tibble::column_to_rownames("cazy_family") %>%
+  tibble::column_to_rownames("cazy.family") %>%
   as.matrix() %>%
   prop.table(2) %>% 
   melt %>%
   merge(., mixture(best, assign = TRUE) %>% as.matrix %>% as.data.frame , by.x = "Var2", by.y="row.names") %>%
-  dplyr::rename(.,cazotype="V1") %>%
-  filter(Var1 %in% c("CBM32","GT2","GH13","GH2","CBM37","GH92","CBM26","GH43","GH20")) %>%
+  dplyr::rename(.,cazotype=V1) %>%
+  filter(Var1 %in% c("GH13","GH92","GH2","GH25","GH97","GH20","GH3","GH77","GH88")) %>%
   ggplot() + geom_boxplot(aes(x=cazotype %>% as.character,y=value)) + facet_wrap(~Var1, scale="free_y") + scale_y_log10()
   
-cazotypes = read.csv2("data-raw/cazotypes.csv", row.names = 1)
-cazy_counts = readr::read_csv2("data-raw/cazy_counts.csv", row.names = 1)
+cazotypes = read.csv2("cazotypes.csv", row.names = 1)
+cazy_counts = read.csv2("cazy_counts.csv")
 
 cazy_counts %>%
-  select(-X1) %>%
+  select(-X) %>%
   #as.data.frame %>%
-  tibble::column_to_rownames("cazy_family") %>%
+  tibble::column_to_rownames("cazy.family") %>%
   as.matrix() %>%
   prop.table(2) %>% 
   reshape2::melt() %>%
   merge(., cazotypes, by.x = "Var2", by.y="row.names") %>%
   #dplyr::rename(.,cazotype="V1") %>%
-  filter(Var1 %in% c("CBM32","GT2","GH13","GH2","CBM37","GH92","CBM26","GH43","GH20")) %>%
+  #filter(Var1 %in% c("GH13","GH92","GH2","GH25","GH97","GH20","GH3","GH77","GH88")) %>%
+  filter(Var1 %in% c("GH13","GH92","GH2","GH25","GH97","GH20","GH3","GH77","GH88")) %>%
   ggplot() + geom_boxplot(aes(x=cazotype %>% as.character,y=value)) + facet_wrap(~Var1, scale="free_y") + scale_y_log10()
 
 
