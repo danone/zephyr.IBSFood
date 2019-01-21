@@ -115,7 +115,8 @@ food_group_levels %>%
   filter(used == "yes") %>%
   select(contains("Food")) %>%
   mutate(`Food groups lvl1` = `Food groups lvl1` %>% gsub("Chemicals","Others",.)) %>%
-  mutate(`Food groups lvl1` = `Food groups lvl1` %>% gsub("Animal-based","Meat-based",.))
+  mutate(`Food groups lvl2` = `Food groups lvl2` %>% gsub("Salts and sauces","Salts and sauce",. )) %>%
+  mutate(`Food groups lvl1` = `Food groups lvl1` %>% gsub("Animal-based","Animal-based",.))
   
   
   
@@ -144,6 +145,8 @@ food_swe %>%
 
 
 ```
+
+
 
 ### focus on some food category
 
@@ -283,7 +286,8 @@ food_data %>%
 
 ```{r}
 
-food_group_levels
+food_group_levels %>%
+  filter(`Food groups lvl1` %in% c("Others")  )
 
 ```
 
@@ -429,15 +433,6 @@ ggsave("food_otu_rarefied.pdf")
 
 ```
 
-
-
-```{r}
-
-
-
-
-
-```
 
 
 
@@ -680,15 +675,17 @@ merge(OTU %>% prop.table(2) ,TAX, by="row.names") %>%
     
   
 
-# compute Meat/Plant ratio
+# compute Meat/Plant ratio (not animal!!)
   merge(OTU %>% prop.table(2) ,TAX, by="row.names") %>%
     as.data.frame %>%
     dplyr::rename(`Food groups lvl4` = Row.names) %>%
     melt(id.vars=c("Food groups lvl1","Food groups lvl2","Food groups lvl3","Food groups lvl4")) %>%
+    filter(!(`Food groups lvl2` %in% c("Dairy products","Eggs and egg dishes","Fish") )) %>%
     group_by(variable,`Food groups lvl1`) %>%
     summarize(Gram_prop = sum(value)) %>%
+    
     dcast(variable~`Food groups lvl1`) %>%
-    mutate(meat_plant_ratio = log2(`Meat-based`+0.001/`Plant-based`+0.001)) %>%
+    mutate(meat_plant_ratio = log2(`Animal-based`+0.001/`Plant-based`+0.001)) %>%
     merge(.,unifrac_pco$li, by.x="variable", by.y="row.names") -> meat_plant_ratio_df
   
   write.csv2(meat_plant_ratio_df, file="../inst/tables/meat_plant_ratio.csv")
@@ -711,10 +708,11 @@ merge(OTU %>% prop.table(2) ,TAX, by="row.names") %>%
     as.data.frame %>%
     dplyr::rename(`Food groups lvl4` = Row.names) %>%
     melt(id.vars=c("Food groups lvl1","Food groups lvl2","Food groups lvl3","Food groups lvl4")) %>%
+    filter(!(`Food groups lvl2` %in% c("Dairy products","Eggs and egg dishes","Fish") )) %>%
     group_by(variable,`Food groups lvl1`) %>%
     summarize(Gram_prop = sum(value)) %>%
     dcast(variable~`Food groups lvl1`) %>%
-    mutate(meat_plant_ratio = log2(`Meat-based`+0.001/`Plant-based`+0.001)) %>%
+    mutate(meat_plant_ratio = log2(`Animal-based`+0.001/`Plant-based`+0.001)) %>%
     merge(.,unifrac_pco$li, by.x="variable", by.y="row.names") %>%
     ggplot() + geom_point(aes(x=A1*2,y=A2*2), size=4, alpha=0.75) + 
     scale_color_gradient2("Meat/Plant\nratio\n(centered,log2)") + theme_dark() +
@@ -725,10 +723,11 @@ merge(OTU %>% prop.table(2) ,TAX, by="row.names") %>%
     as.data.frame %>%
     dplyr::rename(`Food groups lvl4` = Row.names) %>%
     melt(id.vars=c("Food groups lvl1","Food groups lvl2","Food groups lvl3","Food groups lvl4")) %>%
+    filter(!(`Food groups lvl2` %in% c("Dairy products","Eggs and egg dishes") )) %>%
     group_by(variable,`Food groups lvl1`) %>%
     summarize(Gram_prop = sum(value)) %>%
     dcast(variable~`Food groups lvl1`) %>%
-    mutate(meat_plant_ratio = log2(`Meat-based`+0.01/`Plant-based`+0.01)) %>%
+    mutate(meat_plant_ratio = log2(`Animal-based`+0.01/`Plant-based`+0.01)) %>%
     merge(.,unifrac_pco$li, by.x="variable", by.y="row.names") %>%
     write.csv2(., file="../inst/tables/meat_plant_ratio.csv")
    
@@ -737,10 +736,11 @@ merge(OTU %>% prop.table(2) ,TAX, by="row.names") %>%
     as.data.frame %>%
     dplyr::rename(`Food groups lvl4` = Row.names) %>%
     melt(id.vars=c("Food groups lvl1","Food groups lvl2","Food groups lvl3","Food groups lvl4")) %>%
+    filter(!(`Food groups lvl2` %in% c("Dairy products","Eggs and egg dishes") )) %>%
     group_by(variable,`Food groups lvl1`) %>%
     summarize(Gram_prop = sum(value)) %>%
     dcast(variable~`Food groups lvl1`) %>%
-    mutate(meat_plant_ratio = log2(`Meat-based`+0.01/`Plant-based`+0.01)) %>%
+    mutate(meat_plant_ratio = log2(`Animal-based`+0.01/`Plant-based`+0.01)) %>%
     merge(.,unifrac_pco$li, by.x="variable", by.y="row.names") %>%
     ggplot() + geom_point(aes(x=A1*2,y=meat_plant_ratio, col=meat_plant_ratio %>% scale(scale = FALSE)), size=4, alpha=0.75) + 
     scale_color_gradient2("Meat/Plant\nratio\n(log2)",low="green",mid="grey",high="red") + theme_bw() +
@@ -761,7 +761,7 @@ merge(OTU %>% prop.table(2) ,TAX, by="row.names") %>%
 cor_food_tree_res
 
 food_group_levels %>%
-  filter(`Food groups lvl2` == "Coffee and tea")
+  filter(`Food groups lvl1` == "Animal-based")
 
 
 ```
@@ -910,6 +910,7 @@ ggsave(filename = "nutriscore_DI_plot.pdf")
 
 ```
 
+
 ```{r}
 
 food_data %>%
@@ -982,6 +983,10 @@ nutriscore_meal_plot
 
 ```
 
+
+
+
+
 ```{r, fig.height=10, fig.width=7}
 
 food_data %>%
@@ -996,6 +1001,53 @@ food_data %>%
   scale_fill_brewer("Nutriscore\nCategory",type="div", direction=-1) + facet_wrap(.~res, ncol= 1) +
   ylab("Proportion of food items\nper subject")
 
+
+```
+
+
+
+
+#### severity and nutriscore
+```{r}
+
+nutriscore_DI %>%
+  merge(.,
+        IBSData$metadata %>% 
+          filter(Sample_type=="Stool", Visit=="V4") %>% 
+          select(Patient_ID,Health,IBS.Severity.Score,SSgroup,H2,CH4), 
+        by="Patient_ID") %>%
+  merge(.,snack_per_day, by.x="Patient_ID", by.y="Identity") %>%
+  merge(.,
+        food_data %>%
+          select(Identity,Foodstuffs, Meal, Day,Gram) %>%
+          merge(cbind(Foodstuffs=food_test[,1],res), by="Foodstuffs") %>%
+          group_by(Identity,Meal,res) %>%
+          summarise(n=n()) %>%
+          #summarise(n=sum(Gram)) %>%
+          ungroup() %>%
+          group_by(Identity,Meal) %>%
+          mutate(prop=n/sum(n)) ,
+
+  by.x="Patient_ID", by.y="Identity") %>%
+  mutate(IBS.Severity.Score = ifelse(Health=="control",0,IBS.Severity.Score)) %>%
+  # group_by(Meal,res) %>%
+  # do(
+  # 
+  # 
+  # with(., wilcox.test(nutriscore_DI ~ prop, data=., method="spearman")) %>% broom::tidy()
+  # )
+
+  #ggplot() + geom_point(aes(y=nutriscore_DI , x=prop)) + facet_grid(Meal~res, scale="free")
+  filter(res %in% c("A","E")) %>%
+  filter(Meal %in% c("Breakfast","Lunch","Dinner")) %>%
+  filter(SSgroup %in% c("control","severe")) %>%
+  #group_by(res) %>%
+  #do(with(., wilcox.test(prop ~ SSgroup, data=., method="spearman") %>% broom::tidy() ))
+  ggplot() + geom_boxplot(aes(y=prop , x=res, fill=SSgroup)) + scale_y_log10() + ylab("Food items prevalence\nper meal") + xlab("Food nutrient-based quality") + scale_fill_manual("", label = c("Healthy control","Severe IBS"), values= c("#018571","#a6611a")) -> nutriscore_severity_plot
+
+save(nutriscore_severity_plot, file="nutriscore_severity_plot.rda")
+
+nutriscore_severity_plot
 
 ```
 
@@ -1033,7 +1085,8 @@ diet_plot = cowplot::plot_grid(
   cowplot::plot_grid(
     meat_plant_pcoa_plot+ cowplot::theme_cowplot(),
     nutriscore_DI_plot+ cowplot::theme_cowplot(), 
-    nutriscore_meal_plot + cowplot::theme_cowplot() + theme(axis.text.x = element_text(angle = 45, hjust = 1)), 
+    #nutriscore_severity_plot + cowplot::theme_cowplot() + theme(axis.text.x = element_text(angle = 45, hjust = 1)), 
+    nutriscore_severity_plot + cowplot::theme_cowplot() ,
     rel_widths = c(1,1,1.3),nrow=1, labels=c("D","E","F")), nrow = 2, rel_heights = c(2,1))
 
 
@@ -1051,10 +1104,11 @@ ggsave("Diet_PCoA_plot.pdf")
     as.data.frame %>%
     dplyr::rename(`Food groups lvl4` = Row.names) %>%
     melt(id.vars=c("Food groups lvl1","Food groups lvl2","Food groups lvl3","Food groups lvl4")) %>%
+    filter(!(`Food groups lvl2` %in% c("Dairy products","Eggs and egg dishes","Fish") )) %>%
     group_by(variable,`Food groups lvl1`) %>%
     summarize(Gram_prop = sum(value)) %>%
     dcast(variable~`Food groups lvl1`) %>%
-    mutate(meat_plant_ratio = log2(`Meat-based`+0.001/`Plant-based`+0.001)) %>%
+    mutate(meat_plant_ratio = log2(`Animal-based`+0.001/`Plant-based`+0.001)) %>%
     merge(.,unifrac_pco$li, by.x="variable", by.y="row.names") %>%
     ggplot() + geom_point(aes(x=A1*2,y=A2*2, col=meat_plant_ratio %>% scale(scale = FALSE)), size=4, alpha=0.75) + 
     scale_color_gradient2("") + theme_dark() +
@@ -1175,7 +1229,7 @@ readxl::read_excel(system.file("data-raw","MOSAIC food groups.xlsx", package = "
   mutate(delta_Z = estimate1 - estimate2) %>%
   select(variable,p.value,delta_Z) %>%
   ggplot() + geom_bar(aes(x=variable,y=abs(delta_Z), fill=delta_Z>0, alpha=p.value<0.05 ), stat="identity") + 
-  ylim(0,1) + coord_flip() + scale_fill_brewer(type="qual", palette = "Set1") + 
+  ylim(0,1) + coord_flip() + scale_fill_brewer("",type="qual", palette = "Set1", labels=c("Higher in IBS","Lower in IBS")) + 
   scale_alpha_discrete(range=c(0.4,1)) + theme_classic() + xlab("") + ylab("Z-score\n(mean difference)")
 
 # 
