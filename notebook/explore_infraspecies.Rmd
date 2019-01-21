@@ -320,7 +320,7 @@ candidate_species_ax2 = c("msp_0071","msp_0033","msp_0387","msp_0127")
 
 ```{r eval=FALSE, include=FALSE}
 
-metahit.sqlite.db = src_sqlite("/tmp/metahit.v2.sqlite.db")
+metahit.sqlite.db = src_sqlite("/opt/sqlite/metahit.v2.sqlite.db")
 
 # sqlite="~/storage/metahit/metahit.v2.sqlite.db"
 # metahit.sqlite.db = src_sqlite(sqlite)
@@ -347,7 +347,7 @@ test_msp %>%
 
 ### with raw file
 
-```{r}
+```{r eval=FALSE, include=FALSE}
 #kegg_path = "/home/tapju/storage/metahit/rawfiles/metahit.kegg.csv"
 #kegg_df = readr::read_csv2(kegg_path)
 
