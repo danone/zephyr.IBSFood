@@ -10,6 +10,7 @@ output: html_notebook
 library(dplyr)
 library(magrittr)
 library(ggplot2)
+library(vegan)
 
 devtools::load_all()
 
@@ -77,6 +78,40 @@ counts = counts %>% select(-one_of(remove_sample))
 #which(counts %>% colnames == "M066")
 
 ```
+
+### export gene richness
+
+```{r}
+
+#total_reads %>% sort
+
+genes_richness_1M =
+
+counts_rescaled %>%
+  select(-M077, -M004, -M073, -M050, -M096, -M098, -genes.id, -length) %>%
+  t %>%
+  vegan::rarefy(sample = 10^6)
+
+genes_richness_1M %>%
+  as.matrix() %>%
+  as.data.frame %>%
+  dplyr::rename(richness=V1) %>%
+  write.csv2(file="genes_richness.csv")
+  
+  
+genes_richness_1M %>%
+  as.matrix() %>%
+  as.data.frame %>%
+  dplyr::rename(richness=V1) %>%
+  ggplot() + geom_density(aes(x=richness),col="black")
+
+
+
+
+```
+
+
+
 
 ### make the correspondance with MSP
 
