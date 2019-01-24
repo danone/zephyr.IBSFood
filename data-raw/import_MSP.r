@@ -22,3 +22,11 @@ MSP_genes_id_corresp %>% na.omit() -> MSP_genes_id_corresp
 devtools::use_data(MSP_genes_id_corresp, overwrite=TRUE)
 
 
+
+
+# import gene richness
+
+
+genes_richness_1M = read.csv2("data-raw/genes_richness.csv", row.names=1)
+
+devtools::use_data(genes_richness_1M, overwrite=TRUE)
