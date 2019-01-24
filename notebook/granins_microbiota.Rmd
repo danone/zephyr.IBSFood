@@ -1,0 +1,130 @@
+---
+title: "Granins vs Diet"
+output: html_notebook
+---
+
+
+## libraries
+```{r}
+
+library(Granins)
+library(dplyr)
+library(ggplot2)
+library(IBSMicrobiota)
+library(vegan)
+devtools::load_all()
+
+
+```
+
+
+## data
+```{r}
+
+data("granins")
+data("IBSData")
+
+
+load(system.file("notebook","infraspecies_jsd", package="IBSFood"))
+load(system.file("notebook","species_jsd.rda", package="IBSFood"))
+load(system.file("notebook","phylum_jsd", package="IBSFood"))
+load(system.file("notebook","food_unifrac.dist", package="IBSFood"))
+
+granins %>% head
+
+```
+
+
+## granins vs microbiota
+
+Granins are associated to microbiota at species levels
+
+```{r, message=FALSE, warning=FALSE}
+
+
+
+id = intersect(attr(infraspecies_jsd, "Label"), granins$ID)
+
+
+
+granins %>%
+  select(-Health, -Enterotypes) %>%
+  select(ID,contains("(F)")) %>%
+  merge(.,id %>% as.matrix %>% as.data.frame(), by.x="ID", by.y="V1") %>%
+  #tibble::column_to_rownames("ID")
+  reshape2::melt(id.vars="ID") %>%
+  #filter(variable %in%  c("kJ","kcal")) %>%
+  group_by(variable) %>%
+  do(vegan::adonis2(infraspecies_jsd %>% as.matrix %>% .[sort(id),sort(id)] %>% as.dist  ~ value , data=. ) %>% broom::tidy() %>% slice(1)  ) %>%
+  mutate(tax="infraspecies")
+  
+
+
+
+id = intersect(attr(species_jsd, "Label"), granins$ID)
+
+
+
+granins %>%
+  select(-Health, -Enterotypes) %>%
+  select(ID,contains("(F)")) %>%
+  merge(.,id %>% as.matrix %>% as.data.frame(), by.x="ID", by.y="V1") %>%
+  #tibble::column_to_rownames("ID")
+  reshape2::melt(id.vars="ID") %>%
+  #filter(variable %in%  c("kJ","kcal")) %>%
+  group_by(variable) %>%
+  do(vegan::adonis2(species_jsd %>% as.matrix %>% .[sort(id),sort(id)] %>% as.dist  ~ value , data=. ) %>% broom::tidy() %>% slice(1)  ) %>%
+  mutate(tax="species")
+  
+
+
+
+id = intersect(attr(phylum_jsd, "Label"), granins$ID)
+
+
+
+
+granins %>%
+  select(-Health, -Enterotypes) %>%
+  select(ID,contains("(F)")) %>%
+  merge(.,id %>% as.matrix %>% as.data.frame(), by.x="ID", by.y="V1") %>%
+  #tibble::column_to_rownames("ID")
+  reshape2::melt(id.vars="ID") %>%
+  #filter(variable %in%  c("kJ","kcal")) %>%
+  group_by(variable) %>%
+  do(vegan::adonis2(phylum_jsd %>% as.matrix %>% .[sort(id),sort(id)] %>% as.dist  ~ value , data=. ) %>% broom::tidy() %>% slice(1)  ) %>%
+  mutate(tax="phylum")
+  
+
+
+
+```
+
+## Granins vs Diet
+
+Granins were not associated to diet beta-diversity
+
+```{r}
+
+
+
+id = intersect(attr(food_unifrac, "Label"), granins$ID)
+
+
+granins %>%
+  select(-Health, -Enterotypes) %>%
+  select(ID,contains("(F)")) %>%
+  merge(.,id %>% as.matrix %>% as.data.frame(), by.x="ID", by.y="V1") %>%
+  #tibble::column_to_rownames("ID")
+  reshape2::melt(id.vars="ID") %>%
+  #filter(variable %in%  c("kJ","kcal")) %>%
+  group_by(variable) %>%
+  do(vegan::adonis2(food_unifrac %>% as.matrix %>% .[sort(id),sort(id)] %>% as.dist  ~ value , data=. ) %>% broom::tidy() %>% slice(1)  ) %>%
+  mutate(tax="diet")
+  
+
+
+
+
+```
+
