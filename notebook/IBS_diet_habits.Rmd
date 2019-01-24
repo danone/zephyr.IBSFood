@@ -914,8 +914,7 @@ ggsave(filename = "nutriscore_DI_plot.pdf")
 ```{r}
 
 food_data %>%
-  select(
-    Foodstuffs,
+  select(Foodstuffs,
     Gram,
     `Energy kJ`,
     `Protein(g)`,

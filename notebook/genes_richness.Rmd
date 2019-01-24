@@ -23,6 +23,7 @@ data("IBSData")
 
 data("genes_richness_1M")
 
+meat_plant_ratio = read.csv2(system.file("tables","meat_plant_ratio.csv", package="IBSFood"), row.names=1)
 
 
 
@@ -87,4 +88,193 @@ IBSData$metadata %>%
 
 
 ```
+
+
+```{r}
+
+meat_plant_ratio %>%
+  merge(.,genes_richness_1M, by.x="variable", by.y="row.names") %>%
+  dplyr::rename(ID="variable") %>%
+  reshape2::melt(id.vars=c("ID","richness")) %>%
+  group_by(variable) %>%
+  do(with(.,cor.test(richness,value, data=.) %>% broom::tidy()  ))
+
+
+meat_plant_ratio %>%
+  merge(.,genes_richness_1M, by.x="variable", by.y="row.names") %>%
+  reshape2::melt(id.vars=c("variable","richness")) %>%
+  ggplot() + geom_point(aes(x=richness, y=value)) + facet_wrap(~variable)
+
+
+```
+
+
+
+```{r}
+
+data("nutrients_data")
+
+
+nutrients_data %>%
+  merge(.,genes_richness_1M, by.x="ID", by.y="row.names") %>%
+  #dplyr::rename(ID="variable") %>%
+  reshape2::melt(id.vars=c("ID","richness")) %>%
+  group_by(variable) %>%
+  do(with(.,cor.test(richness,value, data=.) %>% broom::tidy()  )) %>%
+  arrange(p.value)
+
+
+
+
+```
+
+## nutriscore proportion
+
+there is no link with nutriscore category and gene richness
+
+```{r}
+
+
+food_data %>%
+  select(Foodstuffs,
+    Gram,
+    `Energy kJ`,
+    `Protein(g)`,
+    `Saturated fatty acids(g)`,
+    `Mono+disaccharides(g)`,
+    `Fibers(g)`,
+    `Sodium(mg)` ) %>%
+  na.omit() %>%
+#head(100) %>%
+  group_by(Foodstuffs) %>%
+  filter(row_number()==1) %>%
+  melt(id.vars=c("Foodstuffs","Gram")) %>%
+  mutate(value = (value/Gram) * 100) %>%
+  select(-Gram) %>%
+  dcast(Foodstuffs ~ variable) %>%
+  na.omit() -> food_test
+
+food_test = merge(food_test,food_fruit, by="Foodstuffs")
+
+#write.csv2(food_test, file="food_test.csv")
+
+
+apply(food_test, 1, function(x) {nutriscore(
+
+  cal=x[2]%>%as.numeric,
+  protein=x[3]%>%as.numeric,
+  fat=x[4]%>%as.numeric,
+  carbohydrate=x[5]%>%as.numeric,
+  fibre=x[6]%>%as.numeric,
+  sodium=x[7]%>%as.numeric,
+  fruit = x[8] %>% as.numeric,
+  type= "others"
+
+) %>% nutriscore_qual })  -> res
+
+
+food_data %>%
+          select(Identity,Foodstuffs, Meal, Day,Gram) %>%
+          merge(cbind(Foodstuffs=food_test[,1],res), by="Foodstuffs") %>%
+          group_by(Identity,Meal,res) %>%
+          summarise(n=n()) %>%
+          #summarise(n=sum(Gram)) %>%
+          ungroup() %>%
+          group_by(Identity,Meal) %>%
+          mutate(prop=n/sum(n))
+
+
+```
+
+
+
+```{r}
+
+
+food_data %>%
+          select(Identity,Foodstuffs, Meal, Day,Gram) %>%
+          merge(cbind(Foodstuffs=food_test[,1],res), by="Foodstuffs") %>%
+          group_by(Identity,Meal,res) %>%
+          summarise(n=n()) %>%
+          #summarise(n=sum(Gram)) %>%
+          ungroup() %>%
+          group_by(Identity,Meal) %>%
+          mutate(prop=n/sum(n)) %>%
+  merge(.,genes_richness_1M, by.x="Identity", by.y="row.names") %>%
+  #filter(res=="A") %>%
+  filter(Meal %in% c("Breakfast","Dinner","Lunch")) %>%
+  group_by(Meal,res) %>%
+  do(with(.,cor.test(prop,richness, method="spearman") %>% broom::tidy())) %>%
+  arrange(p.value)
+  
+food_data %>%
+          select(Identity,Foodstuffs, Meal, Day,Gram) %>%
+          merge(cbind(Foodstuffs=food_test[,1],res), by="Foodstuffs") %>%
+          group_by(Identity,Meal,res) %>%
+          summarise(n=n()) %>%
+          #summarise(n=sum(Gram)) %>%
+          ungroup() %>%
+          group_by(Identity,Meal) %>%
+          mutate(prop=n/sum(n)) %>%
+  merge(.,genes_richness_1M, by.x="Identity", by.y="row.names") %>%
+  #filter(res=="A") %>%
+  filter(Meal %in% c("Breakfast","Dinner","Lunch")) %>%
+  group_by(res,Identity) %>%
+  summarize(richness=median(richness),   prop = sum(n*prop), n=sum(n)   ) %>%
+  mutate(prop_global = prop/n) %>%
+  ungroup() %>%
+  group_by(res) %>%
+  do(with(.,cor.test(prop_global,richness, method="spearman") %>% broom::tidy())) %>%
+  arrange(p.value)
+  
+
+food_data %>%
+          select(Identity,Foodstuffs, Meal, Day,Gram) %>%
+          merge(cbind(Foodstuffs=food_test[,1],res), by="Foodstuffs") %>%
+          group_by(Identity,Meal,res) %>%
+          summarise(n=n()) %>%
+          #summarise(n=sum(Gram)) %>%
+          ungroup() %>%
+          group_by(Identity,Meal) %>%
+          mutate(prop=n/sum(n)) %>%
+  merge(.,genes_richness_1M, by.x="Identity", by.y="row.names") %>%
+  #filter(res=="A") %>%
+  filter(Meal %in% c("Breakfast","Dinner","Lunch")) %>%
+  mutate(richness_group = ifelse(richness<250000,"low","high")) %>%
+  #filter(res %in% c("A","D")) %>%
+  ggplot() + geom_boxplot(aes(x=res,y=prop,fill=richness_group)) + facet_wrap(~Meal)
+
+
+
+
+
+
+```
+
+
+
+## granins
+
+
+```{r}
+
+data("granins")
+
+
+granins %>%
+  merge(.,genes_richness_1M, by.x="ID", by.y="row.names") %>%
+  reshape2::melt(id.vars=c("ID","Health","Enterotypes","richness")) %>%
+  group_by(variable) %>%
+  do(
+    with(.,
+         cor.test(richness,value, data=., method="spearman")) %>% broom::tidy()
+  ) %>% mutate(p.value = p.value %>% round(3))
+
+
+
+```
+
+
+
+
 

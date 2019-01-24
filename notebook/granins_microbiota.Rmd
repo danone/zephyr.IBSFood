@@ -28,7 +28,7 @@ data("IBSData")
 load(system.file("notebook","infraspecies_jsd", package="IBSFood"))
 load(system.file("notebook","species_jsd.rda", package="IBSFood"))
 load(system.file("notebook","phylum_jsd", package="IBSFood"))
-load(system.file("notebook","food_unifrac.dist", package="IBSFood"))
+load(system.file("biom", "food_unifrac.dist", package="IBSFood"))
 
 granins %>% head
 
