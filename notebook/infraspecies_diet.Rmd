@@ -347,6 +347,64 @@ cor(infraspecies_food_coi$lX,infraspecies_pco$li[1:2]) %>%
 
 ```
 
+##### Procrustes analysis
+
+
+```{r}
+
+
+infraspecies_pco = ade4::dudi.pco(A , scannf=F, nf=78)$li
+
+food_pco = ade4::dudi.pco(B %>% ade4::quasieuclid(), scannf=F, nf=78)$li
+
+infraspecies_food_procrustes = vegan::procrustes(infraspecies_pco,food_pco, symmetric = T)
+
+(procrust_test_p <- vegan::protest(infraspecies_pco, food_pco, permutations = how(nperm = 999))$signif)
+
+
+## permute
+
+r = sample(1:79, replace=F)
+
+
+A_r = A %>% as.matrix %>% .[r,r]
+
+
+row.names(A_r) = colnames(A_r) = row.names(food_pco)
+
+
+infraspecies_pco_r = ade4::dudi.pco(A_r %>% as.dist() , scannf=F, nf=78)$li
+
+#infraspecies_pco_r = infraspecies_pco_r[r,]
+#row.names(infraspecies_pco_r) = row.names(food_pco)
+
+
+infraspecies_food_procrustes_r = vegan::procrustes(infraspecies_pco_r,food_pco, symmetric = T)
+
+(procrust_test_p <- vegan::protest(infraspecies_pco_r, food_pco, permutations = how(nperm = 999))$signif)
+
+
+d = 1:79
+
+d_random = 1:79
+
+d_random_all =NULL
+
+
+for(i in 1:79) { d[i] = dist(rbind(infraspecies_food_procrustes$X[i,], infraspecies_food_procrustes$Yrot[i,]))  }
+
+for(i in 1:79) { d_random[i] = dist(rbind(infraspecies_food_procrustes_r$X[i,], infraspecies_food_procrustes_r$Yrot[i,]))  }
+
+
+
+data.frame(d=c(d,d_random), test = c(rep("observed",79), rep("simulated",79))    ) %>%
+  ggplot() + geom_boxplot(aes(y=d,x=test)) + xlab("euclidean distance\nbetween food and microbiota") + theme_classic()
+
+wilcox.test(d,d_random)
+
+
+
+```
 
 **distance shuffling**
 
@@ -508,9 +566,6 @@ coinertia(dudi.pca(phylum_pco$li, scannf=F, nf=10),dudi.pca(food_pco$li, scannf=
 
 
 
-
-
-
 ### JSD genus
 
 
@@ -540,139 +595,13 @@ genus_food_coi = coinertia(genus_pco,food_pco, scannf=F, nf=10)
 
 
 
-coinertia(dudi.pca(infraspecies_pco$li, scannf=F, nf=10),dudi.pca(food_pco$li, scannf=F, nf=10), scannf=F, nf=3) %>% randtest
+coinertia(dudi.pca(genus_pco$li, scannf=F, nf=10),dudi.pca(food_pco$li, scannf=F, nf=10), scannf=F, nf=3) %>% randtest
 
 
 
 
 
 ```
-
-
-**distance shuffling**
-
-```{r, eval=FALSE, include=FALSE}
-
-#load(system.file("biom", "food_unifrac.dist", package="IBSFood"))
-
-#set.seed(1)
-
-rv_sim = 1:99
-
-pb <- txtProgressBar(min = 0, max = length(rv_sim), style = 3)
-# 
-# infraspecies_norm =
-# infraspecies %>%
-#   mutate_at(vars(contains("M", ignore.case = F)),function(x){x/sum(x)}) %>% 
-#   select(contains("M",ignore.case = F))
-# 
-# infraspecies_norm_names = colnames(infraspecies_norm)
-# 
-# infraspecies_jsd = BiotypeR::dist.JSD(infraspecies_norm)
-
-for(i in 1:length(rv_sim)) {
-
-#infraspecies_norm = infraspecies_norm %>% apply(.,2, sample) #%>% t  %>% apply(.,2, sample)
-
-#colnames(infraspecies_norm) = infraspecies_norm_names
-#rownames(infraspecies_norm) = rownames(infraspecies)
-    
-#
-  
-  
-  
-A = merge(genus_jsd %>% broom::tidy(diagonal=TRUE, upper=TRUE),
-food_unifrac %>% broom::tidy(diagonal=TRUE, upper=TRUE) , by=c("item1","item2")) %>%
-  reshape2::dcast(item1~item2, value.var = "distance.x") %>% .[,-1] %>%
-  as.dist()
-
-
-attr(A, "Labels") = sample(A %>% attr(., "Labels"))
-
-A = A %>% as.matrix %>% .[order(attr(A, "Labels")),order(attr(A, "Labels"))] %>% as.dist
-
-
-B = merge(genus_jsd %>% broom::tidy(diagonal=TRUE, upper=TRUE),
-food_unifrac %>% broom::tidy(diagonal=TRUE, upper=TRUE) , by=c("item1","item2")) %>%
-  reshape2::dcast(item1~item2, value.var = "distance.y") %>% .[,-1] %>%
-  as.dist()
-
-attr(B, "Labels") = sample(B %>% attr(., "Labels"))
-
-B =  B %>% as.matrix %>% .[order(attr(B, "Labels")),order(attr(B, "Labels"))] %>% as.dist
-
-
-genus_pco = dudi.pco(A , scannf = F, nf=10)
-
-food_pco = dudi.pco(B %>% ade4::quasieuclid(), scannf = F, nf=10)
-
-
-
-genus_food_coi = coinertia(genus_pco,food_pco, scannf=F, nf=10)
-
-
-rv_sim[i] = genus_food_coi$RV
-setTxtProgressBar(pb, i)
-}
-close(pb)
-
-
-########## observed ############
-# 
-# infraspecies_norm =
-# infraspecies %>%
-#   mutate_at(vars(contains("M", ignore.case = F)),function(x){x/sum(x)}) %>% 
-#   select(contains("M",ignore.case = F))
-# 
-# infraspecies_jsd = BiotypeR::dist.JSD(infraspecies_norm)
-# 
-
-A = merge(genus_jsd %>% broom::tidy(diagonal=TRUE, upper=TRUE),
-food_unifrac %>% broom::tidy(diagonal=TRUE, upper=TRUE) , by=c("item1","item2")) %>%
-  reshape2::dcast(item1~item2, value.var = "distance.x") %>% .[,-1] %>%
-  as.dist()
-
-
-#attr(A, "Labels") = sample(A %>% attr(., "Labels"))
-
-A = A %>% as.matrix %>% .[order(attr(A, "Labels")),order(attr(A, "Labels"))] %>% as.dist
-
-
-B = merge(genus_jsd %>% broom::tidy(diagonal=TRUE, upper=TRUE),
-food_unifrac %>% broom::tidy(diagonal=TRUE, upper=TRUE) , by=c("item1","item2")) %>%
-  reshape2::dcast(item1~item2, value.var = "distance.y") %>% .[,-1] %>%
-  as.dist()
-
-B =  B %>% as.matrix %>% .[order(attr(B, "Labels")),order(attr(B, "Labels"))] %>% as.dist
-
-
-genus_pco = dudi.pco(A , scannf = F, nf=10)
-
-food_pco = dudi.pco(B %>% ade4::quasieuclid(), scannf = F, nf=10)
-
-
-
-genus_food_coi = coinertia(genus_pco,food_pco, scannf=F, nf=10)
-
-
-rv_obs = genus_food_coi$RV
-
-table(rv_obs >= rv_sim)
-
-
-
-#infra_food_pro = procuste(infraspecies_pco$tab, food_pco$tab, scale = FALSE, nf=3)
-
-
-#randtest(infra_food_pro)
-
-
-
-```
-
-
-
-
 
 ### JSD species
 
@@ -691,19 +620,77 @@ food_unifrac %>% broom::tidy(diagonal=TRUE, upper=TRUE) , by=c("item1","item2"))
   as.dist()
 
 
-infraspecies_pco = dudi.pco(A %>% ade4::quasieuclid(), scannf = F, nf=10)
+infraspecies_pco = dudi.pco(A %>% ade4::quasieuclid(), scannf = F, nf=78)
 
-food_pco = dudi.pco(B %>% ade4::quasieuclid(), scannf = F, nf=10)
+food_pco = dudi.pco(B %>% ade4::quasieuclid(), scannf = F, nf=78)
 
 
 infraspecies_food_coi = coinertia(infraspecies_pco,food_pco, scannf=F, nf=10)
 
-coinertia(dudi.pca(infraspecies_pco$li, scannf=F, nf=10),dudi.pca(food_pco$li, scannf=F, nf=10), scannf=F, nf=3) %>% randtest
+coinertia(dudi.pca(infraspecies_pco$li, scannf=F, nf=78),dudi.pca(food_pco$li, scannf=F, nf=78), scannf=F, nf=3) %>% randtest
 
 
 ```
 
 
+##### Procrustes analysis
+
+
+```{r}
+
+
+infraspecies_pco = ade4::dudi.pco(A , scannf=F, nf=78)$li
+
+food_pco = ade4::dudi.pco(B %>% ade4::quasieuclid(), scannf=F, nf=78)$li
+
+infraspecies_food_procrustes = vegan::procrustes(infraspecies_pco,food_pco, symmetric = T)
+
+(procrust_test_p <- vegan::protest(infraspecies_pco, food_pco, permutations = how(nperm = 999))$signif)
+
+
+## permute
+
+r = sample(1:79, replace=F)
+
+
+A_r = A %>% as.matrix %>% .[r,r]
+
+
+row.names(A_r) = colnames(A_r) = row.names(food_pco)
+
+
+infraspecies_pco_r = ade4::dudi.pco(A_r %>% as.dist() , scannf=F, nf=78)$li
+
+#infraspecies_pco_r = infraspecies_pco_r[r,]
+#row.names(infraspecies_pco_r) = row.names(food_pco)
+
+
+infraspecies_food_procrustes_r = vegan::procrustes(infraspecies_pco_r,food_pco, symmetric = T)
+
+(procrust_test_p <- vegan::protest(infraspecies_pco_r, food_pco, permutations = how(nperm = 999))$signif)
+
+
+d = 1:79
+
+d_random = 1:79
+
+d_random_all =NULL
+
+
+for(i in 1:79) { d[i] = dist(rbind(infraspecies_food_procrustes$X[i,], infraspecies_food_procrustes$Yrot[i,]))  }
+
+for(i in 1:79) { d_random[i] = dist(rbind(infraspecies_food_procrustes_r$X[i,], infraspecies_food_procrustes_r$Yrot[i,]))  }
+
+
+
+data.frame(d=c(d,d_random), test = c(rep("observed",79), rep("simulated",79))    ) %>%
+  ggplot() + geom_boxplot(aes(y=d,x=test)) + xlab("euclidean distance\nbetween food and microbiota") + theme_classic()
+
+wilcox.test(d,d_random)
+
+
+
+```
 
 
 
@@ -729,7 +716,7 @@ infraspecies_pco = dudi.pco(A %>% ade4::quasieuclid(), scannf = F, nf=10)
 food_pco = dudi.pco(B %>% ade4::quasieuclid(), scannf = F, nf=10)
 
 
-infraspecies_food_coi = coinertia(infraspecies_pco,food_pco, scannf=F, nf=10)
+infraspecies_food_coi = coinertia(infraspecies_pco,food_pco, scannf=F, nf=18)
 
 #infraspecies_food_coi = coinertia(dudi.pca(infraspecies_pco$li, scannf=F, nf=10),dudi.pca(food_pco$li, scannf=F, nf=10), scannf=F, nf=10)
 
@@ -789,6 +776,122 @@ cbind(infraspecies_food_coi$lX,food_pco$li[1:3]) %>%
 
 When 10 Principal components are selected for the co-inertia analysis, 
 JSD at species and infraspecies levels are significantly associated with food inertia.
+
+
+##### Procrustes analysis
+
+
+```{r}
+
+
+infraspecies_pco = ade4::dudi.pco(A , scannf=F, nf=78)$li
+
+food_pco = ade4::dudi.pco(B %>% ade4::quasieuclid(), scannf=F, nf=78)$li
+
+infraspecies_food_procrustes = vegan::procrustes(infraspecies_pco,food_pco, symmetric = T)
+
+(procrust_test_p <- vegan::protest(infraspecies_pco, food_pco, permutations = how(nperm = 999))$signif)
+
+
+## permute
+
+r = sample(1:79, replace=F)
+
+
+A_r = A %>% as.matrix %>% .[r,r]
+
+
+row.names(A_r) = colnames(A_r) = row.names(food_pco)
+
+
+infraspecies_pco_r = ade4::dudi.pco(A_r %>% as.dist() , scannf=F, nf=78)$li
+
+#infraspecies_pco_r = infraspecies_pco_r[r,]
+#row.names(infraspecies_pco_r) = row.names(food_pco)
+
+
+infraspecies_food_procrustes_r = vegan::procrustes(infraspecies_pco_r,food_pco, symmetric = T)
+
+(procrust_test_p <- vegan::protest(infraspecies_pco_r, food_pco, permutations = how(nperm = 999))$signif)
+
+
+d = 1:79
+
+d_random = 1:79
+
+d_random_all =NULL
+
+
+for(i in 1:79) { d[i] = dist(rbind(infraspecies_food_procrustes$X[i,], infraspecies_food_procrustes$Yrot[i,]))  }
+
+for(i in 1:79) { d_random[i] = dist(rbind(infraspecies_food_procrustes_r$X[i,], infraspecies_food_procrustes_r$Yrot[i,]))  }
+
+
+
+data.frame(d=c(d,d_random), test = c(rep("observed",79), rep("simulated",79))    ) %>%
+  ggplot() + geom_boxplot(aes(y=d,x=test)) + xlab("euclidean distance\nbetween food and microbiota") + theme_classic()
+
+wilcox.test(d,d_random)
+
+
+
+```
+
+
+
+
+##### compare euclidean distance to random
+
+```{r, eval=FALSE, include=FALSE}
+
+euc.dist <- function(x1, x2) sqrt(sum((x1 - x2) ^ 2))
+
+d = 1:79
+
+d_random = 1:79
+
+d_random_all =NULL
+
+for(i in 1:79) { d[i] = euc.dist(infraspecies_food_coi$mY[i,], infraspecies_food_coi$mX[i,])  }
+
+for(j in 1:10) {
+
+r = sample(1:79, replace=F)
+
+infraspecies_pco_r = dudi.pco(A %>% ade4::quasieuclid() %>% as.matrix %>% .[r,r] %>% as.dist  , scannf = F, nf=78)
+
+food_pco_r = dudi.pco(B %>%ade4::quasieuclid() , scannf = F, nf=78)
+
+
+infraspecies_food_coi_r = coinertia(infraspecies_pco_r,food_pco_r, scannf=F, nf=18)
+
+
+for(i in 1:79) { 
+  
+  
+  d_random[i] = euc.dist(infraspecies_food_coi_r$mY[i,], infraspecies_food_coi_r$mX[i,])  
+  
+  
+}
+
+d_random_all = c(d_random_all, d_random)
+
+}
+
+
+
+data.frame(d=c(d,d_random_all), test = c(rep("observed",79), rep("simulated",790))    ) %>%
+  ggplot() + geom_boxplot(aes(y=d,x=test)) + xlab("euclidean distance\nbetween food and microbiota") + theme_classic()
+
+
+wilcox.test(d~test, data=data.frame(d=c(d,d_random_all), test = c(rep("observed",79), rep("simulated",790))    ))
+
+
+
+```
+
+
+
 
 
 **distance shuffling**
@@ -1128,7 +1231,6 @@ food_group_levels %>%
 ### permanova
 
 
-
 ```{r, fig.height=4, fig.width=8}
 
 data("enterotypes")
@@ -1189,6 +1291,8 @@ et_grp =
 
 
 ```
+
+
 
 
 
