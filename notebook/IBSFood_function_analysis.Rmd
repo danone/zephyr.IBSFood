@@ -1040,3 +1040,95 @@ modules_per_MSP_severity %>%
 
 ```
 
+
+## global picture
+
+
+```{r, message=FALSE, warning=FALSE}
+
+data("MSP_tax")
+
+MSP_abundance = read.csv2( file="MSP_abundance.csv", row.names=2)[,-1]
+
+MSP_dominant = 
+MSP_abundance %>% as.matrix() %>% 
+  prop.table(2) %>% as.data.frame %>% 
+  BiotypeR::noise.removal(percent=5) %>%
+  rownames()
+
+
+MSP_tax %>%
+  filter(MSP_ID %in% MSP_dominant)
+
+
+egg = readr::read_tsv(system.file("data-raw","egg_db_updated.tsv.txt",         package = "IBSFood")) #updated
+
+modules_structures = readr::read_tsv(system.file("data-raw","gut_modules_names_structure.tsv",         package = "IBSFood")) 
+
+
+
+load(system.file("data-raw","msp_ko_gut_modules.rda",         package = "IBSFood"))
+
+modules_per_MSP = 
+  cbind(
+    mods2@annotation, 
+    sweep(mods2@abundance, 2, total_reads[mods2@abundance %>% colnames(),], "/")
+    )
+
+
+
+modules_per_MSP_name = 
+apply(modules_per_MSP, 1, function(x)getNames(db, x[2]))
+
+
+modules_per_MSP$Module_name = modules_per_MSP_name
+
+
+
+# modules_per_MSP =
+# 
+# cbind(
+#   Module      = modules_per_MSP %>% select(2) %>% unique(),
+#   Module_name = modules_per_MSP %>% select(2) %>% unique() %>% apply(., 1, function(x)getNames(db, x[1]))
+#   ) %>%
+#   merge(modules_per_MSP,., by="Module")
+# 
+
+
+```
+
+
+
+
+```{r}
+
+
+
+modules_per_MSP %>% 
+  melt(id.vars=c("Module","Taxon","Module_name")) %>%
+  filter(value > 10^-9 ) %>%
+  group_by(Module,Taxon,Module_name) %>%
+  summarise(n = n()) %>%
+  ungroup() %>%
+  group_by(Taxon) %>%
+  mutate(p= n/max(n)) %>%
+  filter(Taxon %in% MSP_dominant) %>%
+  merge(MSP_tax,.,by.x="MSP_ID", by.y="Taxon") %>%
+  merge(.,egg, by.x="Module", by.y="module_id") %>%
+  merge(.,modules_structures, by="name")
+  
+
+```
+
+
+
+```{r}
+
+MSP_tax %>% filter(MSP_ID=="msp_0013")
+
+
+
+```
+
+
+
