@@ -1,0 +1,254 @@
+---
+title: "large correlation analysis"
+output: html_notebook
+---
+
+
+
+```{r}
+
+library(dplyr)
+library(magrittr)
+library(ggplot2)
+devtools::load_all()
+
+```
+
+
+```{r, message=FALSE, warning=FALSE}
+
+infraspecies = readr::read_csv2(system.file("infraspecies", "infraspecies_table_full.csv", package="IBSFood"))[,-1]
+
+nutrient_taxa_cor = read.csv2(file="nutrient_taxa_cor.csv", row.names=1)
+
+
+```
+
+
+## prepare compo table
+
+filter low abundant subspecies
+
+
+```{r}
+
+infraspecies %>% dim
+
+infraspecies %>%
+  mutate_at(vars(contains("M", ignore.case = F)),function(x){x/sum(x)}) %>%
+  as.data.frame() %>%
+  tibble::column_to_rownames("msp_name_partition") %>%
+  select(contains("M", ignore.case = F)) %>%
+  BiotypeR::noise.removal(percent=0.1) %>% row.names -> infraspecies_select
+  #summarise_all(funs(sum)) %>% t %>%
+  #summary
+
+
+
+```
+
+
+
+
+melt composition table at each tax level
+```{r}
+
+
+
+rbind(
+infraspecies %>%
+  mutate_at(vars(contains("M", ignore.case = F)),function(x){x/sum(x)}) %>%
+  select(contains("M", ignore.case = F),phylum) %>%
+  group_by(phylum) %>%
+  summarise_all(sum) %>%
+  reshape2::melt(id.vars="phylum") %>%
+  mutate(taxa = "phylum") %>%
+  dplyr::rename(tax_variable = phylum),
+
+
+infraspecies %>%
+  mutate_at(vars(contains("M", ignore.case = F)),function(x){x/sum(x)}) %>%
+  select(contains("M", ignore.case = F),phylum,family) %>%
+  group_by(phylum,family) %>%
+  summarise_all(sum) %>%
+  ungroup() %>%
+  select(-phylum) %>%
+  reshape2::melt(id.vars="family")%>%
+  mutate(taxa = "family") %>%
+  dplyr::rename(tax_variable = family),
+
+
+infraspecies %>%
+  mutate_at(vars(contains("M", ignore.case = F)),function(x){x/sum(x)}) %>%
+  select(contains("M", ignore.case = F),phylum,family,genus) %>%
+  group_by(phylum,family,genus) %>%
+  summarise_all(sum) %>%
+  ungroup() %>%
+  select(-phylum,-family) %>%
+  reshape2::melt(id.vars="genus") %>%
+  mutate(taxa = "genus") %>%
+  dplyr::rename(tax_variable = genus),
+
+
+infraspecies %>%
+  mutate_at(vars(contains("M", ignore.case = F)),function(x){x/sum(x)}) %>%
+  select(contains("M", ignore.case = F),phylum,family,genus,msp_name) %>%
+  group_by(phylum,family,genus,msp_name) %>%
+  summarise_all(sum) %>%
+  ungroup() %>%
+  select(-phylum,-family,-genus) %>%
+  reshape2::melt(id.vars="msp_name") %>%
+  mutate(taxa = "MSP") %>%
+  dplyr::rename(tax_variable = msp_name),
+
+
+infraspecies %>%
+  mutate_at(vars(contains("M", ignore.case = F)),function(x){x/sum(x)}) %>%
+  select(contains("M", ignore.case = F),phylum,family,genus,msp_name, msp_name_partition) %>%
+  group_by(phylum,family,genus,msp_name, msp_name_partition) %>%
+  summarise_all(sum) %>%
+  ungroup() %>%
+  select(-phylum,-family,-genus, -msp_name) %>%
+  reshape2::melt(id.vars="msp_name_partition") %>%
+  mutate(taxa = "Infraspecies") %>%
+  dplyr::rename(tax_variable = msp_name_partition)
+) -> compo_taxa_melt
+
+
+
+
+
+
+
+
+```
+
+
+
+## correlation with nutrient
+
+```{r}
+
+
+data("nutrients_data")
+
+nutrients_data %>%
+  reshape2::melt(id.vars="ID") %>%
+  merge(.,compo_taxa_melt, by.y="variable", by.x="ID") -> compo_taxa_nutrient_melt
+  
+
+
+compo_taxa_nutrient_melt %>% 
+  #filter(variable == "Niek _mg" | tax_variable == "msp_1265_unassigned" | tax_variable =="msp_0849_cl_1"| tax_variable == "msp_0849") %>%
+  group_by(taxa,tax_variable,variable) %>%
+  summarize(cor = cor(value.x,value.y, method="spearman")) -> nutrient_taxa_cor
+
+
+
+
+```
+
+
+
+## correlation with food otu
+
+```{r}
+load("food_otu.rda")
+
+food_otu %>%
+  prop.table(2) %>%
+  reshape2::melt() %>%
+  merge(.,compo_taxa_melt, by.y="variable", by.x="Var2") -> compo_taxa_food_otu_melt
+
+
+
+compo_taxa_food_otu_melt %>% 
+  #filter(variable == "Niek _mg" | tax_variable == "msp_1265_unassigned" | tax_variable =="msp_0849_cl_1"| tax_variable == "msp_0849") %>%
+  group_by(taxa,tax_variable,variable) %>%
+  summarize(cor = cor(value.x,value.y, method="spearman")) -> food_otu_taxa_cor
+
+write.csv2(food_otu_taxa_cor, file="food_otu_taxa_cor.csv")
+
+```
+
+
+
+
+```{r}
+
+nutrient_taxa_cor
+
+infraspecies %>%
+  select(-contains("M", ignore.case = F), msp_name, msp_name_partition) %>%
+  select(msp_name_partition, msp_name, genus, phylum)
+
+
+nutrient_taxa_cor %>%
+  group_by(taxa,tax_variable) %>%
+  filter(cor == max(abs(cor))) %>%
+  arrange(desc(abs(cor))) %>%
+  ggplot() + geom_density(aes(x=cor, color=taxa))
+
+
+
+
+
+```
+
+
+
+
+
+
+```{r}
+library(purrr)
+
+infraspecies %>%
+  mutate(root="root") %>%
+  select(root,phylum,family,genus,msp_name, msp_name_partition) -> df
+
+taxo_edges =
+
+  map_df(2:ncol(df), ~select(df, (.x-1):.x) %>% setNames(c("source", "target")), .id="id") %>%
+    group_by(id) %>%
+    distinct() %>%
+    ungroup() %>%
+    mutate(id = colnames(df)[as.numeric(id)+1])
+
+  
+  
+  
+
+```
+
+
+```{r, message=FALSE, warning=FALSE}
+
+library(igraph)
+library(ggraph)
+
+gr <- graph_from_data_frame(taxo_edges[2:3])
+
+dendro = ggraph(gr, layout = 'dendrogram', circular = TRUE) + 
+    #geom_edge_diagonal() + 
+    #geom_node_point(aes(filter = leaf)) + 
+    coord_fixed() + theme_void()
+
+dendro
+
+names(V(gr))
+
+
+
+
+
+```
+
+
+
+
+
+
+
+
+

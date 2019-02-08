@@ -316,9 +316,9 @@ food_unifrac %>% broom::tidy(diagonal=TRUE, upper=TRUE) , by=c("item1","item2"))
   as.dist()
 
 
-infraspecies_pco = dudi.pco(A %>% ade4::quasieuclid(), scannf = F, nf=10)
+infraspecies_pco = dudi.pco(A %>% ade4::quasieuclid(), scannf = F, nf=79)
 
-food_pco = dudi.pco(B %>% ade4::quasieuclid(), scannf = F, nf=10)
+food_pco = dudi.pco(B %>% ade4::quasieuclid(), scannf = F, nf=79)
 
 
 infraspecies_food_coi = coinertia(infraspecies_pco,food_pco, scannf=F, nf=10)
@@ -327,7 +327,7 @@ infraspecies_food_coi = coinertia(infraspecies_pco,food_pco, scannf=F, nf=10)
 plot(infraspecies_food_coi)
 
 
-coinertia(dudi.pca(infraspecies_pco$li, scannf=F, nf=10),dudi.pca(food_pco$li, scannf=F, nf=10), scannf=F, nf=3) %>% randtest
+coinertia(dudi.pca(infraspecies_pco$li, scannf=F, nf=79),dudi.pca(food_pco$li, scannf=F, nf=79), scannf=F, nf=3) %>% randtest
 
 
 cor(infraspecies_food_coi$lX,food_pco$li[1:2]) %>%
@@ -556,7 +556,7 @@ phylum_food_coi = coinertia(phylum_pco,food_pco, scannf=F, nf=10)
 
 
 
-coinertia(dudi.pca(phylum_pco$li, scannf=F, nf=10),dudi.pca(food_pco$li, scannf=F, nf=10), scannf=F, nf=3) %>% randtest
+coinertia(dudi.pca(phylum_pco$li, scannf=F, nf=78),dudi.pca(food_pco$li, scannf=F, nf=78), scannf=F, nf=3) %>% randtest
 
 
 
@@ -595,7 +595,7 @@ genus_food_coi = coinertia(genus_pco,food_pco, scannf=F, nf=10)
 
 
 
-coinertia(dudi.pca(genus_pco$li, scannf=F, nf=10),dudi.pca(food_pco$li, scannf=F, nf=10), scannf=F, nf=3) %>% randtest
+coinertia(dudi.pca(genus_pco$li, scannf=F, nf=78),dudi.pca(food_pco$li, scannf=F, nf=78), scannf=F, nf=3) %>% randtest
 
 
 
@@ -711,16 +711,16 @@ food_unifrac %>% broom::tidy(diagonal=TRUE, upper=TRUE) , by=c("item1","item2"))
   as.dist()
 
 
-infraspecies_pco = dudi.pco(A %>% ade4::quasieuclid(), scannf = F, nf=10)
+infraspecies_pco = dudi.pco(A %>% ade4::quasieuclid(), scannf = F, nf=79)
 
-food_pco = dudi.pco(B %>% ade4::quasieuclid(), scannf = F, nf=10)
+food_pco = dudi.pco(B %>% ade4::quasieuclid(), scannf = F, nf=79)
 
 
 infraspecies_food_coi = coinertia(infraspecies_pco,food_pco, scannf=F, nf=18)
 
 #infraspecies_food_coi = coinertia(dudi.pca(infraspecies_pco$li, scannf=F, nf=10),dudi.pca(food_pco$li, scannf=F, nf=10), scannf=F, nf=10)
 
-coinertia(dudi.pca(infraspecies_pco$li, scannf=F, nf=10),dudi.pca(food_pco$li, scannf=F, nf=10), scannf=F, nf=10) %>% randtest
+coinertia(dudi.pca(infraspecies_pco$li, scannf=F, nf=78),dudi.pca(food_pco$li, scannf=F, nf=78), scannf=F, nf=10) %>% randtest
 
 # 
 # cor(

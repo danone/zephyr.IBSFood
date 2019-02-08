@@ -245,6 +245,26 @@ modules_per_MSP =
     sweep(mods2@abundance, 2, total_reads[mods2@abundance %>% colnames(),], "/")
     )
 
+modules_per_MSP_coverage = 
+cbind(mods2@annotation, mods2@coverage)
+
+m_df =
+
+merge(
+  modules_per_MSP %>% melt(id.vars=c("Taxon","Module")),
+  modules_per_MSP_coverage %>% melt(id.vars=c("Taxon","Module")), 
+  by=c("Taxon","Module","variable")
+  ) %>%
+  mutate(v=ifelse(value.y> 0.5, value.x,0 )) %>%
+  select(Taxon,Module,variable,v) %>%
+  reshape2::dcast(Taxon+Module~variable)
+
+modules_per_MSP =
+m_df %>%
+  mutate_if(is.character, funs(as.numeric))
+
+
+
 ```
 
 
@@ -1053,8 +1073,10 @@ MSP_abundance = read.csv2( file="MSP_abundance.csv", row.names=2)[,-1]
 MSP_dominant = 
 MSP_abundance %>% as.matrix() %>% 
   prop.table(2) %>% as.data.frame %>% 
-  BiotypeR::noise.removal(percent=5) %>%
+  BiotypeR::noise.removal(percent=1) %>%
   rownames()
+
+MSP_severity = read.csv2(file="MSP_severity.csv", row.names=1)
 
 
 MSP_tax %>%
@@ -1103,20 +1125,26 @@ modules_per_MSP$Module_name = modules_per_MSP_name
 ```{r}
 
 
+modules_per_MSP_annotation =
 
-modules_per_MSP %>% 
+  modules_per_MSP %>% 
   melt(id.vars=c("Module","Taxon","Module_name")) %>%
   filter(value > 10^-9 ) %>%
   group_by(Module,Taxon,Module_name) %>%
   summarise(n = n()) %>%
   ungroup() %>%
   group_by(Taxon) %>%
-  mutate(p= n/max(n)) %>%
-  filter(Taxon %in% MSP_dominant) %>%
+  mutate(p= n/max(n)) %>% # prevalence of modules within msp
+  filter(Taxon %in% c(MSP_dominant,MSP_severity$Var2 %>% as.character)) %>%
   merge(MSP_tax,.,by.x="MSP_ID", by.y="Taxon") %>%
+  merge(., MSP_severity %>% select(Var2,q50), by.x="MSP_ID", by.y="Var2", all.x=TRUE ) %>%
   merge(.,egg, by.x="Module", by.y="module_id") %>%
-  merge(.,modules_structures, by="name")
+  mutate(severe = ifelse(is.na(q50),0,q50))
+
   
+egg
+
+
 
 ```
 
@@ -1124,11 +1152,206 @@ modules_per_MSP %>%
 
 ```{r}
 
-MSP_tax %>% filter(MSP_ID=="msp_0013")
+modules_per_MSP_annotation %>%
+  filter(MSP_ID=="msp_0492")
+
+MSP_tax %>%
+  filter(MSP_ID=="msp_a10")
+
+
+modules_per_MSP %>%
+  filter(Taxon=="msp_0492")
 
 
 
 ```
+
+
+```{r, fig.height=15, fig.width=20}
+
+modules_per_MSP_annotation %>%
+  filter(q50!=0) %>%
+  #filter(`Hierarchy Level 1` %in% c("gas metabolism","organic acid metabolism","alcohol metabolism")) %>%
+  #filter(`Hierarchy Level 1` %in% c("carbohydrate degradation")) %>%
+  #filter(`Hierarchy Level 1` %in% c("amino acid degradation","glycoprotein degradation","amines and polyamines degradation","lipid degradation", "inorganic nutrient metabolism")) %>%
+  filter(phylum %in% c("Bacteroidetes","Firmicutes","Actinobacteria","Proteobacteria","verrucomicrobia","Euryarchaeota")) %>%
+  ggplot() + 
+  geom_tile(aes(x=module_name, y=paste0(species," ",MSP_ID), alpha=p, fill=severe)) + 
+  scale_fill_gradient2(low = "red", mid="yellow", high="green") +
+  facet_grid(q50>0~`Hierarchy Level 2` %>% gsub(" ", "\n", .),scales = "free", space = "free") + 
+   theme_bw() + theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust=0.5))
+
+
+
+
+```
+
+
+```{r}
+
+
+matrix(c(12,22,6,22),nr=2) %>% t %>% chisq.test()
+
+
+
+```
+
+
+```{r, message=FALSE, warning=FALSE}
+
+MSP_severity
+
+merge(nutriscore_DI,meat_plant_ratio,by.x="Patient_ID", by.y="variable") %>%
+  select(Patient_ID, nutriscore_DI,meat_plant_ratio) %>%
+  merge(., 
+        IBSData$metadata %>% filter(Visit == "V4", Sample_type == "Stool") %>% select(Patient_ID, H2,CH4),
+        by="Patient_ID") %>%
+  merge(., MSP_abundance[MSP_severity$Var2 %>% as.character,] %>% 
+  as.matrix() %>%
+  reshape::melt() , by.x="Patient_ID", by.y="X2" ) %>%
+  group_by(X1) %>%
+  do(
+    cor.test(.$meat_plant_ratio, .$value, method="spearman", data=.) %>% broom::tidy()
+  ) %>% 
+  merge(MSP_tax,., by.x="MSP_ID", by.y="X1") %>%
+arrange(p.value)
+
+
+
+
+
+```
+
+
+
+```{r}
+
+diet_severity_df =
+
+merge(nutriscore_DI,meat_plant_ratio,by.x="Patient_ID", by.y="variable") %>%
+  select(Patient_ID, nutriscore_DI,meat_plant_ratio) %>%
+  merge(., 
+        IBSData$metadata %>% 
+          filter(Visit == "V4", Sample_type == "Stool") %>% 
+          select(Patient_ID, H2,CH4) ,
+        by="Patient_ID") %>% 
+  merge(., MSP_abundance[MSP_severity$Var2 %>% as.character,] %>% 
+  as.matrix() %>%
+  reshape::melt() , by.x="Patient_ID", by.y="X2" ) %>%
+  reshape2::dcast(Patient_ID+nutriscore_DI+meat_plant_ratio+H2+CH4~X1) %>%
+  tibble::column_to_rownames("Patient_ID")
+
+
+
+dudi.pca(diet_severity_df %>% 
+           na.omit() %>%
+    select(contains("msp")) %>% 
+    add(10^-9) %>% log10() , scannf=FALSE, nf=3) -> severity_pca
+  
+  pcaiv(severity_pca, df = diet_severity_df %>% na.omit() %>%
+    select(nutriscore_DI, meat_plant_ratio, H2, CH4), nf=3, scannf=FALSE
+      ) -> diet_severity_pcaiv
+
+
+  diet_severity_pcaiv$c1 %>%
+    merge(MSP_tax,., by.y="row.names", by.x="MSP_ID") %>%
+    ggplot() + geom_text(aes(x=CS1*2,y=CS2*2, label=species), size=2) + geom_text(data=diet_severity_pcaiv$cor, aes(x=RS1/2,y=RS2/2, label=row.names(diet_severity_pcaiv$cor)), col="red")
+    
+  
+
+```
+
+### heatmap
+```{r, fig.height=10, fig.width=15, message=FALSE, warning=FALSE}
+
+
+load("food_otu.rda")
+
+food_MSP_severity_cor =
+food_otu %>%
+  prop.table(2) %>%
+  melt() %>%
+  dplyr::rename(Subject=Var2, food_group=Var1) %>%
+  merge(.,
+    MSP_abundance[MSP_severity$Var2 %>% as.character,] %>%
+      as.matrix() %>%
+      melt() %>%
+      dplyr::rename(Subject=Var2, MSP_id=Var1) %>%
+      group_by(MSP_id,Subject,value) %>% unique(), by="Subject"
+    ) %>%
+  group_by(food_group,MSP_id) %>%
+  summarise(rho=cor(value.x,value.y,method="spearman")) %>%
+  na.omit() 
+  
+
+
+
+```
+
+```{r, fig.height=10, fig.width=18}
+
+
+
+library(pheatmap)
+  
+food_MSP_severity_heatmap =  
+  food_MSP_severity_cor %>%
+  merge(.,MSP_severity %>% select(species.y,Var2) %>% unique, by.x="MSP_id", by.y="Var2") %>%
+  select(food_group,species.y,MSP_id,rho) %>%
+  mutate(MSP_id = paste(MSP_id,species.y)) %>%
+  select(food_group, MSP_id,rho) %>%
+  reshape2::dcast(food_group~MSP_id) %>% 
+  tibble::column_to_rownames("food_group") %>%
+  as.matrix() %>% t 
+
+
+data(nutriscore_food_group)
+
+nutriscore_food_group =
+  nutriscore_food_group %>%
+  #tibble::column_to_rownames("Food groups lvl4") %>%
+  select(nutriscore, `Food groups lvl1`, `Food groups lvl2`, `Food groups lvl4`) %>%
+  mutate(meat_plant = ifelse(`Food groups lvl2` %in% c("Meat","Fish"), "Meat-based",  "Others" )) %>%
+  mutate(meat_plant = ifelse(`Food groups lvl1` %in% "Plant-based", "Plant-based", meat_plant  )) %>%
+  tibble::column_to_rownames("Food groups lvl4") %>%
+  select(nutriscore,meat_plant)
+
+
+MSP_severity_q50 =
+MSP_severity %>%
+  mutate(MSP_id = paste(Var2,species.y)) %>%
+  filter(MSP_id %in% rownames(food_MSP_severity_heatmap)) %>%
+  select(MSP_id,q50) %>%
+  group_by(MSP_id) %>%
+  summarize(q50 = mean(q50)) %>%
+  mutate(q50=ifelse(q50>0,"Healthy","Severe")) %>%
+  as.data.frame() %>%
+  tibble::column_to_rownames("MSP_id")
+
+ann_colors = list(
+    meat_plant = c(`Meat-based`="pink", Others="grey", `Plant-based`="green"),
+    q50 = c(Healthy="light blue", Severe="brown")#,
+    #GeneClass = c(Path1 = "#7570B3", Path2 = "#E7298A", Path3 = "#66A61E")
+)
+
+pheatmap_plot=
+
+pheatmap(food_MSP_severity_heatmap, clustering_distance_rows = "euclidean", clustering_distance_cols = "euclidean", cutree_rows = 4, cutree_cols = 4, annotation_col = nutriscore_food_group, annotation_row = MSP_severity_q50, annotation_colors = ann_colors, clustering_method = "ward.D2" ) 
+  
+print(pheatmap_plot)
+
+  pheatmap(food_MSP_severity_heatmap, clustering_distance_rows = "euclidean", clustering_distance_cols = "euclidean", cutree_rows = 4, cutree_cols = 4, annotation_col = nutriscore_food_group, annotation_row = MSP_severity_q50 ) %>% unclass
+
+  
+  
+  # merge(.,MSP_severity, by.x="MSP_id", by.y="Var2") %>%
+  # ggplot() + geom_tile(aes(x=food_group,y=MSP_id, fill=rho)) + 
+  # facet_wrap(~q50>0, scale = "free", nrow=2) +
+  # scale_fill_gradient2(mid="yellow", high="green") +
+  # theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust=0.5)) 
+```
+
+
 
 
 
