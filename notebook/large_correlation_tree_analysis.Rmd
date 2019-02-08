@@ -35,6 +35,7 @@ filter low abundant subspecies
 infraspecies %>% dim
 
 infraspecies %>%
+  filter(genus!="Homo") %>%
   mutate_at(vars(contains("M", ignore.case = F)),function(x){x/sum(x)}) %>%
   as.data.frame() %>%
   tibble::column_to_rownames("msp_name_partition") %>%
@@ -42,6 +43,7 @@ infraspecies %>%
   BiotypeR::noise.removal(percent=0.1) %>% row.names -> infraspecies_select
   #summarise_all(funs(sum)) %>% t %>%
   #summary
+
 
 
 
@@ -58,6 +60,7 @@ melt composition table at each tax level
 rbind(
 infraspecies %>%
   mutate_at(vars(contains("M", ignore.case = F)),function(x){x/sum(x)}) %>%
+  filter(msp_name_partition %in% infraspecies_select) %>%
   select(contains("M", ignore.case = F),phylum) %>%
   group_by(phylum) %>%
   summarise_all(sum) %>%
@@ -68,6 +71,7 @@ infraspecies %>%
 
 infraspecies %>%
   mutate_at(vars(contains("M", ignore.case = F)),function(x){x/sum(x)}) %>%
+  filter(msp_name_partition %in% infraspecies_select) %>%
   select(contains("M", ignore.case = F),phylum,family) %>%
   group_by(phylum,family) %>%
   summarise_all(sum) %>%
@@ -80,6 +84,7 @@ infraspecies %>%
 
 infraspecies %>%
   mutate_at(vars(contains("M", ignore.case = F)),function(x){x/sum(x)}) %>%
+  filter(msp_name_partition %in% infraspecies_select) %>%
   select(contains("M", ignore.case = F),phylum,family,genus) %>%
   group_by(phylum,family,genus) %>%
   summarise_all(sum) %>%
@@ -92,6 +97,7 @@ infraspecies %>%
 
 infraspecies %>%
   mutate_at(vars(contains("M", ignore.case = F)),function(x){x/sum(x)}) %>%
+  filter(msp_name_partition %in% infraspecies_select) %>%
   select(contains("M", ignore.case = F),phylum,family,genus,msp_name) %>%
   group_by(phylum,family,genus,msp_name) %>%
   summarise_all(sum) %>%
@@ -104,6 +110,7 @@ infraspecies %>%
 
 infraspecies %>%
   mutate_at(vars(contains("M", ignore.case = F)),function(x){x/sum(x)}) %>%
+  filter(msp_name_partition %in% infraspecies_select) %>%
   select(contains("M", ignore.case = F),phylum,family,genus,msp_name, msp_name_partition) %>%
   group_by(phylum,family,genus,msp_name, msp_name_partition) %>%
   summarise_all(sum) %>%
@@ -117,7 +124,7 @@ infraspecies %>%
 
 
 
-
+compo_taxa_melt %>% head
 
 
 
@@ -150,24 +157,41 @@ compo_taxa_nutrient_melt %>%
 
 
 
-## correlation with food otu
+## large permanova with food unifrac
 
-```{r}
+```{r, message=FALSE, warning=FALSE}
 load("food_otu.rda")
 
-food_otu %>%
-  prop.table(2) %>%
-  reshape2::melt() %>%
-  merge(.,compo_taxa_melt, by.y="variable", by.x="Var2") -> compo_taxa_food_otu_melt
+load("food_unifrac.dist")
 
 
 
-compo_taxa_food_otu_melt %>% 
-  #filter(variable == "Niek _mg" | tax_variable == "msp_1265_unassigned" | tax_variable =="msp_0849_cl_1"| tax_variable == "msp_0849") %>%
-  group_by(taxa,tax_variable,variable) %>%
-  summarize(cor = cor(value.x,value.y, method="spearman")) -> food_otu_taxa_cor
 
-write.csv2(food_otu_taxa_cor, file="food_otu_taxa_cor.csv")
+id = intersect(attr(food_unifrac, "Label"), colnames(infraspecies %>% select(contains("M", ignore.case = F))))
+
+
+compo_taxa_food_unifrac_permanova =
+
+compo_taxa_melt %>%
+  filter(variable %in% id) %>%
+  #filter(taxa == "family") %>%
+  mutate(variable = variable %>% as.character) %>%
+  arrange(variable) %>%
+  group_by(tax_variable,taxa) %>%
+  do(vegan::adonis2(food_unifrac %>% as.matrix %>% .[sort(id),sort(id)] %>% as.dist  ~ value , data=. ) %>% broom::tidy() %>% slice(1)  ) %>%
+  arrange(p.value)
+  
+
+  
+compo_taxa_food_unifrac_permanova %>%
+  filter(tax_variable=="msp_0070")
+
+infraspecies %>%
+  filter(msp_name_partition == "msp_0070_cl_1")
+
+
+infraspecies %>%
+  filter(species == "Eubacterium rectale")
 
 ```
 
@@ -176,11 +200,11 @@ write.csv2(food_otu_taxa_cor, file="food_otu_taxa_cor.csv")
 
 ```{r}
 
-nutrient_taxa_cor
+#nutrient_taxa_cor
 
-infraspecies %>%
-  select(-contains("M", ignore.case = F), msp_name, msp_name_partition) %>%
-  select(msp_name_partition, msp_name, genus, phylum)
+# infraspecies %>%
+#   select(-contains("M", ignore.case = F), msp_name, msp_name_partition) %>%
+#   select(msp_name_partition, msp_name, genus, phylum)
 
 
 nutrient_taxa_cor %>%
@@ -192,20 +216,42 @@ nutrient_taxa_cor %>%
 
 
 
-
 ```
 
 
 
 
-
+# tree based representation
 
 ```{r}
 library(purrr)
 
+
+compo_taxa_food_unifrac_permanova %>% 
+  ungroup %>%
+  mutate(tax_variable = ifelse(taxa=="genus", paste0("g_",tax_variable), tax_variable )) %>%
+  mutate(tax_variable = ifelse(taxa=="family", paste0("f_",tax_variable), tax_variable )) %>%
+  mutate(tax_variable = ifelse(taxa=="phylum", paste0("p_",tax_variable), tax_variable )) %>%
+  filter(R2>0.02) %>% .$tax_variable -> tax_variable_select
+  
+
 infraspecies %>%
   mutate(root="root") %>%
-  select(root,phylum,family,genus,msp_name, msp_name_partition) -> df
+  select(root,phylum,family,genus,msp_name, msp_name_partition) %>%
+  filter(msp_name_partition %in% infraspecies_select) %>%
+  mutate(phylum=paste0("p_",phylum), family=paste0("f_",family), genus=paste0("g_",genus)) %>%
+  filter(
+    msp_name_partition %in% tax_variable_select |
+      msp_name %in% tax_variable_select |
+      genus %in% tax_variable_select |
+      family %in% tax_variable_select |
+      phylum %in% tax_variable_select
+    
+    
+  )   -> df
+
+
+
 
 taxo_edges =
 
@@ -215,8 +261,7 @@ taxo_edges =
     ungroup() %>%
     mutate(id = colnames(df)[as.numeric(id)+1])
 
-  
-  
+
   
 
 ```
@@ -229,9 +274,36 @@ library(ggraph)
 
 gr <- graph_from_data_frame(taxo_edges[2:3])
 
+names(V(gr)) %>% length
+
+
+
+R2_permanova_diet =
+
+compo_taxa_food_unifrac_permanova %>% 
+  ungroup %>%
+  mutate(tax_variable = ifelse(taxa=="genus", paste0("g_",tax_variable), tax_variable )) %>%
+  mutate(tax_variable = ifelse(taxa=="family", paste0("f_",tax_variable), tax_variable )) %>%
+  mutate(tax_variable = ifelse(taxa=="phylum", paste0("p_",tax_variable), tax_variable )) %>%
+  tibble::column_to_rownames("tax_variable") %>%
+  .[names(V(gr)),] %>%
+  .$R2
+ 
+
+V(gr)$R2_permanova_diet = R2_permanova_diet
+
+R2_boolean = R2_permanova_diet > 0.02
+
+R2_boolean[1] = FALSE
+
+V(gr)$R2_boolean = R2_boolean
+
+
 dendro = ggraph(gr, layout = 'dendrogram', circular = TRUE) + 
-    #geom_edge_diagonal() + 
-    #geom_node_point(aes(filter = leaf)) + 
+    geom_edge_diagonal() +
+    geom_node_point(aes(color = R2_permanova_diet, size = R2_permanova_diet, filter=R2_boolean)) + 
+    scale_radius() +
+    viridis::scale_color_viridis() +
     coord_fixed() + theme_void()
 
 dendro
