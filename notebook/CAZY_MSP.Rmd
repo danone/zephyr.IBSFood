@@ -1,0 +1,118 @@
+---
+title: "CAZY MSP"
+output: html_notebook
+---
+
+
+
+
+## Load library
+
+```{r, message=FALSE, warning=FALSE}
+
+library(dplyr)
+library(magrittr)
+library(ggplot2)
+library(vegan)
+
+devtools::load_all()
+
+
+library(IBSMicrobiota)
+
+```
+
+## MSP wrangling
+
+the aim here is to summarize the count data to MSP
+
+```{r}
+
+
+data("MSP_tax")
+data("MSP_genes_id_corresp")
+
+
+
+
+
+
+
+```
+
+
+## Load CAZy annotation
+
+
+```{r connect_db}
+
+
+## connect to the metahit database
+
+
+
+metahit.sqlite.db <- src_sqlite("/tmp/metahit.v2.sqlite.db")
+#metahit.sqlite.db <- src_sqlite("/lustre/samba/samba_write/tapj/metahit.v2.sqlite.db")
+
+
+
+# list table in DB
+#dbListTables(metahit.sqlite.db)
+
+
+
+
+#extract tbl in dplyr format
+#kegg_sqlite <- tbl(metahit.sqlite.db, "kegg")
+#cag_sqlite  <- tbl(metahit.sqlite.db, "cag")
+cazy_sqlite <- tbl(metahit.sqlite.db, "cazy")
+#og_sqlite   <- tbl(metahit.sqlite.db, "og")
+
+
+
+```
+
+
+
+## correponsance MSP and CAZY
+
+
+
+```{r}
+
+
+
+MSP_CAZY_df =
+MSP_genes_id_corresp %>%
+  merge(.,cazy_sqlite, by.x="gene_name_v2", by.y="genes.id")
+  
+write.csv2(MSP_CAZY_df,file="MSP_CAZY_df.csv")
+
+
+```
+
+
+
+## explore
+```{r}
+
+
+MSP_CAZY_df %>%
+  filter(cazy.family%in% c("CBM32","GH2")) %>%
+  group_by(msp_name,cazy.family) %>%
+  summarise(n=n()) %>%
+  reshape2::dcast(msp_name~cazy.family, value.var="n", fill = 0) %>%
+  ggplot() + geom_point(aes(x=GH2,y=CBM32)) #+ scale_y_log10() + scale_x_log10()
+
+
+
+
+
+
+
+```
+
+
+
+
+
