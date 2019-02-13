@@ -34,17 +34,41 @@ filter low abundant subspecies
 
 infraspecies %>% dim
 
+
 infraspecies %>%
   filter(genus!="Homo") %>%
   mutate_at(vars(contains("M", ignore.case = F)),function(x){x/sum(x)}) %>%
+  select(contains("M", ignore.case = F),superkingdom,phylum,class,order,family,genus,msp_name) %>%
+  group_by(superkingdom,phylum,class,order,family,genus,msp_name) %>%
+  summarise_all(sum) %>%
   as.data.frame() %>%
-  tibble::column_to_rownames("msp_name_partition") %>%
+  tibble::column_to_rownames("msp_name") %>%
   select(contains("M", ignore.case = F)) %>%
-  BiotypeR::noise.removal(percent=0.1) %>% row.names -> infraspecies_select
+  BiotypeR::noise.removal(percent=0.01) %>% row.names -> species_select
+
+species_select %>% length()
+
+# infraspecies %>%
+#   filter(genus!="Homo") %>%
+#   mutate_at(vars(contains("M", ignore.case = F)),function(x){x/sum(x)}) %>%
+#   as.data.frame() %>%
+#   tibble::column_to_rownames("msp_name_partition") %>%
+#   select(contains("M", ignore.case = F)) %>%
+#   BiotypeR::noise.removal(percent=0.1) %>% row.names -> infraspecies_select
   #summarise_all(funs(sum)) %>% t %>%
   #summary
 
 
+infraspecies_select %>% head
+
+infraspecies_select = infraspecies_select[grep("unassigned", infraspecies_select, invert = TRUE)]
+
+infraspecies %>%
+  mutate_at(vars(contains("M", ignore.case = F)),function(x){x/sum(x)}) %>%
+  #filter(msp_name_partition %in% infraspecies_select) %>%
+  filter(msp_name %in% species_select) %>%
+  summarise_at(vars(contains("M", ignore.case = F)),function(x){sum(x)}) %>%
+  t %>% as.data.frame %>% ggplot() + geom_density(aes(x=V1)) + xlim(0.8,1) 
 
 
 ```
@@ -58,67 +82,124 @@ melt composition table at each tax level
 
 
 rbind(
-infraspecies %>%
+  
+  infraspecies %>%
   mutate_at(vars(contains("M", ignore.case = F)),function(x){x/sum(x)}) %>%
-  filter(msp_name_partition %in% infraspecies_select) %>%
-  select(contains("M", ignore.case = F),phylum) %>%
-  group_by(phylum) %>%
+  #filter(msp_name_partition %in% infraspecies_select) %>%
+  filter(msp_name %in% species_select) %>%
+  select(contains("M", ignore.case = F),superkingdom) %>%
+  group_by(superkingdom) %>%
   summarise_all(sum) %>%
+    ungroup() %>%
+  reshape2::melt(id.vars="superkingdom") %>%
+  mutate(taxa = "superkingdom") %>%
+  dplyr::rename(tax_variable = superkingdom),
+  
+  
+  
+  infraspecies %>%
+  mutate_at(vars(contains("M", ignore.case = F)),function(x){x/sum(x)}) %>%
+  #filter(msp_name_partition %in% infraspecies_select) %>%
+  filter(msp_name %in% species_select) %>%
+  select(contains("M", ignore.case = F),superkingdom,phylum) %>%
+  group_by(superkingdom,phylum) %>%
+  summarise_all(sum) %>%
+    ungroup() %>%
+  select(-superkingdom) %>%
   reshape2::melt(id.vars="phylum") %>%
   mutate(taxa = "phylum") %>%
   dplyr::rename(tax_variable = phylum),
 
-
-infraspecies %>%
+  
+  infraspecies %>%
   mutate_at(vars(contains("M", ignore.case = F)),function(x){x/sum(x)}) %>%
-  filter(msp_name_partition %in% infraspecies_select) %>%
-  select(contains("M", ignore.case = F),phylum,family) %>%
-  group_by(phylum,family) %>%
+  #filter(msp_name_partition %in% infraspecies_select) %>%
+  filter(msp_name %in% species_select) %>%
+  select(contains("M", ignore.case = F),superkingdom,phylum,class) %>%
+  group_by(superkingdom,phylum,class) %>%
+  summarise_all(sum) %>%
+    ungroup() %>%
+  select(-superkingdom,-phylum) %>%
+  reshape2::melt(id.vars="class") %>%
+  mutate(taxa = "class") %>%
+  dplyr::rename(tax_variable = class),
+  
+  
+  
+  infraspecies %>%
+  mutate_at(vars(contains("M", ignore.case = F)),function(x){x/sum(x)}) %>%
+  #filter(msp_name_partition %in% infraspecies_select) %>%
+  filter(msp_name %in% species_select) %>%
+  select(contains("M", ignore.case = F),superkingdom,phylum,class,order) %>%
+  group_by(superkingdom,phylum,class,order) %>%
+  summarise_all(sum) %>%
+    ungroup() %>%
+  select(-superkingdom,-phylum,-class) %>%
+  reshape2::melt(id.vars="order") %>%
+  mutate(taxa = "order") %>%
+  dplyr::rename(tax_variable = order),
+  
+  
+  
+  
+  infraspecies %>%
+  mutate_at(vars(contains("M", ignore.case = F)),function(x){x/sum(x)}) %>%
+  #filter(msp_name_partition %in% infraspecies_select) %>%
+  filter(msp_name %in% species_select) %>%
+  select(contains("M", ignore.case = F),superkingdom,phylum,class,order,family) %>%
+  group_by(superkingdom,phylum,class,order,family) %>%
   summarise_all(sum) %>%
   ungroup() %>%
-  select(-phylum) %>%
+  select(-superkingdom,-phylum,-class,-order) %>%
   reshape2::melt(id.vars="family")%>%
   mutate(taxa = "family") %>%
   dplyr::rename(tax_variable = family),
 
 
-infraspecies %>%
+  infraspecies %>%
   mutate_at(vars(contains("M", ignore.case = F)),function(x){x/sum(x)}) %>%
-  filter(msp_name_partition %in% infraspecies_select) %>%
-  select(contains("M", ignore.case = F),phylum,family,genus) %>%
-  group_by(phylum,family,genus) %>%
+  #filter(msp_name_partition %in% infraspecies_select) %>%
+  filter(msp_name %in% species_select) %>%
+  select(contains("M", ignore.case = F),superkingdom,phylum,class,order,family,genus) %>%
+  group_by(superkingdom,phylum,class,order,family,genus) %>%
   summarise_all(sum) %>%
   ungroup() %>%
-  select(-phylum,-family) %>%
+  select(-superkingdom,-phylum,-class,-order,-family) %>%
   reshape2::melt(id.vars="genus") %>%
   mutate(taxa = "genus") %>%
   dplyr::rename(tax_variable = genus),
 
 
-infraspecies %>%
+  infraspecies %>%
   mutate_at(vars(contains("M", ignore.case = F)),function(x){x/sum(x)}) %>%
-  filter(msp_name_partition %in% infraspecies_select) %>%
-  select(contains("M", ignore.case = F),phylum,family,genus,msp_name) %>%
-  group_by(phylum,family,genus,msp_name) %>%
+  #filter(msp_name_partition %in% infraspecies_select) %>%
+  filter(msp_name %in% species_select) %>%
+  select(contains("M", ignore.case = F),superkingdom,phylum,class,order,family,genus,msp_name) %>%
+  group_by(superkingdom,phylum,class,order,family,genus,msp_name) %>%
   summarise_all(sum) %>%
   ungroup() %>%
-  select(-phylum,-family,-genus) %>%
+  select(-superkingdom,-phylum,-class, -order, -family,-genus) %>%
   reshape2::melt(id.vars="msp_name") %>%
   mutate(taxa = "MSP") %>%
   dplyr::rename(tax_variable = msp_name),
 
 
-infraspecies %>%
+  infraspecies %>%
   mutate_at(vars(contains("M", ignore.case = F)),function(x){x/sum(x)}) %>%
-  filter(msp_name_partition %in% infraspecies_select) %>%
-  select(contains("M", ignore.case = F),phylum,family,genus,msp_name, msp_name_partition) %>%
-  group_by(phylum,family,genus,msp_name, msp_name_partition) %>%
+  #filter(msp_name_partition %in% infraspecies_select) %>%
+  filter(msp_name %in% species_select) %>%
+  select(contains("M", ignore.case = F),superkingdom,phylum,class,order,family,genus,msp_name, msp_name_partition) %>%
+  group_by(superkingdom,phylum,class,order,family,genus,msp_name, msp_name_partition) %>%
   summarise_all(sum) %>%
   ungroup() %>%
-  select(-phylum,-family,-genus, -msp_name) %>%
+  select(-superkingdom,-phylum,-class, -order, -family,-genus, -msp_name) %>%
   reshape2::melt(id.vars="msp_name_partition") %>%
   mutate(taxa = "Infraspecies") %>%
-  dplyr::rename(tax_variable = msp_name_partition)
+  dplyr::rename(tax_variable = msp_name_partition) #%>%
+  #mutate(unassigned =  grepl("unassigned", tax_variable)   )  %>%
+  #  filter(!unassigned) %>% select(-unassigned)
+    
+    
 ) -> compo_taxa_melt
 
 
@@ -184,7 +265,7 @@ compo_taxa_melt %>%
 
   
 compo_taxa_food_unifrac_permanova %>%
-  filter(tax_variable=="msp_0070")
+  filter(tax_variable=="msp_0070_cl_1")
 
 infraspecies %>%
   filter(msp_name_partition == "msp_0070_cl_1")
@@ -231,21 +312,32 @@ compo_taxa_food_unifrac_permanova %>%
   ungroup %>%
   mutate(tax_variable = ifelse(taxa=="genus", paste0("g_",tax_variable), tax_variable )) %>%
   mutate(tax_variable = ifelse(taxa=="family", paste0("f_",tax_variable), tax_variable )) %>%
+  mutate(tax_variable = ifelse(taxa=="order", paste0("o_",tax_variable), tax_variable )) %>%
+  mutate(tax_variable = ifelse(taxa=="class", paste0("c_",tax_variable), tax_variable )) %>%
   mutate(tax_variable = ifelse(taxa=="phylum", paste0("p_",tax_variable), tax_variable )) %>%
+  mutate(tax_variable = ifelse(taxa=="superkingdom", paste0("k_",tax_variable), tax_variable )) %>%
   filter(R2>0.02) %>% .$tax_variable -> tax_variable_select
   
 
 infraspecies %>%
   mutate(root="root") %>%
-  select(root,phylum,family,genus,msp_name, msp_name_partition) %>%
-  filter(msp_name_partition %in% infraspecies_select) %>%
-  mutate(phylum=paste0("p_",phylum), family=paste0("f_",family), genus=paste0("g_",genus)) %>%
+  select(root,superkingdom,phylum,class,order,family,genus,msp_name, msp_name_partition) %>%
+  filter(msp_name %in% species_select) %>%
+  mutate(superkingdom=paste0("k_",superkingdom),
+         phylum=paste0("p_",phylum), 
+         class=paste0("c_",class),
+         order=paste0("o_",order),
+         family=paste0("f_",family), 
+         genus=paste0("g_",genus)) %>%
   filter(
     msp_name_partition %in% tax_variable_select |
       msp_name %in% tax_variable_select |
       genus %in% tax_variable_select |
       family %in% tax_variable_select |
-      phylum %in% tax_variable_select
+      class %in% tax_variable_select |
+      order %in% tax_variable_select |
+      phylum %in% tax_variable_select |
+      superkingdom %in% tax_variable_select
     
     
   )   -> df
@@ -262,17 +354,25 @@ taxo_edges =
     mutate(id = colnames(df)[as.numeric(id)+1])
 
 
+
+taxo_edges %>%
+  mutate(unassigned =  grepl("unassigned", target)) -> taxo_edges
   
+  
+df
+
 
 ```
 
 
 ```{r, message=FALSE, warning=FALSE}
 
+
+
 library(igraph)
 library(ggraph)
 
-gr <- graph_from_data_frame(taxo_edges[2:3])
+gr <- graph_from_data_frame(cbind(taxo_edges[2:4],taxo_edges[1:3]))
 
 names(V(gr)) %>% length
 
@@ -284,7 +384,10 @@ compo_taxa_food_unifrac_permanova %>%
   ungroup %>%
   mutate(tax_variable = ifelse(taxa=="genus", paste0("g_",tax_variable), tax_variable )) %>%
   mutate(tax_variable = ifelse(taxa=="family", paste0("f_",tax_variable), tax_variable )) %>%
+  mutate(tax_variable = ifelse(taxa=="order", paste0("o_",tax_variable), tax_variable )) %>%
+  mutate(tax_variable = ifelse(taxa=="class", paste0("c_",tax_variable), tax_variable )) %>%
   mutate(tax_variable = ifelse(taxa=="phylum", paste0("p_",tax_variable), tax_variable )) %>%
+  mutate(tax_variable = ifelse(taxa=="superkingdom", paste0("k_",tax_variable), tax_variable )) %>%
   tibble::column_to_rownames("tax_variable") %>%
   .[names(V(gr)),] %>%
   .$R2
@@ -298,19 +401,115 @@ R2_boolean[1] = FALSE
 
 V(gr)$R2_boolean = R2_boolean
 
+V(gr)$unassigned = names(V(gr)) %>% grepl("unassigned",.)
+
+V(gr)$label = names(V(gr))
+
 
 dendro = ggraph(gr, layout = 'dendrogram', circular = TRUE) + 
-    geom_edge_diagonal() +
-    geom_node_point(aes(color = R2_permanova_diet, size = R2_permanova_diet, filter=R2_boolean)) + 
+    geom_edge_elbow(aes(filter = !unassigned)) +
+    geom_node_point(aes(color = R2_permanova_diet, size=R2_permanova_diet, filter= !unassigned, alpha=R2_boolean)) +
+    geom_node_text(aes(label=label, filter=!unassigned)) +
     scale_radius() +
     viridis::scale_color_viridis() +
-    coord_fixed() + theme_void()
+    coord_fixed() #+ theme_void()
+
+#dendro
+
+dendro_g  <- ggplot_build(dendro)
+
+
+dendro = ggraph(gr, layout = 'dendrogram', circular = TRUE) + 
+    geom_edge_elbow(aes(filter = !unassigned), alpha=0.7) +
+    geom_node_point(aes(alpha = R2_permanova_diet, size=R2_permanova_diet, filter= !unassigned)) +
+    #geom_node_text(aes(label=label, filter=!unassigned)) +
+    scale_radius() +
+    #viridis::scale_color_viridis() +
+    coord_fixed() + theme_void() + scale_alpha("R2 (PERMANOVA diet)") + scale_size("R2 (PERMANOVA diet)")
+
+dendro=
+dendro +
+  new_scale("color") +
+  geom_line(data=merge(dendro_g[[1]][[3]] , df, by.x="label", by.y="msp_name") %>%
+  #filter(order=="o_Clostridiales") %>%
+  arrange(x,y), aes(x=x,y=y, group=family.y %>% gsub("f_","",.), color=family.y %>% gsub("f_","",.)),alpha=0.5, size=5) + scale_color_discrete("MSP taxonomic family")
 
 dendro
+ggsave("R2_permanova_tree.pdf", h=7,w=12)
 
-names(V(gr))
 
 
+```
+
+
+## read mass vs permanova
+
+
+```{r}
+
+infraspecies %>%
+  mutate_at(vars(contains("M", ignore.case = F)),function(x){x/sum(x)}) %>%
+  #filter(msp_name_partition %in% infraspecies_select) %>%
+  filter(msp_name %in% species_select) %>%
+  select(msp_name,contains("M", ignore.case = F) ) %>%
+  merge(compo_taxa_food_unifrac_permanova %>% select(tax_variable,R2), by.x="msp_name", by.y="tax_variable") %>%
+  select(-taxa) %>%
+  mutate(R2_class = cut(R2, c(0,0.01,0.02,1), include.lowest = TRUE)) %>%
+  select(-R2) %>%
+  ungroup() %>%
+  reshape2::melt(id.vars=c("msp_name","R2_class")) %>%
+  group_by(R2_class, variable) %>%
+  summarize(read_mass=sum(value)) %>%
+  ungroup() %>%
+  #mutate(variable = forcats::fct_reorder(variable, as.numeric(R2_class), fun = mean)) %>%
+  #arrange(R2_class) %>%
+  merge(.,cazotypes, by.x="variable",by.y="row.names") %>%
+  ggplot(aes(x=forcats::fct_reorder2(factor(variable), R2_class, read_mass, function(x, y) {sum(y[x == "(0.02,1]"])}), 
+               y=read_mass, fill= factor(R2_class))) + 
+  geom_bar( stat="identity", color=NA, position="fill", width=1) + 
+  scale_y_continuous(labels = scales::percent) + theme_minimal() +
+  scale_fill_manual("R2",labels = c("<1%","1-2%",">2%"), values=c("red","grey","blue")) #+ facet_wrap(~cazotype, scales="free") +
+  ylab("relative read mass") + xlab("subjects") + 
+  theme(axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())
+
+
+
+
+```
+
+```{r}
+
+
+
+R2_permanova_diet_cazy_read_mass_df =   
+  infraspecies %>%
+  mutate_at(vars(contains("M", ignore.case = F)),function(x){x/sum(x)}) %>%
+  #filter(msp_name_partition %in% infraspecies_select) %>%
+  filter(msp_name %in% species_select) %>%
+  select(msp_name,contains("M", ignore.case = F) ) %>%
+  merge(compo_taxa_food_unifrac_permanova %>% select(tax_variable,R2), by.x="msp_name", by.y="tax_variable") %>%
+  select(-taxa) %>%
+  mutate(R2_class = cut(R2, c(0,0.01,0.02,1), include.lowest = TRUE)) %>%
+  select(-R2) %>%
+  ungroup() %>%
+  reshape2::melt(id.vars=c("msp_name","R2_class")) %>%
+  group_by(R2_class, variable) %>%
+  summarize(read_mass=sum(value)) %>%
+  ungroup() %>%
+  #mutate(variable = forcats::fct_reorder(variable, as.numeric(R2_class), fun = mean)) %>%
+  #arrange(R2_class) %>%
+  merge(.,cazotypes, by.x="variable",by.y="row.names") %>%
+  merge(.,enterotypes %>% filter(Visit=="V4") %>% select(Patient_ID,enterotypes), by.x="variable",by.y="Patient_ID") 
+
+R2_permanova_diet_cazy_read_mass_df %>%
+  filter(R2_class=="(0.02,1]") %>%
+ggplot() + geom_boxplot(aes(x=cazotype,y=read_mass,fill=cazotype %>% as.character))
+
+
+R2_permanova_diet_cazy_read_mass_df %>% 
+  filter(R2_class=="(0.02,1]") %>%
+  with(.,pairwise.wilcox.test(read_mass , enterotypes %>% as.character, data=.))
 
 
 
@@ -318,6 +517,27 @@ names(V(gr))
 
 
 
+## import cazy MSP
+
+```{r}
+
+MSP_CAZY_df = read.csv2("MSP_CAZY_df.csv", row.names=1)
+
+MSP_CAZY_df %>%
+  filter(msp_name %in% species_select) %>%
+  group_by(msp_name, cazy.family) %>%
+  summarize(n=n()) %>%
+  filter(cazy.family %in%  c("GH2","GH13","GH43","GH20","GH92","CBM32","CBM26") ) %>%
+  reshape2::dcast(msp_name~cazy.family, value.var="n", fill=0) %>%
+  merge(.,compo_taxa_food_unifrac_permanova, by.x="msp_name", by.y="tax_variable") %>% 
+  ggplot() + geom_point(aes(x=R2,y=CBM32))
+  
+
+
+
+
+
+```
 
 
 
