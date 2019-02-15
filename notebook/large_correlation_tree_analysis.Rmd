@@ -59,9 +59,9 @@ species_select %>% length()
   #summary
 
 
-infraspecies_select %>% head
-
-infraspecies_select = infraspecies_select[grep("unassigned", infraspecies_select, invert = TRUE)]
+# infraspecies_select %>% head
+# 
+# infraspecies_select = infraspecies_select[grep("unassigned", infraspecies_select, invert = TRUE)]
 
 infraspecies %>%
   mutate_at(vars(contains("M", ignore.case = F)),function(x){x/sum(x)}) %>%
@@ -468,7 +468,7 @@ infraspecies %>%
                y=read_mass, fill= factor(R2_class))) + 
   geom_bar( stat="identity", color=NA, position="fill", width=1) + 
   scale_y_continuous(labels = scales::percent) + theme_minimal() +
-  scale_fill_manual("R2",labels = c("<1%","1-2%",">2%"), values=c("red","grey","blue")) #+ facet_wrap(~cazotype, scales="free") +
+  scale_fill_manual("R2",labels = c("<1%","1-2%",">2%"), values=c("red","grey","blue")) + #facet_wrap(~cazotype, scales="free") +
   ylab("relative read mass") + xlab("subjects") + 
   theme(axis.text.x=element_blank(),
         axis.ticks.x=element_blank())
@@ -509,7 +509,7 @@ ggplot() + geom_boxplot(aes(x=cazotype,y=read_mass,fill=cazotype %>% as.characte
 
 R2_permanova_diet_cazy_read_mass_df %>% 
   filter(R2_class=="(0.02,1]") %>%
-  with(.,pairwise.wilcox.test(read_mass , enterotypes %>% as.character, data=.))
+  with(.,pairwise.wilcox.test(read_mass , cazotype %>% as.character, data=., p.adjust.method="fdr"))
 
 
 
@@ -523,15 +523,56 @@ R2_permanova_diet_cazy_read_mass_df %>%
 
 MSP_CAZY_df = read.csv2("MSP_CAZY_df.csv", row.names=1)
 
+
+
+
 MSP_CAZY_df %>%
   filter(msp_name %in% species_select) %>%
   group_by(msp_name, cazy.family) %>%
   summarize(n=n()) %>%
-  filter(cazy.family %in%  c("GH2","GH13","GH43","GH20","GH92","CBM32","CBM26") ) %>%
-  reshape2::dcast(msp_name~cazy.family, value.var="n", fill=0) %>%
+  filter(cazy.family %in%  c("GH2","GH13","GH43","GH20","GH92","CBM32","CBM26","GT2") ) %>%
+  reshape2::dcast(msp_name~cazy.family, value.var="n", fill=0) %>%   
   merge(.,compo_taxa_food_unifrac_permanova, by.x="msp_name", by.y="tax_variable") %>% 
-  ggplot() + geom_point(aes(x=R2,y=CBM32))
-  
+  filter(term=="value") %>%
+  ggplot() + geom_boxplot(aes(y=R2,x=!(GH2>0&GH13>0)))
+
+
+MSP_CAZY_df %>%
+  filter(msp_name %in% species_select) %>%
+  group_by(msp_name, cazy.family) %>%
+  summarize(n=n()) %>%
+  filter(cazy.family %in%  c("GH2","GH13","GH43","GH20","GH92","CBM32","CBM26","GT2") ) %>%
+  reshape2::dcast(msp_name~cazy.family, value.var="n", fill=0) %>%   
+  merge(.,compo_taxa_food_unifrac_permanova, by.x="msp_name", by.y="tax_variable") %>% 
+  filter(term=="value") %>%
+  mutate(test=!(GH2>0|GH13>0|GT2>0)) %>%
+  wilcox.test(R2~test, data=.)
+
+
+
+MSP_CAZY_df %>%
+  filter(msp_name %in% species_select) %>%
+  group_by(msp_name, cazy.family) %>%
+  summarize(n=n()) %>%
+  mutate(n=ifelse(n>0,1,0)) %>%
+  filter(cazy.family %in%  c("GH2","GH13","GH43","GH20","GH92","CBM32","CBM26","GT2") ) %>%
+  reshape2::dcast(msp_name~cazy.family, value.var="n", fill=0) %>%   
+  merge(.,compo_taxa_food_unifrac_permanova, by.x="msp_name", by.y="tax_variable") -> MSP_CAZY_df_casted
+
+
+MSP_CAZY_df_casted %>%
+  mutate(test=GH13+GH2+GT2+GH20+GH92+GH43+CBM32+CBM26+GH92) %>%
+ggplot() + geom_boxplot(aes(x=test%>% as.character,y=R2))
+
+
+
+MSP_CAZY_df_casted %>%
+  #filter(R2 > 0.02 | R2 < 0.005) %>%
+  mutate(R2_scale = scale(R2)) %>%
+  with(.,lm(R2_scale~GH13*GH2*GH43*GH20*GH92*GT2)) %>% summary()
+
+
+
 
 
 
@@ -541,6 +582,52 @@ MSP_CAZY_df %>%
 
 
 
+```{r}
+
+
+MSP_CAZY_df = read.csv2("MSP_CAZY_df.csv", row.names=1)
+
+
+
+MSP_CAZY_df %>%
+  filter(msp_name %in% species_select) %>%
+  group_by(msp_name, cazy.family) %>%
+  summarize(n=n()) %>%
+  mutate(n=ifelse(n>0,1,0)) %>%
+  #filter(cazy.family %in%  c("GH2","GH13","GH43","GH20","GH92","CBM32","CBM26","GT2") ) %>%
+  #reshape2::dcast(msp_name~cazy.family, value.var="n", fill=0) %>%   
+  ungroup() %>%
+  group_by(msp_name) %>%
+  summarise(n=sum(n)) %>%
+  merge(.,compo_taxa_food_unifrac_permanova, by.x="msp_name", by.y="tax_variable") %>%
+  with(., cor.test(.$n , .$R2, data=., method="spearman") %>% broom::tidy())
+  
+  
+
+
+MSP_CAZY_df %>%
+  filter(msp_name %in% species_select) %>%
+  group_by(msp_name, cazy.family) %>%
+  summarize(n=n()) %>%
+  mutate(n=ifelse(n>0,1,0)) %>%
+  #filter(cazy.family %in%  c("GH2","GH13","GH43","GH20","GH92","CBM32","CBM26","GT2") ) %>%
+  #filter(grepl("GH|PL|GT",cazy.family)   ) %>%
+  #reshape2::dcast(msp_name~cazy.family, value.var="n", fill=0) %>%   
+  ungroup() %>%
+  group_by(msp_name) %>%
+  summarise(n=sum(n)) %>%
+  merge(.,compo_taxa_food_unifrac_permanova, by.x="msp_name", by.y="tax_variable") %>%
+  filter(term=="value") %>% 
+  mutate(n_class=cut(n,seq(0,150,30), include.lowest = TRUE), R2_class=cut(R2,c(0,0.01,0.02,0.03), include.lowest = TRUE)) %>%
+  ggplot() + geom_bar(aes(fill=R2_class,x=n_class), position="fill") + viridis::scale_fill_viridis(discrete = TRUE)
+
+
+
+
+
+
+
+```
 
 
 
