@@ -442,6 +442,16 @@ ggsave("R2_permanova_tree.pdf", h=7,w=12)
 ```
 
 
+the MSP 220 (unclassified clostridiales, formely an eubacterium) can be splitted into two infraspecies.The MSP_220_cl1 is more associated with Diet. The difference is associated with Antibiotics biosynthesis, lipolysacharides metabolism and spore forming metabolism.
+
+The MSP 70 (eubacterium rectale) can be splitted into two infraspecies. Infraspecies are more associated with diet (meat/plan ratio). cl1 have a flagelin module.
+
+
+
+
+
+
+
 ## read mass vs permanova
 
 
