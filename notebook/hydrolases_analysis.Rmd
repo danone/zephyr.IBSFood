@@ -1,0 +1,187 @@
+---
+title: "Hydrolases analysis"
+output: html_notebook
+---
+
+
+
+```{r}
+
+devtools::load_all()
+
+library(IBSMicrobiota)
+library(dplyr)
+library(ggplot2)
+
+data("hydrolase_hit")
+data("MSP_genes_id_corresp")
+data("MSP_tax")
+data("IBSData")
+
+```
+
+
+
+```{r}
+
+hydrolase_hit %>%
+  merge(MSP_genes_id_corresp %>% 
+          select(msp_name,module_name,gene_name_v2), 
+        by.x="subject id", by.y="gene_name_v2") %>% 
+  merge(MSP_tax, by.x="msp_name", by.y="MSP_ID")
+
+
+```
+
+
+```{r}
+
+hydrolase_hit %>%
+  merge(MSP_genes_id_corresp %>% 
+          select(msp_name,module_name,gene_name_v2), 
+        by.x="subject id", by.y="gene_name_v2") %>% 
+  merge(MSP_tax, by.x="msp_name", by.y="MSP_ID") %>%
+  select(Organism,species,phylum,family, `New Class`) %>%
+  with(., xtabs(~`New Class`+phylum)) %>%
+  heatmap()
+
+
+
+```
+
+
+
+```{r}
+
+
+hydrolase_hit %>%
+  merge(MSP_genes_id_corresp %>% 
+          select(msp_name,module_name,gene_name_v2), 
+        by.x="subject id", by.y="gene_name_v2") %>% 
+  merge(MSP_tax, by.x="msp_name", by.y="MSP_ID") %>%
+  merge(counts_rescaled, by.x="subject id", by.y="genes.id") -> hydrolase_count_rescaled
+
+
+save(hydrolase_count_rescaled, file="hydrolase_count_rescaled.rda")
+
+
+```
+
+
+
+
+```{r}
+
+hydrolase_count_rescaled %>%
+  group_by(`New Class`) %>%
+  summarise_at(vars(contains("M",ignore.case = FALSE)), sum) %>%
+  reshape2::melt() %>%
+  merge(total_reads %>% as.matrix %>% as.data.frame(), by.x="variable",by.y="row.names") %>%
+  mutate(value=value/V1) %>%
+  
+  reshape2::dcast(variable~`New Class`, value.var="value") %>%
+  #mutate_at(vars(contains("M",ignore.case = FALSE)), function(x){x/sum(x)}  ) %>%
+  #as.data.frame() %>%
+  #tibble::column_to_rownames("New Class") %>%
+  tibble::column_to_rownames("variable") %>%
+  as.matrix() %>% t %>% na.omit %>% t %>%
+  heatmap()
+
+
+```
+
+
+```{r}
+
+hydrolase_count_rescaled %>%
+  group_by(`New Class`) %>%
+  summarise_at(vars(contains("M",ignore.case = FALSE)), sum) %>%
+  reshape2::melt() %>%
+  merge(total_reads %>% as.matrix %>% as.data.frame(), by.x="variable",by.y="row.names") %>%
+  mutate(value=value/V1) %>%
+  merge(
+    IBSData$metadata %>%
+  filter(Visit=="V4", Sample_type=="Stool"),
+  by.y="Patient_ID",
+  by.x="variable"
+    
+  ) %>%
+  merge(enterotypes %>% filter(Visit=="V4"), by.x="variable", by.y="Patient_ID") %>%
+  
+ggplot() + geom_boxplot(aes(y=value+10^-6,x=enterotypes %>% as.character)) + facet_wrap(~`New Class`, scales="free_y") 
+
+
+
+hydrolase_count_rescaled %>%
+  group_by(`New Class`) %>%
+  summarise_at(vars(contains("M",ignore.case = FALSE)), sum) %>%
+  mutate_at(vars(contains("M",ignore.case = FALSE)), function(x){x/sum(x)}  ) %>%
+  #as.data.frame() %>%
+  #tibble::column_to_rownames("New Class") %>%
+
+  reshape2::melt(id.vars="New Class") %>%
+  merge(
+    IBSData$metadata %>%
+  filter(Visit=="V4", Sample_type=="Stool"),
+  by.y="Patient_ID",
+  by.x="variable"
+    
+  ) %>%
+  merge(enterotypes %>% filter(Visit=="V4"), by.x="variable", by.y="Patient_ID") %>%
+  filter(!is.na(value)) %>%
+  ggplot() + geom_boxplot(aes(y=value+10^-6,x=H2_group)) + facet_wrap(~`New Class`, scales="free_y") + scale_y_log10()
+
+
+
+```
+
+
+
+```{r}
+
+
+hydrolase_count_rescaled %>%
+  group_by(`New Class`) %>%
+  summarise_at(vars(contains("M",ignore.case = FALSE)), sum) %>%
+  mutate_at(vars(contains("M",ignore.case = FALSE)), function(x){x/sum(x)}  ) %>%
+  as.data.frame() %>%
+  tibble::column_to_rownames("New Class") %>%
+  t %>%
+  na.omit() %>%
+  add(10^-6) %>%
+  log10() %>%
+  ade4::dudi.pca(scannf=F, nf=10) -> hydrogene_pca
+
+
+hydrogene_pca$li %>%
+  merge(enterotypes %>% filter(Visit=="V4"), by.x="row.names", by.y="Patient_ID") %>%
+  merge(
+    IBSData$metadata %>%
+  filter(Visit=="V4", Sample_type=="Stool"),
+  by.y="Patient_ID",
+  by.x="Row.names"
+    
+  ) %>%
+  ggplot()+geom_point(aes(x=Axis1, y=Axis4, col=SSgroup%>% as.numeric, size=(CH4+1)/(H2+1)))
+
+
+hydrogene_pca$li %>%
+  merge(enterotypes %>% filter(Visit=="V4"), by.x="row.names", by.y="Patient_ID") %>%
+  merge(
+    IBSData$metadata %>%
+  filter(Visit=="V4", Sample_type=="Stool"),
+  by.y="Patient_ID",
+  by.x="Row.names"
+    
+  ) %>% 
+    with(.,cor.test(data=., .$Axis3, .$SSgroup %>% as.numeric, method="spearman"))
+
+  
+  ade4::s.label(hydrogene_pca$co, yax=3)
+  
+
+
+```
+
+
+
