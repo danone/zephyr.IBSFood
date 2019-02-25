@@ -129,7 +129,7 @@ hydrolase_count_rescaled %>%
   ) %>%
   merge(enterotypes %>% filter(Visit=="V4"), by.x="variable", by.y="Patient_ID") %>%
   filter(!is.na(value)) %>%
-  ggplot() + geom_boxplot(aes(y=value+10^-6,x=H2_group)) + facet_wrap(~`New Class`, scales="free_y") + scale_y_log10()
+  ggplot() + geom_boxplot(aes(y=value+10^-6,x=SSgroup)) + facet_wrap(~`New Class`, scales="free_y") + scale_y_log10()
 
 
 
@@ -162,7 +162,21 @@ hydrogene_pca$li %>%
   by.x="Row.names"
     
   ) %>%
-  ggplot()+geom_point(aes(x=Axis1, y=Axis4, col=SSgroup%>% as.numeric, size=(CH4+1)/(H2+1)))
+  ggplot()+geom_point(aes(x=Axis1, y=Axis3, size=(CH4+1)/(H2+1)))
+
+
+hydrogene_pca$li %>%
+  merge(enterotypes %>% filter(Visit=="V4"), by.x="row.names", by.y="Patient_ID") %>%
+  merge(
+    IBSData$metadata %>%
+  filter(Visit=="V4", Sample_type=="Stool"),
+  by.y="Patient_ID",
+  by.x="Row.names"
+    
+  ) %>%
+  ggplot()+geom_boxplot(aes(x=Health, y=Axis3))
+
+
 
 
 hydrogene_pca$li %>%
@@ -176,9 +190,71 @@ hydrogene_pca$li %>%
   ) %>% 
     with(.,cor.test(data=., .$Axis3, .$SSgroup %>% as.numeric, method="spearman"))
 
+
+hydrogene_pca$li %>%
+  merge(enterotypes %>% filter(Visit=="V4"), by.x="row.names", by.y="Patient_ID") %>%
+  merge(
+    IBSData$metadata %>%
+  filter(Visit=="V4", Sample_type=="Stool"),
+  by.y="Patient_ID",
+  by.x="Row.names"
+    
+  ) %>% 
+    with(.,wilcox.test(data=., .$Axis3~ .$Health))
+
+
   
   ade4::s.label(hydrogene_pca$co, yax=3)
   
+
+
+```
+
+
+
+
+```{r}
+
+
+hydrolase_count_rescaled %>%
+  group_by(`New Class`) %>%
+  summarise_at(vars(contains("M",ignore.case = FALSE)), sum) %>%
+  mutate_at(vars(contains("M",ignore.case = FALSE)), function(x){x/sum(x)}  ) %>%
+  as.data.frame() %>%
+  reshape2::melt(id.vars=c("New Class")) %>%
+merge(
+    IBSData$metadata %>%
+  filter(Visit=="V4", Sample_type=="Stool") %>% select(Patient_ID,SSgroup),
+  by.y="Patient_ID",
+  by.x="variable"
+    
+  )
+
+
+hydrolase_count_rescaled %>%
+  group_by(`New Class`) %>%
+  summarise_at(vars(contains("M",ignore.case = FALSE)), sum) %>%
+  mutate_at(vars(contains("M",ignore.case = FALSE)), function(x){x/sum(x)}  ) %>%
+  as.data.frame() %>%
+  filter(`New Class` %in% c("[FeFe] Group A1","[FeFe] Group A3")) %>%
+  tibble::column_to_rownames("New Class") %>%
+  t %>%
+  as.data.frame() %>%
+  tibble::rownames_to_column("Patient_ID") %>%
+  mutate(A1_A3 = `[FeFe] Group A1` /  `[FeFe] Group A3`) %>%
+  merge(
+    IBSData$metadata %>%
+  filter(Visit=="V4", Sample_type=="Stool") %>% select(Patient_ID,SSgroup, `IBS.Severity.Score`),
+  by="Patient_ID"
+    
+  ) %>%
+  na.omit() %>%
+  with(.,cor.test(x=SSgroup %>% as.numeric, y=A1_A3, method="spearman"))
+
+  
+
+
+
 
 
 ```
