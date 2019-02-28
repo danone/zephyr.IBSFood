@@ -21,6 +21,8 @@ infraspecies = readr::read_csv2(system.file("infraspecies", "infraspecies_table_
 
 nutrient_taxa_cor = read.csv2(file="nutrient_taxa_cor.csv", row.names=1)
 
+meat_plant_ratio = readr::read_csv2(system.file("tables", "meat_plant_ratio.csv", package="IBSFood"))[,-1]
+
 
 ```
 
@@ -276,6 +278,98 @@ infraspecies %>%
 
 ```
 
+## large correlation with meat_plant ratio
+
+
+```{r, message=FALSE, warning=FALSE}
+
+
+meat_plant_ratio %>% select(variable,meat_plant_ratio)
+
+id = intersect(attr(food_unifrac, "Label"), colnames(infraspecies %>% select(contains("M", ignore.case = F))))
+
+
+compo_taxa_meat_plant_ratio_cor =
+
+compo_taxa_melt %>%
+  filter(variable %in% id) %>%
+  #filter(taxa == "family") %>%
+  mutate(variable = variable %>% as.character) %>%
+  arrange(variable) %>%
+  merge(meat_plant_ratio %>% select(variable,meat_plant_ratio), by="variable") %>%
+  group_by(tax_variable,taxa) %>%
+  do(with(.,cor.test(.$value, .$meat_plant_ratio, method="spearman")) %>% broom::tidy()) %>%
+  arrange(p.value)
+  
+
+
+compo_taxa_meat_plant_ratio_cor %>% filter(p.value < 0.05)
+
+
+```
+
+
+## large correlation with nutriscore
+
+```{r, message=FALSE, warning=FALSE}
+
+data("nutriscore_DI")
+
+
+
+
+compo_taxa_nutriscore_cor =
+
+compo_taxa_melt %>%
+  filter(variable %in% id) %>%
+  #filter(taxa == "family") %>%
+  mutate(variable = variable %>% as.character) %>%
+  arrange(variable) %>%
+  merge(nutriscore_DI , by.x="variable", by.y="Patient_ID") %>%
+  group_by(tax_variable,taxa) %>%
+  do(with(.,cor.test(.$value, .$nutriscore_DI, method="spearman")) %>% broom::tidy()) %>%
+  arrange(p.value)
+  
+
+compo_taxa_nutriscore_cor
+
+
+
+
+
+
+```
+
+
+```{r}
+
+merge(
+compo_taxa_food_unifrac_permanova %>%
+  select(tax_variable,taxa,R2,`p.value`) %>%
+  merge(compo_taxa_nutriscore_cor %>% select(tax_variable,taxa,estimate,`p.value`), by = c("tax_variable","taxa") ) %>%
+  filter(p.value.x < 0.05, p.value.y < 0.05),
+  
+compo_taxa_food_unifrac_permanova %>%
+  select(tax_variable,taxa,R2,`p.value`) %>%
+  merge(compo_taxa_meat_plant_ratio_cor %>% select(tax_variable,taxa,estimate,`p.value`), by = c("tax_variable","taxa") ) %>%
+  filter(p.value.x < 0.05, p.value.y < 0.05), by=c("tax_variable","taxa","R2","p.value.x"))
+
+
+
+
+MSP_tax %>%
+  filter(MSP_ID == "msp_0029")
+
+
+merge(compo_taxa_meat_plant_ratio_cor %>% select(tax_variable,taxa,estimate,`p.value`),
+compo_taxa_nutriscore_cor %>% select(tax_variable,taxa,estimate,`p.value`),
+by = c("tax_variable","taxa")) %>%
+  filter(p.value.x < 0.05, p.value.y < 0.05)
+  
+
+
+
+```
 
 
 
@@ -425,17 +519,21 @@ dendro = ggraph(gr, layout = 'dendrogram', circular = TRUE) +
     #geom_node_text(aes(label=label, filter=!unassigned)) +
     scale_radius() +
     #viridis::scale_color_viridis() +
-    coord_fixed() + theme_void() + scale_alpha("R2 (PERMANOVA diet)") + scale_size("R2 (PERMANOVA diet)")
+    coord_fixed() + theme_void() + scale_alpha("R2 (PERMANOVA diet)", labels = scales::percent) + scale_size("R2 (PERMANOVA diet)", labels = scales::percent)
 
 dendro=
 dendro +
   new_scale("color") +
   geom_line(data=merge(dendro_g[[1]][[3]] , df, by.x="label", by.y="msp_name") %>%
-  #filter(order=="o_Clostridiales") %>%
-  arrange(x,y), aes(x=x,y=y, group=family.y %>% gsub("f_","",.), color=family.y %>% gsub("f_","",.)),alpha=0.5, size=5) + scale_color_discrete("MSP taxonomic family")
+              group_by(family.y) %>%
+              mutate(n=n()) %>%
+  #filter(order=="o_Clostridiales" & n>1) %>%
+    filter(n>5) %>%
+  arrange(x,y), aes(x=x,y=y, group=family.y %>% gsub("f_","",.), color=family.y %>% gsub("f_","",.)),alpha=0.5, size=5) + 
+  scale_color_brewer("MSP taxonomic family", type="qual")
 
 dendro
-ggsave("R2_permanova_tree.pdf", h=7,w=12)
+ggsave("Fig_R2_permanova_tree.pdf", h=7,w=12)
 
 
 
@@ -447,8 +545,96 @@ the MSP 220 (unclassified clostridiales, formely an eubacterium) can be splitted
 The MSP 70 (eubacterium rectale) can be splitted into two infraspecies. Infraspecies are more associated with diet (meat/plan ratio). cl1 have a flagelin module.
 
 
+## R2 throughout lineage
+
+```{r}
+compo_taxa_food_unifrac_permanova %>%
+  filter(taxa=="phylum")
 
 
+```
+
+
+
+
+```{r}
+
+infraspecies %>%
+  select(superkingdom,phylum,class,order,family,genus, msp_name,msp_name_partition) %>%
+  ungroup() %>%
+  dplyr::rename(MSP=msp_name, Infraspecies=msp_name_partition) %>%
+  tibble::rowid_to_column() %>%
+  reshape2::melt(id.vars="rowid") %>%
+  merge(compo_taxa_food_unifrac_permanova, by.y=c("tax_variable","taxa"), by.x=c("value","variable")) %>%
+  filter(term=="value") %>%
+  group_by(rowid) %>%
+  mutate(n_level= n()) %>%
+  filter(n_level > 6) %>%
+  filter(!any((grepl("unassigned",value)))) %>%
+  filter(any(R2>0.02)) %>%
+  mutate(family_R2=ifelse(any(variable=="family"), R2[variable=="family"], 0)) %>%
+  mutate(genus_R2=ifelse(any(variable=="genus"), R2[variable=="genus"], 0)) %>%
+  mutate(MSP_R2=ifelse(any(variable=="MSP"), R2[variable=="MSP"], 0)) %>%
+  mutate(Infraspecies_R2=ifelse(any(variable=="Infraspecies"), R2[variable=="Infraspecies"], 0)) %>%
+  mutate(Associations = ifelse(genus_R2 >= Infraspecies_R2,"MSP or higher level","Infraspecies level")) %>%
+  mutate(Associations = ifelse(MSP_R2 >= Infraspecies_R2,"MSP or higher level","Infraspecies level")) %>%
+  ggplot() + geom_line(aes(x=variable,y=R2,group=rowid, col=Associations), alpha=0.5)  + 
+  scale_color_manual("Higher diet\nassociation at",values = c("Red","Blue")) + 
+  scale_y_continuous(labels = scales::percent, limits = c(0,0.035)) +
+  xlab("Taxonomic levels") +
+  ylab("R2 (Permanova)") +
+  theme_minimal() -> p_R2_lineage
+
+
+p_R2_lineage
+
+ggsave("R2_lineage.pdf", h=4, w=7)
+
+# which MSP where its respecetive infraspecies is more associated to the Diet?
+
+infraspecies %>%
+  select(superkingdom,phylum,class,order,family,genus, msp_name,msp_name_partition) %>%
+  ungroup() %>%
+  dplyr::rename(MSP=msp_name, Infraspecies=msp_name_partition) %>%
+  tibble::rowid_to_column() %>%
+  reshape2::melt(id.vars="rowid") %>%
+  merge(compo_taxa_food_unifrac_permanova, by.y=c("tax_variable","taxa"), by.x=c("value","variable")) %>%
+  filter(term=="value") %>%
+  group_by(rowid) %>%
+  mutate(n_level= n()) %>%
+  filter(n_level > 6) %>%
+  #filter(!any((grepl("unassigned",value)))) %>%
+  #filter(any(R2>0.02)) %>%
+  mutate(family_R2=ifelse(any(variable=="family"), R2[variable=="family"], 0)) %>%
+  mutate(genus_R2=ifelse(any(variable=="genus"), R2[variable=="genus"], 0)) %>%
+  mutate(MSP_R2=ifelse(any(variable=="MSP"), R2[variable=="MSP"], 0)) %>%
+  mutate(Infraspecies_R2=ifelse(any(variable=="Infraspecies"), R2[variable=="Infraspecies"], 0)) %>%
+   mutate(Associations = ifelse(genus_R2 >= Infraspecies_R2,"MSP or higher level","Infraspecies level")) %>%
+  mutate(Associations = ifelse(MSP_R2 >= Infraspecies_R2,"MSP or higher level","Infraspecies level")) %>%
+  filter(Associations == "Infraspecies level", variable=="MSP") %>%
+  ungroup() %>%
+  select(value) %>% unique
+ 
+
+
+
+
+MSP_tax %>%
+  filter(MSP_ID=="msp_0038")
+
+
+
+```
+
+
+```{r, fig.height=7, fig.width=7}
+
+
+cowplot::plot_grid(dendro,p_R2_lineage, nrow=2, rel_heights = c(2,1))
+
+
+
+```
 
 
 
@@ -488,7 +674,7 @@ infraspecies %>%
 
 ```
 
-```{r}
+```{r, fig.height=4, fig.width=3}
 
 
 
@@ -514,7 +700,10 @@ R2_permanova_diet_cazy_read_mass_df =
 
 R2_permanova_diet_cazy_read_mass_df %>%
   filter(R2_class=="(0.02,1]") %>%
-ggplot() + geom_boxplot(aes(x=cazotype,y=read_mass,fill=cazotype %>% as.character))
+ggplot() + geom_boxplot(aes(x=cazotype,y=read_mass,fill=cazotype %>% as.character)) + 
+  scale_y_log10(label=scales::percent) + 
+  scale_fill_brewer("Cazotypes",type="qual") + ylab("Relative microbial read mass\nassociated with Diet\n(R2 > 2%)") +
+  theme_classic() + guides(fill=FALSE) + annotate("text", x=3,y=0.1, label="p < 0.05", size=3)
 
 
 R2_permanova_diet_cazy_read_mass_df %>% 
@@ -638,6 +827,7 @@ MSP_CAZY_df %>%
 
 
 ```
+
 
 
 

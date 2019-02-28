@@ -18,12 +18,11 @@ hydro_blast = readr::read_tsv("data-raw/1550678091_MetaHit_39M_pep.tab")
 hydro_blast_best_hit=
 
 hydro_blast %>%
-  select(`# Fields: query id`, `subject id`, `% identity`, `subject length`, `alignment length`, `bit score`) %>%
+  select(`# Fields: query id`, `subject id`, `% identity`, `subject length`, `alignment length`, `bit score`, `q. end` , `q. start`) %>%
   group_by(`subject id`) %>%
   top_n(n=1,wt=`bit score`) %>%
-  ungroup() %>%
-  mutate(`% cov` = `alignment length`/`subject length`) %>%
-  filter(`% identity` > 90, `% cov` > 0.80)
+  ungroup() %>% filter(`% identity` > 60, `q. end` - `q. start` > 40 )
+
 
 hydrolase_hit =
 KGMI_table %>%
@@ -38,4 +37,4 @@ KGMI_table %>%
 #   select(Phylum,Organism,phylum,species)
 
 
-devtools::use_data(hydrolase_hit)
+devtools::use_data(hydrolase_hit, overwrite = TRUE)
