@@ -519,7 +519,7 @@ dendro = ggraph(gr, layout = 'dendrogram', circular = TRUE) +
     #geom_node_text(aes(label=label, filter=!unassigned)) +
     scale_radius() +
     #viridis::scale_color_viridis() +
-    coord_fixed() + theme_void() + scale_alpha("R2 (PERMANOVA diet)", labels = scales::percent) + scale_size("R2 (PERMANOVA diet)", labels = scales::percent)
+    coord_fixed() + theme_void() + scale_alpha("Diet associations with\ntaxonomic tree nodes\n(R2, PERMANOVA)", labels = scales::percent) + scale_size("Diet associations with\ntaxonomic tree nodes\n(R2, PERMANOVA)", labels = scales::percent)
 
 dendro=
 dendro +
@@ -613,8 +613,11 @@ infraspecies %>%
   mutate(Associations = ifelse(MSP_R2 >= Infraspecies_R2,"MSP or higher level","Infraspecies level")) %>%
   filter(Associations == "Infraspecies level", variable=="MSP") %>%
   ungroup() %>%
-  select(value) %>% unique
+  select(value) %>% unique -> MSP_keep_infraspecies
  
+save(MSP_keep_infraspecies, file="MSP_keep_infraspecies.rda")
+
+#131 MSP where one of its infraspecies is better associated to diet, among them how many R2>2% ?
 
 
 
@@ -643,17 +646,30 @@ cowplot::plot_grid(dendro,p_R2_lineage, nrow=2, rel_heights = c(2,1))
 
 ```{r}
 
-infraspecies %>%
-  mutate_at(vars(contains("M", ignore.case = F)),function(x){x/sum(x)}) %>%
-  #filter(msp_name_partition %in% infraspecies_select) %>%
-  filter(msp_name %in% species_select) %>%
-  select(msp_name,contains("M", ignore.case = F) ) %>%
-  merge(compo_taxa_food_unifrac_permanova %>% select(tax_variable,R2), by.x="msp_name", by.y="tax_variable") %>%
+rbind(infraspecies %>%
+    mutate_at(vars(contains("M", ignore.case = F)),function(x){x/sum(x)}) %>%
+    filter(msp_name %in% species_select) %>%
+    filter(msp_name %in% MSP_keep_infraspecies$value) %>%
+    select(msp_name_partition,contains("M", ignore.case = F) ) %>%
+    merge(compo_taxa_food_unifrac_permanova %>% select(tax_variable,R2),., by.y="msp_name_partition", by.x="tax_variable"),
+  
+
+
+  infraspecies %>%
+    mutate_at(vars(contains("M", ignore.case = F)),function(x){x/sum(x)}) %>%
+    filter(msp_name %in% species_select) %>%
+    filter(!(msp_name %in% MSP_keep_infraspecies$value)) %>%
+    select(msp_name,contains("M", ignore.case = F) ) %>%
+    group_by(msp_name) %>%
+    summarize_at(vars(contains("M", ignore.case = F)),function(x){sum(x)}) %>%
+    ungroup() %>%
+    merge(compo_taxa_food_unifrac_permanova %>% select(tax_variable,R2),., by.y="msp_name", by.x="tax_variable")) %>%
+    
   select(-taxa) %>%
   mutate(R2_class = cut(R2, c(0,0.01,0.02,1), include.lowest = TRUE)) %>%
   select(-R2) %>%
   ungroup() %>%
-  reshape2::melt(id.vars=c("msp_name","R2_class")) %>%
+  reshape2::melt(id.vars=c("tax_variable","R2_class")) %>%
   group_by(R2_class, variable) %>%
   summarize(read_mass=sum(value)) %>%
   ungroup() %>%
@@ -664,33 +680,45 @@ infraspecies %>%
                y=read_mass, fill= factor(R2_class))) + 
   geom_bar( stat="identity", color=NA, position="fill", width=1) + 
   scale_y_continuous(labels = scales::percent) + theme_minimal() +
-  scale_fill_manual("R2",labels = c("<1%","1-2%",">2%"), values=c("red","grey","blue")) + #facet_wrap(~cazotype, scales="free") +
+  scale_fill_manual("R2",labels = c("<1%","1-2%",">2%"), values=c("red","grey","blue")) + facet_wrap(~cazotype, scales="free") +
   ylab("relative read mass") + xlab("subjects") + 
   theme(axis.text.x=element_blank(),
         axis.ticks.x=element_blank())
 
 
-
-
 ```
 
-```{r, fig.height=4, fig.width=3}
+```{r, fig.height=4, fig.width=5}
 
 
-
-R2_permanova_diet_cazy_read_mass_df =   
+R2_permanova_diet_cazy_read_mass_df =  
+rbind(
   infraspecies %>%
-  mutate_at(vars(contains("M", ignore.case = F)),function(x){x/sum(x)}) %>%
-  #filter(msp_name_partition %in% infraspecies_select) %>%
-  filter(msp_name %in% species_select) %>%
-  select(msp_name,contains("M", ignore.case = F) ) %>%
-  merge(compo_taxa_food_unifrac_permanova %>% select(tax_variable,R2), by.x="msp_name", by.y="tax_variable") %>%
-  select(-taxa) %>%
+    mutate_at(vars(contains("M", ignore.case = F)),function(x){x/sum(x)}) %>%
+    filter(msp_name %in% species_select) %>%
+    #filter(msp_name %in% MSP_keep_infraspecies$value) %>%
+    select(msp_name_partition,contains("M", ignore.case = F) ) %>%
+    merge(compo_taxa_food_unifrac_permanova %>% select(tax_variable,R2),., by.y="msp_name_partition", by.x="tax_variable"),
+  
+
+
+  infraspecies %>%
+    mutate_at(vars(contains("M", ignore.case = F)),function(x){x/sum(x)}) %>%
+    filter(msp_name %in% species_select) %>%
+    #filter(!(msp_name %in% MSP_keep_infraspecies$value)) %>%
+    select(msp_name,contains("M", ignore.case = F) ) %>%
+    group_by(msp_name) %>%
+    summarize_at(vars(contains("M", ignore.case = F)),function(x){sum(x)}) %>%
+    ungroup() %>%
+    merge(compo_taxa_food_unifrac_permanova %>% select(tax_variable,R2),., by.y="msp_name", by.x="tax_variable")
+  ) %>%
+    
+  #select(-taxa) %>%
   mutate(R2_class = cut(R2, c(0,0.01,0.02,1), include.lowest = TRUE)) %>%
   select(-R2) %>%
   ungroup() %>%
-  reshape2::melt(id.vars=c("msp_name","R2_class")) %>%
-  group_by(R2_class, variable) %>%
+  reshape2::melt(id.vars=c("tax_variable","R2_class","taxa")) %>%
+  group_by(R2_class, variable,taxa) %>%
   summarize(read_mass=sum(value)) %>%
   ungroup() %>%
   #mutate(variable = forcats::fct_reorder(variable, as.numeric(R2_class), fun = mean)) %>%
@@ -698,21 +726,176 @@ R2_permanova_diet_cazy_read_mass_df =
   merge(.,cazotypes, by.x="variable",by.y="row.names") %>%
   merge(.,enterotypes %>% filter(Visit=="V4") %>% select(Patient_ID,enterotypes), by.x="variable",by.y="Patient_ID") 
 
+
 R2_permanova_diet_cazy_read_mass_df %>%
   filter(R2_class=="(0.02,1]") %>%
-ggplot() + geom_boxplot(aes(x=cazotype,y=read_mass,fill=cazotype %>% as.character)) + 
+ggplot() + geom_boxplot(aes(x=cazotype %>% as.character,y=read_mass,fill=taxa %>% as.character)) + 
   scale_y_log10(label=scales::percent) + 
-  scale_fill_brewer("Cazotypes",type="qual") + ylab("Relative microbial read mass\nassociated with Diet\n(R2 > 2%)") +
-  theme_classic() + guides(fill=FALSE) + annotate("text", x=3,y=0.1, label="p < 0.05", size=3)
+  scale_fill_brewer("taxa level",type="qual") + ylab("Relative microbial read mass\nassociated with Diet\n(R2 > 2%)") +
+  theme_classic() + annotate("text", x=3,y=0.025, label="p < 0.05", size=3) +
+  xlab("Cazotypes") -> p_cazotypes_read_mass
 
+p_cazotypes_read_mass
 
 R2_permanova_diet_cazy_read_mass_df %>% 
+  filter(taxa=="MSP") %>%
   filter(R2_class=="(0.02,1]") %>%
   with(.,pairwise.wilcox.test(read_mass , cazotype %>% as.character, data=., p.adjust.method="fdr"))
 
 
 
+R2_permanova_diet_cazy_read_mass_df %>%
+  filter(R2_class=="(0.02,1]") %>%
+ggplot() + geom_boxplot(aes(x=enterotypes %>% as.character,y=read_mass,fill=taxa %>% as.character)) + 
+  scale_y_log10(label=scales::percent) + 
+  scale_fill_brewer("taxa level",type="qual") + ylab("Relative microbial read mass\nassociated with Diet\n(R2 > 2%)") +
+  theme_classic() + annotate("text", x=3,y=0.025, label="p < 0.05", size=3) +
+  xlab("Enterotypes") -> p_enterotypes_read_mass
+
+p_enterotypes_read_mass
+
+
+# R2_permanova_diet_cazy_read_mass_df =   
+#   infraspecies %>%
+#   mutate_at(vars(contains("M", ignore.case = F)),function(x){x/sum(x)}) %>%
+#   #filter(msp_name_partition %in% infraspecies_select) %>%
+#   filter(msp_name %in% species_select) %>%
+#   select(msp_name,contains("M", ignore.case = F) ) %>%
+#   merge(compo_taxa_food_unifrac_permanova %>% select(tax_variable,R2), by.x="msp_name", by.y="tax_variable") %>%
+#   select(-taxa) %>%
+#   mutate(R2_class = cut(R2, c(0,0.01,0.02,1), include.lowest = TRUE)) %>%
+#   select(-R2) %>%
+#   ungroup() %>%
+#   reshape2::melt(id.vars=c("msp_name","R2_class")) %>%
+#   group_by(R2_class, variable) %>%
+#   summarize(read_mass=sum(value)) %>%
+#   ungroup() %>%
+#   #mutate(variable = forcats::fct_reorder(variable, as.numeric(R2_class), fun = mean)) %>%
+#   #arrange(R2_class) %>%
+#   merge(.,cazotypes, by.x="variable",by.y="row.names") %>%
+#   merge(.,enterotypes %>% filter(Visit=="V4") %>% select(Patient_ID,enterotypes), by.x="variable",by.y="Patient_ID") 
+# 
+# R2_permanova_diet_cazy_read_mass_df %>%
+#   filter(R2_class=="(0.02,1]") %>%
+# ggplot() + geom_boxplot(aes(x=cazotype,y=read_mass,fill=cazotype %>% as.character)) + 
+#   scale_y_log10(label=scales::percent) + 
+#   scale_fill_brewer("Cazotypes",type="qual") + ylab("Relative microbial read mass\nassociated with Diet\n(R2 > 2%)") +
+#   theme_classic() + guides(fill=FALSE) + annotate("text", x=3,y=0.1, label="p < 0.05", size=3)
+# 
+# 
+# R2_permanova_diet_cazy_read_mass_df %>% 
+#   filter(R2_class=="(0.02,1]") %>%
+#   with(.,pairwise.wilcox.test(read_mass , cazotype %>% as.character, data=., p.adjust.method="fdr"))
+
+
+
 ```
+
+
+## Eubacterium rectale infraspecies
+
+
+
+```{r}
+
+infraspecies %>%
+  mutate_at(vars(contains("M", ignore.case = F)),function(x){x/sum(x)}) %>%
+  #filter(msp_name_partition %in% infraspecies_select) %>%
+  filter(species == "Eubacterium rectale") %>%
+  filter(msp_name_partition != "msp_0070_unassigned") %>%
+  select(msp_name_partition, contains("M", ignore.case = FALSE)) %>%
+  reshape2::melt(id.vars="msp_name_partition") %>%
+  #group_by(variable) %>%
+  #filter(value==max(value)) %>%
+  filter(msp_name_partition=="msp_0070_cl_1") %>%
+  merge(meat_plant_ratio %>% select(variable,meat_plant_ratio, A1, `Plant-based`),by="variable") %>%
+  filter(value>0) %>%
+  #with(.,wilcox.test(.$`Plant-based`~.$msp_name_partition))
+  #with(.,cor.test(.$`Plant-based`,.$value, method="spearman"))
+  #ggplot() + geom_boxplot(aes(x=msp_name_partition,y=meat_plant_ratio,col=msp_name_partition)) 
+  #ggplot() + geom_boxplot(aes(x=msp_name_partition,y=`Plant-based`)) 
+  ggplot() + 
+  geom_point(aes(x=value+10^-4,y=meat_plant_ratio)) + 
+  #geom_smooth(aes(x=value+10^-4,y=meat_plant_ratio), method = "lm") +
+  annotate("text",y=-2,x=0.003, label="Rho=0.23, p<0.05") +
+  scale_x_log10(label=scales::percent) + 
+  ylab("Meat\\Plant based ratio (log2)") +
+  xlab("Eubacterium rectale infraspecies\nwith flagelin encoded genes") -> p_Erectale_meat_plant_plot
+  
+
+p_Erectale_meat_plant_plot
+
+ggsave("p_Erectale_meat_plant_plot.pdf")
+
+
+```
+
+
+```{r}
+
+
+load("Erectale.rda")
+
+#Erectale$clusters_msp
+
+#plot_MSP(binary_msp = Erectale$binary_msp, clusters_msp =  Erectale$clusters_msp$sample)
+
+genes_hclust = 
+  Erectale$binary_msp %>%
+            filter(module_name  != "core") %>%
+            select(-module_name,-genes.id) %>%
+            as.matrix %>% .[,order(Erectale$clusters_msp$sample$partition)] %>% dist(method="binary") %>% hclust(method="centroid")
+
+
+
+
+Erectale$binary_msp %>% 
+  filter(module_name  != "core") %>% 
+  select(-module_name,-genes.id) %>% 
+  as.matrix %>% .[genes_hclust$order,order(Erectale$clusters_msp$sample$partition)] %>%
+  as.data.frame() %>%
+  tibble::rowid_to_column() %>%
+  reshape2::melt(id.vars="rowid") %>%
+  merge(Erectale$clusters_msp$sample$partition %>%
+   as.matrix() %>% as.data.frame, by.x="variable", by.y="row.names") %>%
+  dplyr::rename(Infraspecies = V1) %>%
+  group_by(rowid) %>%
+  mutate(prev=sum(value)/n()) %>%
+  filter(prev>0.25) %>%
+  ggplot() + geom_tile(aes(x=variable,y=rowid %>% as.character, fill=value %>% as.character)) + 
+  scale_fill_manual("", labels=c("Undetected","Detected"), values=c("dark grey","yellow")) +
+  facet_wrap(~Infraspecies, scales = "free_x") +
+  theme_bw() +
+  theme(axis.ticks=element_blank()) +
+  theme(axis.text=element_blank()) +
+  ylab("Genes") +
+  xlab(substitute(paste("Metagenomic ", italic('E. rectale'), " infraspecies"))) -> p_erectale_infraspecies
+
+  
+  
+p_erectale_infraspecies 
+
+
+ggsave("p_erectale_infraspecies.pdf")
+
+
+```
+
+
+## final plot (Figure 2)
+```{r, fig.height=7, fig.width=12}
+
+cowplot::plot_grid(
+  cowplot::plot_grid(dendro,p_R2_lineage, nrow=2, rel_heights = c(2,1), labels = c("A","C")),
+  cowplot::plot_grid(p_erectale_infraspecies,p_cazotypes_read_mass,nrow=2, labels = c("B","D")), 
+  ncol=2, rel_widths = c(2,1))
+
+ggsave("Figure2_infraspecies_diet_cazotypes.pdf")
+
+
+```
+
+
 
 
 
@@ -827,6 +1010,9 @@ MSP_CAZY_df %>%
 
 
 ```
+
+
+
 
 
 
