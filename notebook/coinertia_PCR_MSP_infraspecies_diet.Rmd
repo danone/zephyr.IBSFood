@@ -1,0 +1,667 @@
+---
+title: "MSP infraspecies vs diet with coinertia and PCR"
+output: html_notebook
+---
+
+
+```{r, message=FALSE, warning=FALSE}
+
+library(ade4)
+library(dplyr)
+library(ggplot2)
+
+
+```
+
+
+
+- compute JSD distance matrix based on the most relevant taxonomic levels identified by permanova
+- create a coinertia analysis based on data having both metagenomes and diet data
+- H2/CH4 modeling based on co-inertia Principal component regression
+- validation on other samples having only food data or metagenomes data (partial co-inertia analysis)
+
+
+
+## compute JSD distance matrix
+
+
+
+```{r, message=FALSE, warning=FALSE}
+
+load("MSP_keep_infraspecies.rda")
+
+MSP_infraspecies =
+rbind(
+  infraspecies %>%
+    mutate_at(vars(contains("M", ignore.case = F)),function(x){x/sum(x)}) %>%
+    #filter(msp_name %in% species_select) %>%
+    filter(msp_name %in% MSP_keep_infraspecies$value) %>%
+    select(msp_name_partition,contains("M", ignore.case = F) ) %>%
+    dplyr::rename(taxa=msp_name_partition),
+  
+
+
+  infraspecies %>%
+    mutate_at(vars(contains("M", ignore.case = F)),function(x){x/sum(x)}) %>%
+    #filter(msp_name %in% species_select) %>%
+    filter(!(msp_name %in% MSP_keep_infraspecies$value)) %>%
+    select(msp_name,contains("M", ignore.case = F) ) %>%
+    group_by(msp_name) %>%
+    summarize_at(vars(contains("M", ignore.case = F)),function(x){sum(x)}) %>%
+    ungroup() %>% dplyr::rename(taxa=msp_name)
+  ) 
+
+
+#MSP_infraspecies = infraspecies 
+
+
+MSP_infraspecies_jsd = 
+  BiotypeR::dist.JSD(MSP_infraspecies %>% 
+                       mutate_at(vars(contains("M", ignore.case = F)),function(x){x/sum(x)}) %>% select(contains("M",ignore.case = F)))
+
+save(MSP_infraspecies_jsd, file="MSP_infraspecies_jsd.rda")
+
+
+
+
+```
+
+
+
+## partial co-inertia analysis
+
+### classical co-inertia analysis
+
+
+
+```{r, message=FALSE, warning=FALSE}
+
+load(system.file("biom", "food_unifrac.dist", package="IBSFood"))
+
+
+A = merge(MSP_infraspecies_jsd %>% broom::tidy(diagonal=TRUE, upper=TRUE),
+food_unifrac %>% broom::tidy(diagonal=TRUE, upper=TRUE) , by=c("item1","item2")) %>%
+  reshape2::dcast(item1~item2, value.var = "distance.x") %>% .[,-1] %>%
+  as.dist()
+
+B = merge(MSP_infraspecies_jsd %>% broom::tidy(diagonal=TRUE, upper=TRUE),
+food_unifrac %>% broom::tidy(diagonal=TRUE, upper=TRUE) , by=c("item1","item2")) %>%
+  reshape2::dcast(item1~item2, value.var = "distance.y") %>% .[,-1] %>%
+  as.dist()
+
+
+MSP_infraspecies_pco = dudi.pco(A, scannf = F, nf=10) #check nf later
+
+food_pco = dudi.pco(B %>% ade4::quasieuclid(), scannf = F, nf=10)
+
+
+infraspecies_food_coi = coinertia(MSP_infraspecies_pco,food_pco, scannf=F, nf=10)
+
+
+```
+
+
+
+### projections of supplementary individuals onto co-inertia components
+
+```{r, message=FALSE, warning=FALSE}
+
+
+
+MSP_infraspecies_pco = dudi.pco(MSP_infraspecies_jsd, scannf = F, nf=length(MSP_infraspecies_jsd %>% attr(.,"Labels"))) # this requires to do a PCO on all samples
+
+food_pco = dudi.pco(food_unifrac %>% ade4::quasieuclid(), scannf = F, nf=length(food_unifrac %>% attr(.,"Labels")))
+
+
+#infraspecies_food_coi = coinertia(infraspecies_pco,food_pco, scannf=F, nf=10)
+
+samples_intersect = 
+intersect(
+MSP_infraspecies_jsd %>% attr(.,"Labels"),
+
+food_unifrac %>% attr(.,"Labels"))
+
+MSP_infraspecies_pco_tabsup = MSP_infraspecies_pco$tab[-which(row.names(MSP_infraspecies_pco$tab) %in% samples_intersect),]
+MSP_infraspecies_pco$tab = MSP_infraspecies_pco$tab[samples_intersect,]
+MSP_infraspecies_pco$li = MSP_infraspecies_pco$li[samples_intersect,]
+MSP_infraspecies_pco$l1 = MSP_infraspecies_pco$l1[samples_intersect,]
+
+MSP_infraspecies_pco$lw = 1/length(samples_intersect)
+
+food_pco_tabsup = food_pco$tab[-which(row.names(food_pco$tab) %in% samples_intersect),]
+food_pco$tab = food_pco$tab[samples_intersect,]
+food_pco$li = food_pco$li[samples_intersect,]
+food_pco$l1 = food_pco$l1[samples_intersect,]
+
+food_pco$lw = 1/length(samples_intersect)
+
+#MSP_infraspecies_pco
+#food_pco
+
+MSP_infraspecies_food_coi = coinertia(MSP_infraspecies_pco,food_pco, scannf=F, nf=length(samples_intersect)) # do a co-inertia on samples intersection
+
+MSP_infraspecies_food_coi_spesup = ade4::suprow(MSP_infraspecies_food_coi,MSP_infraspecies_pco_tabsup) # project samples with only metagenomes
+MSP_infraspecies_food_coi_foodsup = ade4::supcol(MSP_infraspecies_food_coi,t(food_pco_tabsup)) # project samples with only food data
+
+colnames(MSP_infraspecies_food_coi_spesup$lisup) = colnames(MSP_infraspecies_food_coi$lX)
+colnames(MSP_infraspecies_food_coi_foodsup$cosup) = colnames(MSP_infraspecies_food_coi$lY)
+
+
+
+rbind(MSP_infraspecies_food_coi$lX,MSP_infraspecies_food_coi_spesup$lisup) # all coordinates for metagenomics samples
+
+rbind(MSP_infraspecies_food_coi$lY,MSP_infraspecies_food_coi_foodsup$cosup) # all coordinates for food data samples
+
+
+
+```
+
+
+
+
+```{r, eval=FALSE, message=FALSE, warning=FALSE, include=FALSE}
+
+#check  PCoA component projection onto co-inertia components
+
+merge(dudi.pco(MSP_infraspecies_jsd, scannf = F, nf=10)$li[1:3],
+      rbind(MSP_infraspecies_food_coi$lX,MSP_infraspecies_food_coi_spesup$lisup)[1:3], by="row.names") %>% .[-1] %>%
+  cor(method="spearman")
+
+
+merge(dudi.pco(food_unifrac %>% ade4::quasieuclid(), scannf = F, nf=10)$li[1:3],
+      rbind(MSP_infraspecies_food_coi$lY,MSP_infraspecies_food_coi_foodsup$cosup)[1:3], by="row.names") %>% .[-1] %>%
+  cor(method="spearman")
+                                                                                                    
+
+```
+
+### check metadata associations
+
+
+```{r, message=FALSE, warning=FALSE}
+
+
+
+rbind(MSP_infraspecies_food_coi$lX,MSP_infraspecies_food_coi_spesup$lisup)[1:5] %>%
+  merge(.,IBSMicrobiota::IBSData$metadata %>%
+          filter(Visit=="V4",Sample_type=="Stool"), by.x="row.names", by.y="Patient_ID") %>%
+  select_if(is.numeric) %>%
+  select(-Height,-Weight) %>%
+  mutate(H2_CH4 = H2/(CH4+1)) %>%
+  reshape2::melt(id.vars=c("AxcX1","AxcX2","AxcX3","AxcX4","AxcX5")) %>%
+  group_by(variable) %>%
+  na.omit() %>%
+  
+  summarise(A1_cor =  cor(AxcX1, value, method = "spearman")     %>% round(2),
+            A1_p   =  cor.test(AxcX1, value, method = "spearman")$p.value %>% round(2),
+            
+            A2_cor =  cor(AxcX2, value, method = "spearman")     %>% round(2),
+            A2_p   =  cor.test(AxcX2, value, method = "spearman")$p.value %>% round(2),
+            A3_cor=  cor(AxcX3, value, method = "spearman")     %>% round(2),
+            A3_p   =  cor.test(AxcX3, value, method = "spearman")$p.value %>% round(2),
+            A4_cor=  cor(AxcX4, value, method = "spearman")     %>% round(2),
+            A4_p   =  cor.test(AxcX4, value, method = "spearman")$p.value %>% round(2),
+            A5_cor=  cor(AxcX5, value, method = "spearman")     %>% round(2),
+            A5_p   =  cor.test(AxcX5, value, method = "spearman")$p.value %>% round(2),
+            n=n())
+
+
+
+
+#rbind(MSP_infraspecies_food_coi$lX,MSP_infraspecies_food_coi_spesup$lisup)[1:7] %>%
+rbind(MSP_infraspecies_food_coi_spesup$lisup)[1:7] %>%
+  merge(.,IBSMicrobiota::IBSData$metadata %>%
+          filter(Visit=="V4",Sample_type=="Stool"), by.x="row.names", by.y="Patient_ID") %>%
+  select_if(is.numeric) %>%
+  select(-Height,-Weight,-IBS_subtypes) %>%
+  mutate(H2_CH4 = H2/(CH4+1)) %>%
+  reshape2::melt(id.vars=c("AxcX1","AxcX2","AxcX3","AxcX4","AxcX5","AxcX6", "AxcX7")) %>%
+  dplyr::rename(clinical=variable, clinical_value=value) %>%
+  reshape2::melt(id.vars=c("clinical","clinical_value")) %>%
+    na.omit() %>%
+  group_by(clinical,variable) %>%
+  mutate(n=n()) %>%
+  group_by(clinical,variable,n) %>%
+  do(
+    
+    with(.,cor.test(.$clinical_value,.$value, method = "spearman") %>% broom::tidy())
+    
+  ) %>%
+  ggplot() + geom_tile(aes(x=variable %>% gsub("AxcX","PC",.),y=clinical,fill=estimate,alpha=p.value<0.05)) + 
+  scale_fill_gradient2("Rho") + scale_alpha_discrete(range = c(0.5,1)) +
+  xlab("Principal component") + ylab("")
+
+
+rbind(MSP_infraspecies_food_coi$lX)[1:7] %>%
+  merge(.,IBSMicrobiota::IBSData$metadata %>%
+          filter(Visit=="V4",Sample_type=="Stool"), by.x="row.names", by.y="Patient_ID") %>%
+  select_if(is.numeric) %>%
+  select(-Height,-Weight,-IBS_subtypes) %>%
+  mutate(H2_CH4 = H2/(CH4+1)) %>%
+  reshape2::melt(id.vars=c("AxcX1","AxcX2","AxcX3","AxcX4","AxcX5","AxcX6", "AxcX7")) %>%
+  dplyr::rename(clinical=variable, clinical_value=value) %>%
+  reshape2::melt(id.vars=c("clinical","clinical_value")) %>%
+    na.omit() %>%
+  group_by(clinical,variable) %>%
+  mutate(n=n()) %>%
+  group_by(clinical,variable,n) %>%
+  do(
+    
+    with(.,cor.test(.$clinical_value,.$value, method = "spearman") %>% broom::tidy())
+    
+  ) %>%
+  ggplot() + geom_tile(aes(x=variable %>% gsub("AxcX","PC",.),y=clinical,fill=estimate,alpha=p.value<0.05)) + 
+  scale_fill_gradient2("Rho") + scale_alpha_discrete(range = c(0.5,1)) +
+  xlab("Principal component") + ylab("")
+
+
+```
+
+
+
+```{r, message=FALSE, warning=FALSE}
+
+#rbind(MSP_infraspecies_food_coi$lY,MSP_infraspecies_food_coi_foodsup$cosup)[1:7] %>%
+rbind(MSP_infraspecies_food_coi$lY)[1:7] %>%
+  merge(.,IBSMicrobiota::IBSData$metadata %>%
+          filter(Visit=="V4",Sample_type=="Stool"), by.x="row.names", by.y="Patient_ID") %>%
+  select_if(is.numeric) %>%
+  select(-Height,-Weight,-IBS_subtypes) %>%
+  mutate(H2_CH4 = H2/(CH4+1)) %>%
+  reshape2::melt(id.vars=c("AxcY1","AxcY2","AxcY3","AxcY4","AxcY5","AxcY6","AxcY7")) %>%
+  dplyr::rename(clinical=variable, clinical_value=value) %>%
+  reshape2::melt(id.vars=c("clinical","clinical_value")) %>%
+    na.omit() %>%
+  group_by(clinical,variable) %>%
+  mutate(n=n()) %>%
+  group_by(clinical,variable,n) %>%
+  do(
+    
+    with(.,cor.test(.$clinical_value,.$value, method = "spearman") %>% broom::tidy())
+    
+  ) %>%
+  ggplot() + geom_tile(aes(x=variable %>% gsub("AxcY","PC",.),y=clinical,fill=estimate,alpha=p.value<0.05)) + 
+  scale_fill_gradient2("Rho") + scale_alpha_discrete(range = c(0.5,1)) +
+  xlab("Principal component") + ylab("")
+
+rbind(MSP_infraspecies_food_coi_foodsup$cosup)[1:7] %>%
+  merge(.,IBSMicrobiota::IBSData$metadata %>%
+          filter(Visit=="V4",Sample_type=="Stool"), by.x="row.names", by.y="Patient_ID") %>%
+  select_if(is.numeric) %>%
+  select(-Height,-Weight,-IBS_subtypes) %>%
+  mutate(H2_CH4 = H2/(CH4+1)) %>%
+  reshape2::melt(id.vars=c("AxcY1","AxcY2","AxcY3","AxcY4","AxcY5","AxcY6","AxcY7")) %>%
+  dplyr::rename(clinical=variable, clinical_value=value) %>%
+  reshape2::melt(id.vars=c("clinical","clinical_value")) %>%
+    na.omit() %>%
+  group_by(clinical,variable) %>%
+  mutate(n=n()) %>%
+  group_by(clinical,variable,n) %>%
+  do(
+    
+    with(.,cor.test(.$clinical_value,.$value, method = "spearman") %>% broom::tidy())
+    
+  ) %>%
+  ggplot() + geom_tile(aes(x=variable %>% gsub("AxcY","PC",.),y=clinical,fill=estimate,alpha=p.value<0.05)) + 
+  scale_fill_gradient2("Rho") + scale_alpha_discrete(range = c(0.5,1)) +
+  xlab("Principal component") + ylab("")
+
+```
+
+
+
+```{r, fig.height=4, fig.width=10, message=FALSE, warning=FALSE}
+
+
+rbind(
+  rbind(
+    MSP_infraspecies_food_coi$lX[1:7] %>% tibble::rownames_to_column("Patient_ID") %>% dplyr::rename(A1=AxcX1, A2=AxcX2, A3=AxcX3, A4=AxcX4, A5=AxcX5, A6=AxcX6, A7=AxcX7) %>% mutate(model="train",data="metagenomes")  ,
+    MSP_infraspecies_food_coi_spesup$lisup[1:7] %>% tibble::rownames_to_column("Patient_ID") %>% dplyr::rename(A1=AxcX1, A2=AxcX2, A3=AxcX3, A4=AxcX4, A5=AxcX5, A6=AxcX6, A7=AxcX7) %>% mutate(model="validate",data="metagenomes")),
+  rbind(
+    MSP_infraspecies_food_coi$lY[1:7] %>% tibble::rownames_to_column("Patient_ID") %>% dplyr::rename(A1=AxcY1, A2=AxcY2, A3=AxcY3, A4=AxcY4, A5=AxcY5, A6=AxcY6, A7=AxcY7) %>% mutate(model="train",data="food"),
+    MSP_infraspecies_food_coi_foodsup$cosup[1:7] %>% tibble::rownames_to_column("Patient_ID") %>% dplyr::rename(A1=AxcY1, A2=AxcY2, A3=AxcY3, A4=AxcY4, A5=AxcY5, A6=AxcY6, A7=AxcY7) %>% mutate(model="validata",data="food"))
+) %>%
+  merge(.,IBSMicrobiota::IBSData$metadata %>%
+          filter(Visit=="V4",Sample_type=="Stool"), by="Patient_ID") %>%
+  merge(.,nutriscore_DI, by="Patient_ID", all.x=TRUE) %>%
+  merge(.,meat_plant_ratio %>% dplyr::rename(Patient_ID=variable) %>% select(Patient_ID,meat_plant_ratio), by="Patient_ID", all.x=TRUE) %>%
+  merge(.,genes_richness_1M %>% tibble::rownames_to_column("Patient_ID") , by="Patient_ID", all.x=TRUE) %>%
+  mutate(IBS.Severity.Score =  ifelse(Health=="control", 0, IBS.Severity.Score)) %>%
+  #select(which(sapply(.,class)=="numeric"),model,data, IBS.Severity.Score) %>%
+  select_if(function(col) is.numeric(col) | all(col == .$model) | all(col == .$data)) %>%
+  select(-Height,-Weight,-IBS_subtypes) %>%
+  mutate(H2_CH4 = H2/(CH4+1)) %>%
+  reshape2::melt(id.vars=c("A1","A2","A3","A4","A5","A6","A7","model","data")) %>%
+  dplyr::rename(clinical=variable, clinical_value=value) %>%
+  reshape2::melt(id.vars=c("clinical","clinical_value","model","data")) %>%
+  na.omit() %>%
+  group_by(clinical,variable, model,data) %>%
+  mutate(n=n()) %>%
+  group_by(clinical,variable,n, model,data) %>%
+  filter(n>10) %>%
+  do(
+    
+    with(.,cor.test(.$clinical_value,.$value, method = "spearman") %>% broom::tidy())
+    
+  ) %>%
+  #ggplot() + geom_bar(aes(x=paste(data,model),y=estimate,fill=estimate), stat="identity", position = "dodge") + 
+  #facet_grid(clinical~variable) + scale_fill_gradient2("Rho") + ylim(-0.3,0.3)
+  ggplot() + geom_tile(aes(x=paste0(model %>% stringr::str_sub(1,1),"\n",data %>% stringr::str_sub(1,1)),y=clinical,fill=estimate)) + 
+  scale_fill_gradient2("Rho", mid = "light grey") + scale_alpha_discrete(range = c(0.5,1)) +
+  xlab("Co-inertia principal components\n(t=train set,v=validation set,\n f=food data, m=metagenomes data)") + ylab("") + facet_wrap(~variable, nrow=1) -> p_coinertia_metadata
+
+
+p_coinertia_metadata
+
+
+```
+
+
+
+## co-inertia figure
+
+```{r}
+
+# 
+# ggplot() + 
+#   geom_segment(data= merge(MSP_infraspecies_food_coi$lX,MSP_infraspecies_food_coi$lY, by="row.names"), aes(x=AxcX1,y=AxcX2,xend=AxcY1,yend=AxcY2),col="grey") +
+#   geom_point(data = rbind(MSP_infraspecies_food_coi$lX,MSP_infraspecies_food_coi_spesup$lisup), aes(AxcX1,AxcX2), col="lightblue") +
+#   geom_point(data = rbind(MSP_infraspecies_food_coi$lY,MSP_infraspecies_food_coi_foodsup$cosup), aes(AxcY1,AxcY2), col="pink") +
+#   xlab("Co-inertia axis 1") + ylab("Co-inertia axis 2")
+
+
+
+round(MSP_infraspecies_food_coi$eig/sum(MSP_infraspecies_food_coi$eig),2)[1:20] %>% 
+  cumsum() %>% as.matrix() %>% as.data.frame() %>% tibble::rowid_to_column("PC") %>%
+  ggplot() + geom_bar(aes(y=V1,x=PC), stat="identity", width = 0.5) + 
+  scale_y_continuous(label=scales::percent, breaks =  scales::pretty_breaks(n = 8)) + 
+  scale_x_continuous(breaks =  scales::pretty_breaks(n = 7), limits = c(0,8)) +
+  geom_hline(yintercept = 0.5, linetype=2, color="red" ) + ylab("Cumulative variance (%)")
+
+
+
+rbind(
+  rbind(
+    MSP_infraspecies_food_coi$lX[1:2] %>% dplyr::rename(A1=AxcX1, A2=AxcX2) %>% mutate(full="both",data="metagenomes"),
+    MSP_infraspecies_food_coi_spesup$lisup[1:2] %>% dplyr::rename(A1=AxcX1, A2=AxcX2) %>% mutate(full="only",data="metagenomes")),
+  rbind(
+    MSP_infraspecies_food_coi$lY[1:2] %>% dplyr::rename(A1=AxcY1, A2=AxcY2) %>% mutate(full="both",data="food"),
+    MSP_infraspecies_food_coi_foodsup$cosup[1:2] %>% dplyr::rename(A1=AxcY1, A2=AxcY2) %>% mutate(full="only",data="food"))
+) %>%
+  ggplot() + 
+  geom_segment(data= merge(MSP_infraspecies_food_coi$lX,MSP_infraspecies_food_coi$lY, by="row.names"), aes(x=AxcX1,y=AxcX2,xend=AxcY1,yend=AxcY2),col="grey") +
+  geom_point(aes(x=A1,y=A2, shape=full, color=data), alpha=0.7, size=2) +
+  xlab("Co-inertia axis 1 (12.48%)") + ylab("Co-inertia axis 2 (8.48%)") + scale_color_brewer(type="qual", palette = 2) -> p_partial_co_inertia
+
+
+p_partial_co_inertia
+
+
+```
+
+
+
+
+## principal component regression
+
+The goal is to predict exhaled gas based on diet and microbiota co-inertia component
+
+### microbiota gas prediction
+```{r}
+
+#infraspecies_food_coi$lX => microbiota
+#infraspecies_food_coi$lY => food
+
+# infraspecies_food_coi_spesup => microbiota sup
+#infraspecies_food_coi_foodsup => food sup
+
+#
+
+rbind(cbind(group="train",MSP_infraspecies_food_coi$lX),cbind(group="test",MSP_infraspecies_food_coi_spesup$lisup))[1:8] %>%
+  merge(.,IBSMicrobiota::IBSData$metadata %>%
+          filter(Visit=="V4",Sample_type=="Stool"), by.x="row.names", by.y="Patient_ID") %>%
+  mutate(H2_CH4 = log2((H2+1)/(CH4+1))) %>%
+  ggplot() + geom_jitter(aes(x=(H2+1) %>% log10(),y=(CH4+1) %>% log10()))
+
+
+
+
+rbind(cbind(group="train",MSP_infraspecies_food_coi$lX),cbind(group="test",MSP_infraspecies_food_coi_spesup$lisup))[1:8] %>%
+  merge(.,IBSMicrobiota::IBSData$metadata %>%
+          filter(Visit=="V4",Sample_type=="Stool"), by.x="row.names", by.y="Patient_ID") %>%
+  #select_if(is.numeric) %>%
+  mutate(H2_CH4 = log2((H2+1)/(CH4+1))) %>%
+  #mutate(H2_CH4 =  H2_CH4 %>% scale() %>% as.numeric()) %>%
+  #mutate(H2_CH4 = H2+1) %>%
+  select(Row.names,group,AxcX1,AxcX2,AxcX3,AxcX4,AxcX5,H2_CH4) -> microbiota_data_gas
+
+  
+
+
+microbiota_data_gas %>%
+  filter(group=="train") %>%
+  select(AxcX1,AxcX2,AxcX3,AxcX4,AxcX5,H2_CH4) %>%
+  with(
+    ., lm(H2_CH4~., data=.)
+  ) -> microbiota_model
+
+microbiota_model
+
+gas_microbiota_predict = 
+  predict(microbiota_model, 
+        microbiota_data_gas %>% 
+          filter(group=="test") %>%
+          select(AxcX1,AxcX2,AxcX3,AxcX4,AxcX5,H2_CH4) 
+         )
+
+# microbiota_H2_CH4_plot = 
+# cbind(predicted_gas=gas_microbiota_predict,observed_gas=microbiota_data_gas %>% filter(group=="test") %>% .$H2_CH4) %>% na.omit %>% as.data.frame %>%
+#   ggplot(aes(x=observed_gas %>% as.character %>% as.numeric , y=predicted_gas %>% as.character %>% as.numeric )) + 
+#   geom_point() + geom_smooth(method="lm") + 
+#   ylab("predicted exaled\nH2/CH4 ratio (log2)") + xlab("observed exaled\nH2/CH4 ratio (log2)") + 
+#   #scale_x_continuous(trans="log2") + scale_y_continuous(trans="log2") + 
+#   annotate("text", x=-2,y=1, label="r=0.53, p<0.001") #+
+#   #xlim(-5,3) + ylim(-5,3)
+# 
+# microbiota_H2_CH4_plot
+# 
+# ggsave("microbiota_H2_CH4_plot.pdf")
+# 
+# 
+# cbind(predicted_gas=gas_microbiota_predict,observed_gas=microbiota_data_gas %>% filter(group=="test") %>% .$H2_CH4) %>% na.omit %>% as.data.frame %>%
+#   
+#   with(.,cor.test(.$predicted_gas, .$observed_gas, method="pearson"))
+
+
+```
+
+
+
+```{r}
+
+
+
+rbind(cbind(group="train",MSP_infraspecies_food_coi$lY),cbind(group="test",MSP_infraspecies_food_coi_foodsup$cosup))[1:10] %>%
+  merge(.,IBSMicrobiota::IBSData$metadata %>%
+          filter(Visit=="V4",Sample_type=="Stool"), by.x="row.names", by.y="Patient_ID") %>%
+  #select_if(is.numeric) %>%
+  mutate(H2_CH4 = log2((H2+1)/(CH4+1))) %>%
+  #mutate(H2_CH4 = H2+1) %>%
+  select(Row.names,group,AxcY1,AxcY2,AxcY3,AxcY4,AxcY5,H2_CH4) -> food_data_gas
+
+
+food_data_gas %>%
+  filter(group=="train") %>%
+  select(AxcY1,AxcY2,AxcY3,AxcY4,AxcY5,H2_CH4) %>%
+  with(
+    ., lm(H2_CH4~., data=.)
+  ) -> food_model
+
+food_model
+
+microbiota_data_gas %>%
+  filter(group=="train") %>%
+  select(AxcX1,AxcX2,AxcX3,AxcX4,AxcX5,H2_CH4) %>%
+   with(
+    ., lm(H2_CH4~., data=.)
+  ) -> microbiota_model
+
+
+gas_food_predict = 
+  predict(microbiota_model, 
+        food_data_gas %>% 
+          filter(group=="test") %>%
+          select(AxcY1,AxcY2,AxcY3,AxcY4,AxcY5,H2_CH4) %>%
+          dplyr::rename(AxcX1=AxcY1,AxcX2=AxcY2,AxcX3=AxcY3,AxcX4=AxcY4,AxcX5=AxcY5) 
+        )
+
+# 
+# 
+# cbind(predicted_gas=gas_food_predict,observed_gas=food_data_gas %>% filter(group=="test") %>% .$H2_CH4) %>% na.omit %>% as.data.frame %>%
+#   filter(predicted_gas < 0.25 & observed_gas > -2) %>%
+#   ggplot(aes(x=observed_gas %>% as.character %>% as.numeric , y=predicted_gas %>% as.character %>% as.numeric )) + 
+#   geom_point() + geom_smooth(method="lm") + 
+#   ylab("predicted exaled\nH2/CH4 ratio (log2)") + xlab("observed exaled\nH2/CH4 ratio (log2)") #+ 
+#   #scale_x_continuous(trans="log2") + scale_y_continuous(trans="log2") + 
+#   #xlim(0,8) + ylim(0,8)
+# 
+# 
+# 
+# cbind(predicted_gas=gas_food_predict,observed_gas=food_data_gas %>% filter(group=="test") %>% .$H2_CH4) %>% na.omit %>% as.data.frame %>%
+#   filter(predicted_gas < 0.25 & observed_gas > -2) %>%
+#   with(.,cor.test(.$predicted_gas, .$observed_gas, method="pearson"))
+# 
+
+
+```
+
+
+
+
+```{r}
+
+rbind(
+  cbind(predicted_gas=gas_food_predict,observed_gas=food_data_gas %>% filter(group=="test") %>% .$H2_CH4) %>% 
+    na.omit %>% as.data.frame %>% mutate(`Validation set`="Individual with\nfood data only"),
+  cbind(predicted_gas=gas_microbiota_predict,observed_gas=microbiota_data_gas %>% filter(group=="test") %>% .$H2_CH4) %>% 
+    na.omit %>% as.data.frame %>% mutate(`Validation set`="Individual with\nmetagenomes data only")) %>%
+  
+ggplot(aes(x=observed_gas %>% as.character %>% as.numeric , y=predicted_gas %>% as.character %>% as.numeric )) + 
+  geom_point(aes(col=`Validation set`)) + geom_smooth(method="lm") + 
+  ylab("predicted exaled\nH2/CH4 ratio (log2)") + xlab("observed exaled\nH2/CH4 ratio (log2)") +
+  annotate("text", x=-2,y=1, label="r=0.36, p<0.001") + scale_color_brewer("Validation set", type="qual", palette=2) -> p_gas_prediction
+
+p_gas_prediction
+
+
+rbind(cbind(predicted_gas=gas_food_predict,observed_gas=food_data_gas %>% filter(group=="test") %>% .$H2_CH4) %>% 
+    na.omit %>% as.data.frame %>% mutate(data="food"),
+  cbind(predicted_gas=gas_microbiota_predict,observed_gas=microbiota_data_gas %>% filter(group=="test") %>% .$H2_CH4) %>% 
+    na.omit %>% as.data.frame %>% mutate(data="metagenomes")) %>%
+  with(.,cor.test(.$predicted_gas, .$observed_gas, method="pearson"))
+
+
+
+```
+
+
+
+
+## final plot
+
+
+```{r, fig.height=9, fig.width=12}
+
+cowplot::plot_grid(
+cowplot::plot_grid(p_partial_co_inertia,  p_gas_prediction, labels = c("A","C")), 
+cowplot::plot_grid(p_coinertia_metadata, labels = c("B")), 
+nrow=2)
+
+ggsave("Figure3_coinertia_gas_predicted.pdf")
+
+
+```
+
+
+
+
+## contributor exploration
+
+```{r}
+
+sample_id= 
+row.names(rbind(MSP_infraspecies_food_coi$lX,MSP_infraspecies_food_coi_spesup$lisup)[1:5])
+
+cor(rbind(MSP_infraspecies_food_coi$lX,MSP_infraspecies_food_coi_spesup$lisup)[sample_id,1:5],
+
+MSP_infraspecies %>% 
+  mutate_at(vars(contains("M", ignore.case = F)),function(x){x/sum(x)}) %>%
+  tibble::column_to_rownames("taxa") %>% 
+  t %>% as.data.frame %>% .[sample_id,], method="spearman") -> cor_matrix_coi_infraspecies
+
+
+cor_matrix_coi_infraspecies %>%
+  t %>%
+  as.data.frame() %>%
+  tibble::rownames_to_column("taxa") %>%
+  filter(abs(AxcX1)>0.25 | abs(AxcX2)>0.25 | abs(AxcX3)>0.25 |  abs(AxcX4)>0.25 | abs(AxcX5)>0.25) %>%
+  tibble::column_to_rownames("taxa") %>%
+  as.matrix() %>% #.[,c(2,4)] %>%
+  heatmap(col = cm.colors(256), scale = "col", hclustfun = function(d) hclust(d,method="complete"))
+
+
+
+#heatmap(cor_matrix_coi_infraspecies %>% t %>% na.omit)
+
+
+cor(rbind(MSP_infraspecies_food_coi$lX,MSP_infraspecies_food_coi_spesup$lisup)[1:5])
+
+
+```
+
+
+
+```{r}
+
+
+sample_id= 
+row.names(rbind(MSP_infraspecies_food_coi$lY,MSP_infraspecies_food_coi_foodsup$cosup)[1:5])
+
+cor(
+rbind(MSP_infraspecies_food_coi$lY,MSP_infraspecies_food_coi_foodsup$cosup)[sample_id,1:5],
+
+food_otu %>%
+  prop.table(2) %>% 
+  t %>%
+  .[sample_id,], method="spearman") -> cor_matrix_coi_food
+
+
+heatmap(cor_matrix_coi_food %>% t , col = cm.colors(256), scale="col", hclustfun = function(d) hclust(d,method="complete"))
+
+
+cor(rbind(MSP_infraspecies_food_coi$lY,MSP_infraspecies_food_coi_foodsup$cosup)[sample_id,1:5])
+
+
+```
+
+
+```{r, fig.height=8, fig.width=6, message=FALSE, warning=FALSE}
+
+rownames(cor_matrix_coi_food) = paste0("A",1:5)
+rownames(cor_matrix_coi_infraspecies) = paste0("A",1:5)
+
+
+
+cbind(cor_matrix_coi_food,cor_matrix_coi_infraspecies) %>%
+ t %>%
+  as.data.frame() %>%
+  tibble::rownames_to_column("variable") %>%
+  filter(abs(A1)>0.25 | abs(A2)>0.25 | abs(A3)>0.25 |  abs(A4)>0.25 | abs(A5)>0.25) %>%
+  tibble::column_to_rownames("variable") %>%
+  as.matrix() %>%
+  heatmap(col = cm.colors(256), scale = "col", hclustfun = function(d) hclust(d,method="complete"))
+
+
+```
+
+
