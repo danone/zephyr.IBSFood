@@ -645,7 +645,7 @@ cor(rbind(MSP_infraspecies_food_coi$lY,MSP_infraspecies_food_coi_foodsup$cosup)[
 ```
 
 
-```{r, fig.height=8, fig.width=6, message=FALSE, warning=FALSE}
+```{r, fig.height=15, fig.width=4, message=FALSE, warning=FALSE}
 
 rownames(cor_matrix_coi_food) = paste0("A",1:5)
 rownames(cor_matrix_coi_infraspecies) = paste0("A",1:5)
@@ -659,8 +659,16 @@ cbind(cor_matrix_coi_food,cor_matrix_coi_infraspecies) %>%
   filter(abs(A1)>0.25 | abs(A2)>0.25 | abs(A3)>0.25 |  abs(A4)>0.25 | abs(A5)>0.25) %>%
   tibble::column_to_rownames("variable") %>%
   as.matrix() %>%
-  heatmap(col = cm.colors(256), scale = "col", hclustfun = function(d) hclust(d,method="complete"))
-
+  #heatmap(col = cm.colors(256), scale = "col", hclustfun = function(d) hclust(d,method="complete"))
+  pheatmap::pheatmap(., clustering_distance_rows = "euclidean", 
+           clustering_distance_cols = "euclidean", 
+           cutree_rows = 10, 
+           annotation_col = NULL, 
+           annotation_row = NULL, 
+           annotation_colors = NULL, 
+           clustering_method = "complete",
+           fontsize_row = 6
+            ) 
 
 ```
 

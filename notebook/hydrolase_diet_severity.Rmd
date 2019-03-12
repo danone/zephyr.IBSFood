@@ -1,0 +1,63 @@
+---
+title: "hydrolase, diet and severity"
+output: html_notebook
+---
+
+
+
+```{r, message=FALSE, warning=FALSE}
+
+
+library(tsne)
+library(dplyr)
+
+
+
+
+
+```
+
+
+
+```{r, message=FALSE, warning=FALSE}
+
+load("hydrolase_count_rescaled.rda")
+
+
+hydrolase_count_rescaled %>%
+  group_by(msp_name) %>%
+  summarize(n=n()) %>%
+  arrange(desc(n))
+
+
+hydrolase_count_rescaled %>%
+  select(msp_name,`New Class`, contains("M", ignore.case=FALSE)) %>%
+  reshape2::melt(id.vars=c("msp_name","New Class")) %>%
+  filter(value>1) %>%
+  mutate(variable = variable %>% as.character) %>%
+  reshape2::dcast(msp_name+variable~`New Class`, fill=0) -> hydrolase_count_rescaled_by_msp
+
+
+
+
+
+```
+
+
+
+
+
+```{r}
+
+
+
+?tsne::tsne
+
+hydrolase_tsne = tsne::tsne(hydrolase_count_rescaled_by_msp[,-c(1:2)],perplexity=50)
+
+
+
+```
+
+
+

@@ -1,0 +1,95 @@
+---
+title: "study cohort summary table"
+output: html_notebook
+---
+
+
+##load library
+```{r}
+
+library(dplyr)
+library(IBSMicrobiota)
+devtools::load_all()
+
+
+
+```
+
+## load data
+```{r}
+
+data("food_data")
+
+data("IBSData")
+
+data("genes_richness_1M")
+
+
+subject_metaG = genes_richness_1M %>% row.names()
+
+subject_food = food_data %>% .$Identity %>% unique
+
+
+
+
+```
+
+
+
+
+
+```{r}
+
+study_global_metadata = 
+
+IBSData$metadata %>%
+  select(Patient_ID,Health,Gender,Age,BMI,SSgroup) %>%
+  arrange(Patient_ID) %>%
+  unique() %>%
+  filter(Patient_ID %in% unique(c(subject_metaG,subject_food))) %>%
+  merge(data.frame(subject_metaG,metaG_data="Yes"),by.x="Patient_ID",by.y="subject_metaG", all.x = TRUE) %>%
+  merge(data.frame(subject_food,food_data="Yes"),by.x="Patient_ID",by.y="subject_food", all.x = TRUE) %>%
+  mutate(metaG_data = ifelse(is.na(metaG_data),"No",metaG_data %>% as.character),
+         food_data = ifelse(is.na(food_data),"No",food_data %>% as.character))
+           
+
+write.csv2(study_global_metadata,file="study_global_metadata.csv")
+
+
+
+```
+
+
+
+```{r}
+
+(study_global_metadata %>%
+  mutate(SSgroup=SSgroup %>% as.character) %>%
+  mutate(SSgroup=ifelse(is.na(SSgroup),"Unknown",SSgroup)) %>%
+  mutate(Data= ifelse(metaG_data=="Yes" & food_data=="No","Microbiota only",ifelse(metaG_data=="No" & food_data=="Yes","Food only", "both") )) %>%
+  group_by(Health) %>%
+  summarise(n=n(),
+            Female = sum(Gender=="F"),
+            Male = sum(Gender=="M"),
+            Age_median=median(Age),
+            Age_q25=quantile(Age,0.25),
+            Age_q75=quantile(Age,0.75),
+            BMI_median=median(BMI, na.rm=TRUE),
+            BMI_q25=quantile(BMI,0.25,na.rm=TRUE),
+            BMI_q75=quantile(BMI,0.75, na.rm=TRUE),
+            Mild=sum(SSgroup=="mild"),
+            Moderate=sum(SSgroup=="moderate"),
+            Severe=sum(SSgroup=="severe"),
+            Microbiota_only= sum(Data=="Microbiota only"),
+            Food_only=sum(Data=="Food only"),
+            Both=sum(Data=="both")
+            
+            ) %>% 
+  as.data.frame %>%
+  tibble::column_to_rownames("Health") %>% t %>% as.data.frame -> study_summary_metadata)
+
+
+write.csv2(study_summary_metadata,file="study_summary_metadata.csv")
+
+```
+
