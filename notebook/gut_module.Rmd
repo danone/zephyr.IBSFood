@@ -77,8 +77,8 @@ total_reads %>% as.matrix() %>% as.data.frame %>% write.csv2(.,file="total_reads
 ## import metahit database
 ```{r}
 
+metahit.sqlite.db <- src_sqlite("/opt/sqlite/metahit.v2.sqlite.db")
 
-metahit.sqlite.db <- src_sqlite("/tmp/metahit.v2.sqlite.db")
 
 kegg_sqlite <- tbl(metahit.sqlite.db, "kegg")
 
@@ -98,7 +98,7 @@ kegg_sqlite <- tbl(metahit.sqlite.db, "kegg")
 kegg_sqlite %>%
   merge(.,counts_rescaled, by.x="genes_id", by.y="genes.id") %>%
   #head %>%
-  select(-genes_id,-kegg_genes,-length) %>%
+  select(-genes_id,-kegg_genes,-length, -row_names) %>%
   group_by(KO) %>%
   summarise_all(sum) -> KO_counts
 
@@ -142,13 +142,15 @@ counts_rescaled %>%
   merge(., kegg_sqlite, by.y="genes_id", by.x="genes.id", all=FALSE) %>%
   select(-genes.id,-length,-module_name,-kegg_genes) -> MSP_KO_df
 
+# MSP_KO_df %>%
+#   reshape2::melt(id.vars=c("msp_name","KO")) %>%
+#   filter(value>0)-> MSP_KO_df_melt
+# 
+# write.csv2(MSP_KO_df_melt, file = "MSP_KO_df_melt.csv")
+
+
 MSP_KO_df %>%
-  reshpe2::melt(id.vars=c("msp_names","KO")) %>%
-  filter(value>0)-> MSP_KO_df_melt
-
-
-
-MSP_KO_df %>%
+  select(-row_names) %>%
   group_by(msp_name,KO) %>%
   summarise_all(sum) -> MSP_KO_counts
 

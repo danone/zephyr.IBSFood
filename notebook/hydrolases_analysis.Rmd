@@ -129,8 +129,29 @@ hydrolase_count_rescaled %>%
   ) %>%
   merge(enterotypes %>% filter(Visit=="V4"), by.x="variable", by.y="Patient_ID") %>%
   filter(!is.na(value)) %>%
+  filter(!is.na(SSgroup)) %>%
   ggplot() + geom_boxplot(aes(y=value+10^-6,x=SSgroup)) + facet_wrap(~`New Class`, scales="free_y") + scale_y_log10()
 
+
+hydrolase_count_rescaled %>%
+  group_by(`New Class`) %>%
+  summarise_at(vars(contains("M",ignore.case = FALSE)), sum) %>%
+  mutate_at(vars(contains("M",ignore.case = FALSE)), function(x){x/sum(x)}  ) %>%
+  #as.data.frame() %>%
+  #tibble::column_to_rownames("New Class") %>%
+
+  reshape2::melt(id.vars="New Class") %>%
+  merge(
+    IBSData$metadata %>%
+  filter(Visit=="V4", Sample_type=="Stool"),
+  by.y="Patient_ID",
+  by.x="variable"
+    
+  ) %>%
+  merge(enterotypes %>% filter(Visit=="V4"), by.x="variable", by.y="Patient_ID") %>%
+  filter(!is.na(value)) %>%
+  group_by(`New Class`) %>%
+  do(with(.,wilcox.test(data=., .$value~ .$CH4>10)%>%broom::tidy()))
 
 
 ```
@@ -200,17 +221,26 @@ hydrogene_pca$li %>%
   by.x="Row.names"
     
   ) %>% 
-    with(.,wilcox.test(data=., .$Axis3~ .$Health))
+  select(Row.names, contains("Axis"),H2,CH4) %>%
+  reshape2::melt(id.vars=c("Row.names","H2","CH4")) %>%
+  group_by(variable) %>%
+  do(with(.,wilcox.test(data=., .$value~ .$H2>10)%>%broom::tidy()))
 
 
   
-  ade4::s.label(hydrogene_pca$co, yax=3)
+
+
+  
+  ade4::s.label(hydrogene_pca$co, yax=3, xax=1)
   
 
 
 ```
 
 
+Axis 1 = associated with low H2 and High CH4 and with slower transit
+Axis 2 = associated with CH4
+Axis 3 = associated with severity
 
 
 ```{r}
@@ -249,7 +279,7 @@ hydrolase_count_rescaled %>%
     
   ) %>%
   na.omit() %>%
-  with(.,cor.test(x=SSgroup %>% as.numeric, y=A1_A3, method="spearman"))
+  with(.,pairwise.wilcox.test(g=SSgroup, x=A1_A3, p.adjust.method = "none"))
 
   
 
@@ -260,4 +290,66 @@ hydrolase_count_rescaled %>%
 ```
 
 
+```{r}
+
+load("hydrolase_count_rescaled.rda")
+
+
+
+cazy_counts = read.csv2("cazy_counts.csv", row.names = 1) 
+
+hydrolase_count_rescaled %>% 
+  ungroup() %>%
+  group_by(`New Class`) %>%
+  select(contains("M", ignore.case = FALSE)) %>%
+  summarise_all(sum) %>%
+  reshape2::melt(id.vars="New Class") %>%
+  merge(total_reads %>% as.matrix %>% as.data.frame, by.y="row.names", by.x="variable") %>%
+  mutate(value=value/V1) %>%
+  reshape2::dcast(`New Class`~variable, value.var = "value") -> hydrogenase_normalized
+  
+
+
+
+cazy_counts %>% 
+  reshape2::melt(id.vars="cazy.family") %>%
+  merge(total_reads %>% as.matrix %>% as.data.frame, by.y="row.names", by.x="variable") %>%
+  mutate(value=value/V1) %>%
+  reshape2::dcast(`cazy.family`~variable, value.var = "value") -> cazy_normalized
+
+
+
+
+
+
+```
+
+
+
+```{r fig.height=10, fig.width=10}
+
+hydrogenase_normalized %>% 
+  dplyr::rename(cazy.family = `New Class`) %>%
+  rbind(cazy_normalized) %>%
+  tibble::column_to_rownames("cazy.family") %>%
+  t() %>%
+  cor(method="spearman") %>%
+  reshape2::melt() %>%
+  filter(abs(value) > 0.4) %>%
+  filter(Var1 %in% hydrogenase_normalized$`New Class` & Var2 %in% cazy_normalized$cazy.family) -> edges
+
+edges %>%
+  igraph::graph.data.frame(directed=FALSE) -> g
+
+V(g)$type <- V(g)$name %in% edges[,2] #the second column of edges is TRUE type
+E(g)$weight <- as.numeric(edges[,3])
+
+g %>%
+  #igraph::add_layout_(igraph::as_bipartite()) %>%
+  igraph::plot.igraph()
+
+
+
+
+```
 

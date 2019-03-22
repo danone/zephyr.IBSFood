@@ -8,7 +8,7 @@ output: html_notebook
 ```{r, message=FALSE, warning=FALSE}
 
 
-library(tsne)
+library(Rtsne)
 library(dplyr)
 
 
@@ -51,9 +51,9 @@ hydrolase_count_rescaled %>%
 
 
 
-?tsne::tsne
 
-hydrolase_tsne = tsne::tsne(hydrolase_count_rescaled_by_msp[,-c(1:2)],perplexity=50)
+
+hydrolase_tsne = Rtsne::Rtsne(hydrolase_count_rescaled_by_msp[,-c(1:2)] %>% distinct() ,perplexity=50)
 
 
 

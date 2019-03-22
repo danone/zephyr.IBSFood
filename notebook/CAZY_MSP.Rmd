@@ -51,7 +51,7 @@ data("MSP_genes_id_corresp")
 
 
 
-metahit.sqlite.db <- src_sqlite("/tmp/metahit.v2.sqlite.db")
+metahit.sqlite.db <- src_sqlite("/opt/sqlite/metahit.v2.sqlite.db")
 #metahit.sqlite.db <- src_sqlite("/lustre/samba/samba_write/tapj/metahit.v2.sqlite.db")
 
 
@@ -84,7 +84,9 @@ cazy_sqlite <- tbl(metahit.sqlite.db, "cazy")
 
 MSP_CAZY_df =
 MSP_genes_id_corresp %>%
-  merge(.,cazy_sqlite, by.x="gene_name_v2", by.y="genes.id")
+  merge(.,cazy_sqlite, by.x="gene_name_v2", by.y="genes_id")
+
+MSP_CAZY_df %>% head
   
 write.csv2(MSP_CAZY_df,file="MSP_CAZY_df.csv")
 
@@ -113,6 +115,31 @@ MSP_CAZY_df %>%
 ```
 
 
+# export cazy MSP count rescaled
+```{r}
 
+
+counts_rescaled %>% 
+  merge(., MSP_genes_id_corresp %>% select(msp_name,module_name,gene_name_v2), by.x="genes.id", by.y="gene_name_v2",all=FALSE) %>% 
+  merge(., cazy_sqlite, by.y="genes_id", by.x="genes.id", all=FALSE) %>%
+  select(-genes.id,-length,-module_name) -> MSP_cazy_df
+
+
+
+# MSP_KO_df %>%
+#   reshape2::melt(id.vars=c("msp_name","KO")) %>%
+#   filter(value>0)-> MSP_KO_df_melt
+# 
+# write.csv2(MSP_KO_df_melt, file = "MSP_KO_df_melt.csv")
+
+
+MSP_cazy_df %>% 
+  select(-row_names) %>%
+  group_by(msp_name,cazy_family) %>%
+  summarise_all(sum) -> MSP_cazy_counts
+
+write.csv2(MSP_cazy_counts, file="MSP_cazy_counts.csv")
+
+```
 
 
