@@ -14,6 +14,8 @@ library(dplyr)
 library(ggplot2)
 
 data("hydrolase_hit")
+data("cazy_counts")
+data("total_reads")
 data("MSP_genes_id_corresp")
 data("MSP_tax")
 data("IBSData")
@@ -51,7 +53,7 @@ hydrolase_hit %>%
 
 
 
-```{r}
+```{r, eval=FALSE, include=FALSE}
 
 
 hydrolase_hit %>%
@@ -71,6 +73,8 @@ save(hydrolase_count_rescaled, file="hydrolase_count_rescaled.rda")
 
 
 ```{r}
+
+load("hydrolase_count_rescaled.rda")
 
 hydrolase_count_rescaled %>%
   group_by(`New Class`) %>%
@@ -133,6 +137,36 @@ hydrolase_count_rescaled %>%
   ggplot() + geom_boxplot(aes(y=value+10^-6,x=SSgroup)) + facet_wrap(~`New Class`, scales="free_y") + scale_y_log10()
 
 
+
+hydrolase_count_rescaled %>%
+  group_by(`New Class`) %>%
+  summarise_at(vars(contains("M",ignore.case = FALSE)), sum) %>%
+  mutate_at(vars(contains("M",ignore.case = FALSE)), function(x){x/sum(x)}  ) %>%
+  #as.data.frame() %>%
+  #tibble::column_to_rownames("New Class") %>%
+
+  reshape2::melt(id.vars="New Class") %>%
+  merge(
+    IBSData$metadata %>%
+  filter(Visit=="V4", Sample_type=="Stool"),
+  by.y="Patient_ID",
+  by.x="variable"
+    
+  ) %>%
+  merge(enterotypes %>% filter(Visit=="V4"), by.x="variable", by.y="Patient_ID") %>%
+  filter(!is.na(value)) %>%
+  filter(!is.na(SSgroup)) %>%
+  group_by(`New Class`) %>%
+  mutate(IBS.Severity.Score = ifelse(SSgroup=="control",0,IBS.Severity.Score)) %>%
+  mutate(SSgroup = as.numeric(SSgroup)) %>%
+  #do(with(.,cor.test(data=., .$value , .$IBS.Severity.Score, method="spearman") %>% broom::tidy())) 
+  #filter(SSgroup %in% c(1,4)) %>%
+  do(with(.,cor.test(data=., .$value , .$SSgroup, method="spearman") %>% broom::tidy())) 
+
+
+
+
+
 hydrolase_count_rescaled %>%
   group_by(`New Class`) %>%
   summarise_at(vars(contains("M",ignore.case = FALSE)), sum) %>%
@@ -169,7 +203,7 @@ hydrolase_count_rescaled %>%
   tibble::column_to_rownames("New Class") %>%
   t %>%
   na.omit() %>%
-  add(10^-6) %>%
+  magrittr::add(10^-6) %>%
   log10() %>%
   ade4::dudi.pca(scannf=F, nf=10) -> hydrogene_pca
 
@@ -292,11 +326,13 @@ hydrolase_count_rescaled %>%
 
 ```{r}
 
-load("hydrolase_count_rescaled.rda")
 
 
 
-cazy_counts = read.csv2("cazy_counts.csv", row.names = 1) 
+
+#cazy_counts = read.csv2(system.file("cazy_counts.csv"), row.names = 1) 
+
+
 
 hydrolase_count_rescaled %>% 
   ungroup() %>%
@@ -312,10 +348,10 @@ hydrolase_count_rescaled %>%
 
 
 cazy_counts %>% 
-  reshape2::melt(id.vars="cazy.family") %>%
+  reshape2::melt(id.vars="cazy_family") %>%
   merge(total_reads %>% as.matrix %>% as.data.frame, by.y="row.names", by.x="variable") %>%
   mutate(value=value/V1) %>%
-  reshape2::dcast(`cazy.family`~variable, value.var = "value") -> cazy_normalized
+  reshape2::dcast(`cazy_family`~variable, value.var = "value") -> cazy_normalized
 
 
 
@@ -328,15 +364,18 @@ cazy_counts %>%
 
 ```{r fig.height=10, fig.width=10}
 
+library(igraph)
+library(ggraph)
+
 hydrogenase_normalized %>% 
-  dplyr::rename(cazy.family = `New Class`) %>%
+  dplyr::rename(cazy_family = `New Class`) %>%
   rbind(cazy_normalized) %>%
-  tibble::column_to_rownames("cazy.family") %>%
+  tibble::column_to_rownames("cazy_family") %>%
   t() %>%
   cor(method="spearman") %>%
   reshape2::melt() %>%
   filter(abs(value) > 0.4) %>%
-  filter(Var1 %in% hydrogenase_normalized$`New Class` & Var2 %in% cazy_normalized$cazy.family) -> edges
+  filter(Var1 %in% hydrogenase_normalized$`New Class` & Var2 %in% cazy_normalized$cazy_family) -> edges
 
 edges %>%
   igraph::graph.data.frame(directed=FALSE) -> g
@@ -350,6 +389,133 @@ g %>%
 
 
 
+
+```
+
+```{r}
+
+
+
+#https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4365749/
+# and smiths 2017 and ragideau and cantarel 2012
+
+cazy_mucinase_acivity = 
+  c("GH33","CBM40","GH29","CBM32",
+    "GH95","CBM51","GH98","GH101",
+    "GH129","GH20","GH2","GH42",
+    "GH84","GH89", "CBM40")
+
+cazy_fiber_activity = 
+  c("GH3","GH5","GH8","GH9",
+    "GH10","GH13","GH16","GH26",
+    "GH28","GH30","GH32","GH39",
+    "GH32","GH39","GH43","GH44",
+    "GH48","GH51","GH74","GH91",
+    "GH115","GH120","GH127","PL1",
+    "PL9","PL11")
+
+
+Plant_Cell_Wall = c("GH1", "GH2", "GH3", "GH4", "GH5", "GH8", "GH9", "GH11", "GH12", "GH15", "GH16", "GH17", "GH26", "GH27", "GH28", "GH36", "GH39", "GH43", "GH44", "GH48", "GH51", "GH53", "GH55", "GH67", "GH74", "GH78", "GH93", "GH94", "GH95", "GH115", "GH117", "GH121", "PL1", "PL2", "PL6", "PL7", "PL9", "PL11", "PL15", "PL22", "CBM9")
+
+
+
+Animal = c("GH1", "GH2", "GH3", "GH4", "GH18", "GH19", "GH20", "GH29", "GH33", "GH38", "GH58", "GH79", "GH84", "GH85", "GH88", "GH89", "GH92", "GH95", "GH98", "GH99", "GH101", "GH105", "GH109", "GH110", "GH113", "PL6", "PL8", "PL12", "PL13", "PL21", "GH123")
+
+
+Mucin = c("GH2", "GH20", "GH27", "GH29", "GH33", "GH35", "GH36", "GH95", "GH89", "GH110", "GH129")
+
+Mucin = c(Mucin,cazy_mucinase_acivity) %>% unique
+
+Peptidoglycan = c("GH23", "GH24", "GH25", "GH73", "GH102", "GH103", "GH104", "GH108")
+
+Starch_Glycogen = c("GH13", "GH15", "GH57", "GH77", "CBM34", "CBM48")
+
+Sucrose_Fructans = c("GH32", "GH68", "GH70", "GH91", "CBM66")
+
+#Fungal = c("GH5", "GH8", "GH16", "GH18", "GH19", "GH20", "GH55", "GH64", "GH71", "GH81")
+#Dextran= c("GH66", "GH70", "GH87")
+
+Plant_based = c(cazy_fiber_activity, Plant_Cell_Wall, Starch_Glycogen, Sucrose_Fructans) %>% unique
+
+
+
+cazy_substrates = 
+rbind(
+  
+  data.frame(cazy=Plant_based,substrates="01 Plant_based"),
+  data.frame(cazy=Animal,substrates="02 Animal or Mucin"),
+  data.frame(cazy=Mucin, substrates="02 Animal or Mucin"),
+  data.frame(cazy=Peptidoglycan, substrates="03 Peptidoglycan")
+  
+) %>% unique
+
+cazy_substrates$substrates = as.character(cazy_substrates$substrates)
+
+cazy_substrates %>%
+  filter(cazy=="GT71")
+
+
+```
+
+## create network hydrogenase vs cazy
+
+```{r}
+
+library(igraph)
+library(ggraph)
+
+hydrogenase_normalized %>% 
+  dplyr::rename(cazy_family = `New Class`) %>%
+  rbind(cazy_normalized) %>%
+  tibble::column_to_rownames("cazy_family") %>%
+  t() %>%
+  cor(method="spearman") %>%
+  reshape2::melt() %>%
+  filter(abs(value) > 0.4) %>%
+  filter(Var1 %in% hydrogenase_normalized$`New Class` & Var2 %in% cazy_normalized$cazy_family) -> edges
+
+set.seed(131082)
+edges  %>% 
+  mutate(remove=grepl("CE|AA",Var2)) %>%
+  filter(remove!=TRUE) %>%
+  select(-remove) %>%
+  graph_from_data_frame() -> g
+
+V(g)$label = names(V(g)) %>% gsub(" Group "," ", .)
+
+V(g)$Family = V(g)$label %>%  grepl("\\[",.) %>% ifelse(.,"Hydrogenase","CAZy")
+
+g_metadata = 
+merge(data.frame(cazy = V(g)$label, `Functional\nfamily` = V(g)$Family), cazy_substrates,  all.x = TRUE ) %>%
+  mutate(substrates = ifelse(is.na(substrates)  , "Others"  , as.character(substrates) ))
+
+#V(g) %>% length
+#g_metadata$substrates %>% length
+
+
+V(g)$substrates = g_metadata$substrates
+
+
+set.seed(131082)
+p_network =
+  ggraph(g,'igraph', algorithm = 'nicely') +
+    #geom_edge_link() +
+   geom_edge_link(aes(start_cap = circle(3, 'mm'),
+                        end_cap = circle(3, 'mm'))) + 
+  geom_node_point(aes(shape=Family, col=substrates), alpha=0.9, size=10) +
+  geom_node_text(aes(label=label), size=2) +
+  #scale_size_manual(values=2) +  
+  scale_color_manual("CAZy\nassociated\nglycans", 
+                     values = c("#1b9e77","#d95f02","#7570b3","grey"), 
+                     labels = c("Plant based","Meat or Mucins","Peptidoglycan","Others")) +  
+  scale_shape_discrete("Functional\nfamily") +
+  theme_void() + 
+    guides(shape = guide_legend(override.aes = list(size = 3)), color = guide_legend(override.aes = list(size = 3)))
+  #theme(legend.position = "none")
+p_network 
+  ggsave("Network_Figure_Hydrogenase_Cazy.pdf", h = 5, w = 8)
+  
+#ggraph(g,'igraph', algorithm = 'nicely') %>% unclass
 
 ```
 
