@@ -194,6 +194,18 @@ hydrolase_count_rescaled %>%
 
 ```{r}
 
+hydrolase_count_rescaled %>% 
+  ungroup() %>%
+  group_by(`New Class`) %>%
+  select(contains("M", ignore.case = FALSE)) %>%
+  summarise_all(sum) %>%
+  reshape2::melt(id.vars="New Class") %>%
+  merge(total_reads %>% as.matrix %>% as.data.frame, by.y="row.names", by.x="variable") %>%
+  mutate(value=value/V1) %>%
+  reshape2::dcast(`New Class`~variable, value.var = "value") -> hydrogenase_normalized
+
+
+
 
 hydrolase_count_rescaled %>%
   group_by(`New Class`) %>%
@@ -204,9 +216,78 @@ hydrolase_count_rescaled %>%
   t %>%
   na.omit() %>%
   magrittr::add(10^-6) %>%
-  log10() %>%
-  ade4::dudi.pca(scannf=F, nf=10) -> hydrogene_pca
+  log10() -> hydrogenase_norm
 
+
+  #ade4::dudi.pca(hydrogenase_normalized %>% tibble::column_to_rownames("New Class") %>% t %>% as.data.frame, scannf=F, nf=10) -> hydrogene_pca
+
+ade4::dudi.pca(hydrogenase_norm, scannf=F, nf=10) -> hydrogene_pca
+
+  ade4::s.label(hydrogene_pca$co, yax=3, xax=1)
+
+  
+  H = hydrogenase_normalized %>% tibble::column_to_rownames("New Class") %>% t %>% as.data.frame %>% #magrittr::add(10^-6) %>%  magrittr::add(10^-6) %>%
+    
+  merge(enterotypes %>% filter(Visit=="V4"), by.x="row.names", by.y="Patient_ID") %>%
+  merge(
+    IBSData$metadata %>%
+  filter(Visit=="V4", Sample_type=="Stool"),
+  by.y="Patient_ID",
+  by.x="Row.names"
+    
+  ) 
+  
+  
+  H %>%
+     filter(SSgroup %in% c("control","severe")) %>%
+     tibble::column_to_rownames("Row.names") %>%
+    select(contains("[FeFe")) -> H_select
+    
+    
+  
+  
+  
+  dis1 = ade4::discrimin(ade4::dudi.pca(H_select, scannf=FALSE), fac= H %>%
+     filter(SSgroup %in% c("control","severe")) %>%
+     tibble::column_to_rownames("Row.names") %>% .$SSgroup %>% as.character %>% as.factor, scan=FALSE)
+  
+  plot(dis1)
+  
+  ade4::randtest(dis1)
+
+  
+  
+  dis1$va %>%
+    as.data.frame() %>%
+    tibble::rownames_to_column("Hydrogenase") %>%
+    ggplot() + geom_bar(aes(x=Hydrogenase, y=CS1), stat="identity") +
+    coord_flip() + 
+    ylab("LDA scores\n(association with\nsymptoms severity)") + 
+    cowplot::theme_cowplot() -> LDA_hydrogenase_plot
+  
+  
+  
+  H %>%
+    select(contains("[FeFe"), SSgroup) %>%
+    na.omit() %>%
+    reshape2::melt(id.vars="SSgroup") %>%
+    filter(SSgroup %in% c("control","severe")) %>%
+    #mutate(value=10^value) %>%
+    filter(variable %in% c("[FeFe] Group A3")) %>%
+    ggplot() + geom_boxplot(aes(x=SSgroup,y=value)) + facet_wrap(~variable, scales = "free_y") +
+    #scale_y_log10() +
+    ylab("rel. abundance") +
+    xlab("Symptoms severity") +
+    cowplot::theme_cowplot() -> FeFe_A3_severity_plot
+  
+  
+  
+  
+```
+
+```{r}
+
+  
 
 hydrogene_pca$li %>%
   merge(enterotypes %>% filter(Visit=="V4"), by.x="row.names", by.y="Patient_ID") %>%
@@ -267,8 +348,6 @@ hydrogene_pca$li %>%
   
   ade4::s.label(hydrogene_pca$co, yax=3, xax=1)
   
-
-
 ```
 
 
@@ -367,11 +446,15 @@ cazy_counts %>%
 library(igraph)
 library(ggraph)
 
+
+
 hydrogenase_normalized %>% 
+  #mutate_at(vars(contains("M",ignore.case = FALSE)), function(x){x/sum(x)}  ) %>%
+  as.data.frame %>%
   dplyr::rename(cazy_family = `New Class`) %>%
   rbind(cazy_normalized) %>%
   tibble::column_to_rownames("cazy_family") %>%
-  t() %>%
+  t() %>% #na.omit() %>%
   cor(method="spearman") %>%
   reshape2::melt() %>%
   filter(abs(value) > 0.4) %>%
@@ -391,6 +474,7 @@ g %>%
 
 
 ```
+
 
 ```{r}
 
@@ -465,10 +549,11 @@ library(igraph)
 library(ggraph)
 
 hydrogenase_normalized %>% 
+  #mutate_at(vars(contains("M",ignore.case = FALSE)), function(x){x/sum(x)}  ) %>%
   dplyr::rename(cazy_family = `New Class`) %>%
   rbind(cazy_normalized) %>%
   tibble::column_to_rownames("cazy_family") %>%
-  t() %>%
+  t() %>% #na.omit %>%
   cor(method="spearman") %>%
   reshape2::melt() %>%
   filter(abs(value) > 0.4) %>%
@@ -518,4 +603,37 @@ p_network
 #ggraph(g,'igraph', algorithm = 'nicely') %>% unclass
 
 ```
+
+
+
+
+```{r, fig.height=6, fig.width=10}
+
+
+cowplot::plot_grid(p_network, cowplot::plot_grid(LDA_hydrogenase_plot, FeFe_A3_severity_plot, nrow=2, labels = c("B","C")), nrow=1, rel_widths = c(2,1), labels = c("A",NULL))
+
+ggsave("cazy_hydrogenase_network_LDA.pdf", h=6,w=10)
+
+
+```
+
+
+
+```{r}
+
+H %>%
+  select(`Row.names`, contains("[FeFe"), SSgroup) %>%
+  na.omit() %>%
+  reshape2::melt(id.vars=c("SSgroup","Row.names")) %>%
+  group_by(`Row.names`,SSgroup) %>%
+  filter(SSgroup %in% c("control","severe" )) %>%
+  summarize(value=sum(value)) %>%
+  #with(.,wilcox.test(.$value~ .$SSgroup ,data=.))
+  ggplot() + geom_boxplot(aes(x=SSgroup,y=value))
+
+
+
+
+```
+
 
