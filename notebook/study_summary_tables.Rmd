@@ -30,10 +30,50 @@ subject_metaG = genes_richness_1M %>% row.names()
 subject_food = food_data %>% .$Identity %>% unique
 
 
+c(subject_metaG,subject_food) %>% unique %>% length
+
+intersect(subject_metaG,subject_food) %>% unique %>% length
 
 
 ```
 
+
+### load raw data
+```{r}
+
+study_cohort_global_metadata =
+
+readxl::read_xlsx(system.file("data-raw/MOSAIC food groups.xlsx", package="IBSFood"), sheet = 2) %>%
+  select(1,2,3,4,`IBS Severity Score`) %>%
+  dplyr::rename(Patient_ID=`Pat.nr`, Health=Patient) %>%
+  mutate(Health=ifelse(Health==1,"patient","control"), Gender=ifelse(Gender==1,"F","M")) %>%
+  mutate(SSgroup =  case_when(`IBS Severity Score` <= 175 ~ "mild",
+                              `IBS Severity Score` <= 300 ~ "moderate",
+                              `IBS Severity Score` > 300 ~ "severe")) %>%
+  mutate(SSgroup = ifelse(Health=="control", "control",SSgroup))
+  
+
+# 
+# study_cohort_global_metadata =
+#   
+# readxl::read_xlsx(system.file("data-raw/MOSAIC food groups.xlsx", package="IBSFood"), sheet = 3) %>%
+#   select(1,BMI) %>%
+#   mutate(ID=ID%>%gsub(" ,3d", "", .)) %>%
+#   merge(study_cohort_global_metadata,., by.y="ID", by.x="Patient_ID", all.x=TRUE) 
+#   
+
+study_cohort_global_metadata =
+  
+readxl::read_xlsx(system.file("data-raw/lactulose_ibs_metadata.xlsx", package="IBSFood"), sheet = 2) %>%
+  select(Patient_ID,Height, Weight, BMI, H2,CH4,`IBS_subtype_docvisit..1.IBS.C..2.IBS.D..3.IBS.M..4.IBS.U.`, `HAD.ANXIETY`, `HAD.DEPRES`) %>%
+  mutate(BMI  =  BMI %>% as.numeric, H2 = H2 %>% as.numeric, CH4 = CH4 %>% as.numeric) %>%
+  dplyr::rename(IBS_subtype = `IBS_subtype_docvisit..1.IBS.C..2.IBS.D..3.IBS.M..4.IBS.U.`) %>%
+  merge(study_cohort_global_metadata,., by="Patient_ID", all.x=TRUE) 
+
+
+
+
+```
 
 
 
@@ -42,8 +82,8 @@ subject_food = food_data %>% .$Identity %>% unique
 
 study_global_metadata = 
 
-IBSData$metadata %>%
-  select(Patient_ID,Health,Gender,Age,BMI,SSgroup) %>%
+study_cohort_global_metadata %>%
+  select(Patient_ID,Health,Gender,Age, BMI,SSgroup, `IBS Severity Score`, H2, CH4, IBS_subtype, HAD.ANXIETY, HAD.DEPRES) %>%
   arrange(Patient_ID) %>%
   unique() %>%
   filter(Patient_ID %in% unique(c(subject_metaG,subject_food))) %>%
@@ -54,6 +94,12 @@ IBSData$metadata %>%
            
 
 write.csv2(study_global_metadata,file="study_global_metadata.csv")
+
+
+
+merge(data.frame(subject_metaG,metaG_data="Yes"), data.frame(subject_food,food_data="Yes"), by.x="subject_metaG", by.y="subject_food", all = TRUE) %>% dim
+  
+
 
 
 
