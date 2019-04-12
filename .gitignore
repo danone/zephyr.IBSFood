@@ -6,3 +6,5 @@ data-raw/*.xlsx
 *.html
 *.csv
 *.rda
+*.png
+*.pdf
