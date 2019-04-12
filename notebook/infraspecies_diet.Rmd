@@ -2416,16 +2416,19 @@ infraspecies %>%
 
 merge(meat_plant_ratio, by.x="variable",
   enterotypes, by.y="Patient_ID") %>%
-  ggplot() + geom_boxplot(aes(x=enterotypes %>% as.character,y=meat_plant_ratio))
+  filter(Visit=="V4") %>%
+  ggplot() + geom_boxplot(aes(x=enterotypes %>% as.character,y=Alcohol))
 
 
 
 merge(meat_plant_ratio, by.x="variable",
   enterotypes, by.y="Patient_ID") %>%
-  select(meat_plant_ratio, enterotypes) %>%
+  filter(Visit=="V4") %>%
+  select(-Visit,-Sample_ID,-variable) %>%
+  #select(meat_plant_ratio, enterotypes) %>%
   reshape2::melt(id.vars="enterotypes") %>%
   group_by(variable) %>%
-  do(w = with(.,pairwise.wilcox.test(value,enterotypes, p.adjust="fdr"))) %>% broom::tidy(w)
+  do(w = with(.,pairwise.wilcox.test(value,enterotypes, p.adjust="none"))) %>% broom::tidy(w)
 
 
 
@@ -2433,7 +2436,8 @@ merge(meat_plant_ratio, by.x="variable",
   cazotypes, by.y="row.names") %>%
   merge(., by.x="variable",
   enterotypes, by.y="Patient_ID") %>%
-  ggplot() + geom_boxplot(aes(x=as.character(cazotype),y=meat_plant_ratio))
+  filter(Visit=="V4") %>%
+  ggplot() + geom_boxplot(aes(x=as.character(cazotype),y=Alcohol))
 
 
 
@@ -2441,10 +2445,12 @@ merge(meat_plant_ratio, by.x="variable",
   cazotypes, by.y="row.names") %>%
   merge(., by.x="variable",
   enterotypes, by.y="Patient_ID") %>%
-  select(meat_plant_ratio, cazotype) %>%
+  filter(Visit=="V4") %>%
+  select(-Visit,-Sample_ID,-variable, -enterotypes) %>%
+  #select(meat_plant_ratio, enterotypes) %>%
   reshape2::melt(id.vars="cazotype") %>%
   group_by(variable) %>%
-  do(w = with(.,pairwise.wilcox.test(value,cazotype, p.adjust="fdr"))) %>% broom::tidy(w)
+  do(w = with(.,pairwise.wilcox.test(value,cazotype, p.adjust="none"))) %>% broom::tidy(w) %>% mutate(p.value=round(p.value,3))
 
 
 merge(meat_plant_ratio, by.x="variable",
@@ -2476,7 +2482,7 @@ enterotypes %>%
   scale_fill_brewer(type="qual", palette = "Set1") +
   #geom_tile(aes(x = rep("Visit",length(enterotypes)), y=1:length(enterotypes),  fill=Visit %>% as.character)) +
   #geom_tile(aes(x = rep("cazotypes",length(enterotypes)), y=1:length(enterotypes),  fill=cazotype %>% as.character)) +
-  coord_flip() + theme_minimal() + xlab("") + ylab("") + guides(fill=FALSE),
+  coord_flip() + theme_minimal() + xlab("") + ylab(""),# + guides(fill=FALSE),
 
 enterotypes %>%
   filter(Visit=="V4") %>%
@@ -2487,7 +2493,7 @@ enterotypes %>%
   scale_fill_brewer(type="qual", palette = "Set2") +
   #geom_tile(aes(x = rep("Visit",length(enterotypes)), y=1:length(enterotypes),  fill=Visit %>% as.character)) +
   geom_tile(aes(x = rep("cazotypes",length(enterotypes)), y=1:length(enterotypes),  fill=cazotype %>% as.character)) +
-  coord_flip() + theme_minimal() + xlab("") + ylab("") + guides(fill=FALSE),
+  coord_flip() + theme_minimal() + xlab("") + ylab(""), #+ guides(fill=TRUE),
 
 nrow=2,
 align = "v"
