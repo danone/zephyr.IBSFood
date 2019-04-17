@@ -3,3 +3,5 @@ infraspecies_jsd
 *.pdf
 *_cache
 Figures
+*.md
+*.html

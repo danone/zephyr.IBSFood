@@ -553,7 +553,8 @@ merge(OTU %>% prop.table(2) ,TAX, by="row.names") %>%
     group_by(Hierarchy,Type) %>%
     summarize(cor_A1 = cor(Gram, A1, method="spearman"), cor_A2=cor(Gram, A2, method="spearman"), cor_A3=cor(Gram, A3, method="spearman")) -> cor_food_tree_res
 
-
+#to clean figure because there are doublons
+food_to_remove = c("Eggs and egg dishes","Nuts and seeds", "Coffee and tea", "Legumes")
 
 unifrac_pco$li %>%
   merge(.,
@@ -566,7 +567,7 @@ unifrac_pco$li %>%
    ) %>%
 ggplot() + geom_point(aes(x=A1*2,y=A2*2, shape=Health, color=Gender), size=4) +
     
-    geom_point(data=cor_food_tree_res %>% filter(abs(cor_A1)>0.3 | abs(cor_A2)>0.3 ), aes(x=cor_A1,y = cor_A2)) + ggrepel::geom_text_repel(data=cor_food_tree_res %>% filter(abs(cor_A1)>0.3 | abs(cor_A2)>0.3 ), aes(x=cor_A1,y = cor_A2,label=Type)) + 
+    geom_point(data=cor_food_tree_res %>% filter(abs(cor_A1)>0.3 | abs(cor_A2)>0.3 ), aes(x=cor_A1,y = cor_A2)) + ggrepel::geom_text_repel(data=cor_food_tree_res %>% filter(!Type %in% food_to_remove) %>% filter(!(Hierarchy=="Food groups lvl2"& Type=="substitutes for milk")) %>% filter(abs(cor_A1)>0.3 | abs(cor_A2)>0.3 ), aes(x=cor_A1,y = cor_A2,label=Type)) + 
     xlab("PCoA1") + ylab("PCoA2") -> food_tree_unifrac_pcoa_plot
 
 
@@ -1078,15 +1079,15 @@ diet_plot = cowplot::plot_grid(
     
     cowplot::plot_grid(
       Gender_pcoa_plot+ cowplot::theme_cowplot(),
-      Severity_pcoa_plot+ cowplot::theme_cowplot() + xlab("Symptoms severity"), nrow=2, labels=c("B","C")),
+      Severity_pcoa_plot+ cowplot::theme_cowplot() + xlab("Symptoms severity"), nrow=2, labels=c("D","E")),
     rel_widths = c(4,1.2), labels=c("A","")),
   
   cowplot::plot_grid(
     meat_plant_pcoa_plot+ cowplot::theme_cowplot(),
-    nutriscore_DI_plot+ cowplot::theme_cowplot(), 
+    nutriscore_DI_plot+ ylab("FSA-NPS\nDiet Index") + cowplot::theme_cowplot(), 
     #nutriscore_severity_plot + cowplot::theme_cowplot() + theme(axis.text.x = element_text(angle = 45, hjust = 1)), 
     nutriscore_severity_plot + cowplot::theme_cowplot() ,
-    rel_widths = c(1,1,1.3),nrow=1, labels=c("D","E","F")), nrow = 2, rel_heights = c(2,1))
+    rel_widths = c(1,1,1.3),nrow=1, labels=c("B","C","F")), nrow = 2, rel_heights = c(2,1))
 
 
 print(diet_plot)
