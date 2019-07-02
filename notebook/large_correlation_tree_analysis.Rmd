@@ -887,7 +887,7 @@ ggsave("p_erectale_infraspecies.pdf")
 
 cowplot::plot_grid(
   cowplot::plot_grid(dendro,p_R2_lineage, nrow=2, rel_heights = c(2,1), labels = c("A","C")),
-  cowplot::plot_grid(p_erectale_infraspecies,p_cazotypes_read_mass,nrow=2, labels = c("B","D")), 
+  cowplot::plot_grid(p_cazotypes_read_mass,p_erectale_infraspecies,nrow=2, labels = c("B","D")), 
   ncol=2, rel_widths = c(2,1))
 
 ggsave("Figure2_infraspecies_diet_cazotypes.pdf")

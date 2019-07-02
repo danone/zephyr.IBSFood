@@ -485,9 +485,9 @@ gas_microbiota_predict =
 # ggsave("microbiota_H2_CH4_plot.pdf")
 # 
 # 
-# cbind(predicted_gas=gas_microbiota_predict,observed_gas=microbiota_data_gas %>% filter(group=="test") %>% .$H2_CH4) %>% na.omit %>% as.data.frame %>%
-#   
-#   with(.,cor.test(.$predicted_gas, .$observed_gas, method="pearson"))
+ cbind(predicted_gas=gas_microbiota_predict,observed_gas=microbiota_data_gas %>% filter(group=="test") %>% .$H2_CH4) %>% na.omit %>% as.data.frame %>%
+   
+   with(.,cor.test(.$predicted_gas, .$observed_gas, method="pearson"))
 
 
 ```

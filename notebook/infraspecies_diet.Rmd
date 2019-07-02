@@ -2478,8 +2478,8 @@ enterotypes %>%
   merge(.,cazotypes, by.x="Patient_ID", by.y="row.names") %>%
   arrange(enterotypes) %>%
   ggplot() + 
-  geom_tile(aes(x = rep("ET",length(enterotypes)), y=1:length(enterotypes),  fill=enterotypes %>% as.character)) + 
-  scale_fill_brewer(type="qual", palette = "Set1") +
+  geom_tile(aes(x = rep(" ",length(enterotypes)), y=1:length(enterotypes),  fill=enterotypes %>% as.character)) + 
+  scale_fill_brewer("Enterotypes",type="qual", palette = "Set1") +
   #geom_tile(aes(x = rep("Visit",length(enterotypes)), y=1:length(enterotypes),  fill=Visit %>% as.character)) +
   #geom_tile(aes(x = rep("cazotypes",length(enterotypes)), y=1:length(enterotypes),  fill=cazotype %>% as.character)) +
   coord_flip() + theme_minimal() + xlab("") + ylab(""),# + guides(fill=FALSE),
@@ -2490,9 +2490,9 @@ enterotypes %>%
   arrange(enterotypes) %>%
   ggplot() + 
   #geom_tile(aes(x = rep("ET",length(enterotypes)), y=1:length(enterotypes),  fill=enterotypes %>% as.character)) + 
-  scale_fill_brewer(type="qual", palette = "Set2") +
+  scale_fill_brewer("CAZotypes",type="qual", palette = "Set2") +
   #geom_tile(aes(x = rep("Visit",length(enterotypes)), y=1:length(enterotypes),  fill=Visit %>% as.character)) +
-  geom_tile(aes(x = rep("cazotypes",length(enterotypes)), y=1:length(enterotypes),  fill=cazotype %>% as.character)) +
+  geom_tile(aes(x = rep(" ",length(enterotypes)), y=1:length(enterotypes),  fill=cazotype %>% as.character)) +
   coord_flip() + theme_minimal() + xlab("") + ylab(""), #+ guides(fill=TRUE),
 
 nrow=2,

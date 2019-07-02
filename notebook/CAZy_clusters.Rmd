@@ -185,14 +185,14 @@ write.csv2(cazy_counts, file="cazy_counts.csv")
 
 ```{r, message=FALSE, warning=FALSE}
 
-fiber_cazy_select = c("GH3","GH5","GH8","GH9","GH10","GH13","GH16","GH26","GH28","GH30","GH32","GH39","GH32","GH39","GH43","GH44","GH48","GH51","GH74","GH91","GH115","GH120","GH127","PL1","PL9","PL11")
+fiber_cazy_select = c("GH3","GH5","GH8","GH9","GH10","GH13","GH16","GH26","GH28","GH30","GH32","GH39","GH39","GH43","GH44","GH48","GH51","GH74","GH91","GH115","GH120","GH127","PL1","PL9","PL11")
 
 cazy_select = cazy_counts$cazy.family %>% grep("GH|PL",., value = TRUE)
 
 data("cazy_counts")
 
 cazy_counts %>%
-  #filter(cazy.family %in% cazy_select) %>%
+  filter(cazy_family %in% cazy_select) %>%
   as.data.frame %>%
   mutate(cazy_family=cazy_family%>% as.character) %>%
   tibble::column_to_rownames("cazy_family") %>%
@@ -251,6 +251,12 @@ cazy_counts %>%
 cazotypes = read.csv2("cazotypes.csv", row.names = 1)
 cazy_counts = read.csv2("cazy_counts.csv")
 
+
+
+```
+
+```{r}
+
 data("cazy_counts")
 
 cazy_counts %>%
@@ -266,7 +272,12 @@ cazy_counts %>%
   #filter(Var1 %in% c("GH13","GH92","GH2","GH25","GH97","GH20","GH3","GH77","GH88")) %>%
   #filter(Var1 %in% c("GH13","GH92","GH2","GH25","GH97","GH20","GH3","GH77","GH88")) %>%
   filter(Var1 %in% c("CBM32","GT2","CBM37","GH13","GH92","GH43","GH2","GH25","GH97","GH20")) %>%
-  ggplot() + geom_boxplot(aes(x=cazotype %>% as.character,y=value)) + facet_wrap(~Var1, scale="free_y") + scale_y_log10()
+  ggplot() + 
+  geom_boxplot(aes(x=cazotype %>% as.character,y=value)) + 
+  facet_wrap(~Var1, scale="free_y") + scale_y_log10("rel. abundance") +
+  xlab("CAZotypes") +
+  cowplot::theme_cowplot()
+  
 
 
 
@@ -274,7 +285,7 @@ cazy_counts %>%
 
 
 
-```{r, fig.height=10, fig.width=10}
+```{r}
 
 
 for (k in seq(ncol(fitted(best)))) {
@@ -285,7 +296,7 @@ for (k in seq(ncol(fitted(best)))) {
      arrange(value) %>%
      mutate(cazy = factor(cazy, levels = unique(cazy))) %>%
      # Only show the most important drivers
-     filter(abs(value) > quantile(abs(value), 0.8))     
+     filter(abs(value) > quantile(abs(value), 0.95))     
 
   p <- ggplot(d, aes(x = cazy, y = value)) +
        geom_bar(stat = "identity") +
