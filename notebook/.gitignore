@@ -5,3 +5,8 @@ infraspecies_jsd
 Figures
 *.md
 *.html
+data-raw
+genus_jsd
+infraspecies_phyloseq
+infraspecies_unifrac
+phylum_jsd
