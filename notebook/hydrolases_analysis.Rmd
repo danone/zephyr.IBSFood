@@ -285,6 +285,27 @@ ade4::dudi.pca(hydrogenase_norm, scannf=F, nf=10) -> hydrogene_pca
   
 ```
 
+
+```{r}
+
+load("nutriscore_DI.rda")
+
+
+nutriscore_DI %>%
+  merge(.,H, by.x="Patient_ID", by.y="Row.names") %>%
+  select(Patient_ID,nutriscore_DI, contains("[FeFe"), contains("[Fe]"), contains("[NiFe")) %>%
+  reshape2::melt(id.vars=c("Patient_ID","nutriscore_DI")) %>%
+  group_by(variable) %>%
+  do(with(.,cor.test(.$nutriscore_DI,.$value, method="spearman") %>% broom::tidy()))
+
+
+  
+
+
+```
+
+
+
 ```{r}
 
   
