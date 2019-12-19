@@ -204,7 +204,7 @@ rbind(
     
 ) -> compo_taxa_melt
 
-
+save(compo_taxa_melt, file="compo_taxa_melt.rda")
 
 
 compo_taxa_melt %>% head
@@ -263,8 +263,9 @@ compo_taxa_melt %>%
   group_by(tax_variable,taxa) %>%
   do(vegan::adonis2(food_unifrac %>% as.matrix %>% .[sort(id),sort(id)] %>% as.dist  ~ value , data=. ) %>% broom::tidy() %>% slice(1)  ) %>%
   arrange(p.value)
-  
 
+write.csv2(compo_taxa_food_unifrac_permanova,file = "compo_taxa_food_unifrac_permanova.csv")  
+#compo_taxa_food_unifrac_permanova %>% ggplot() + geom_point(aes(x=R2,y=-log10(p.value), color=p.value<0.05))
   
 compo_taxa_food_unifrac_permanova %>%
   filter(tax_variable=="msp_0070_cl_1")
