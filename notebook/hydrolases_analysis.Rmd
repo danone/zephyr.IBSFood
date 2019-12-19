@@ -460,6 +460,35 @@ cazy_counts %>%
 
 ```
 
+```{r}
+
+hydrogenase_normalized %>% 
+  #mutate_at(vars(contains("M",ignore.case = FALSE)), function(x){x/sum(x)}  ) %>%
+  as.data.frame %>%
+  dplyr::rename(functions = `New Class`) %>%
+  mutate(type="Hydrogenase") %>%
+  reshape2::melt(id.vars=c("functions","type")) %>%
+  merge(cazy_normalized %>% 
+          mutate(type="CAZy") %>% 
+          dplyr::rename(functions = cazy_family) %>% 
+          reshape2::melt(id.vars=c("functions","type")),
+        by="variable") %>%
+  group_by(functions.x,functions.y) %>%
+  do(with(.,cor.test(value.x,value.y,method="spearman") %>% broom::tidy())) -> test_cazy_hydrogenase
+
+
+ 
+test_cazy_hydrogenase %>% 
+  ungroup() %>%
+  mutate(fdr = p.value %>% p.adjust(method = "fdr")) %>%
+  ggplot() + geom_point(aes(x=estimate, y=-log10(fdr), color=fdr < 0.0001 )) + xlab("rho")
+  
+
+
+
+```
+
+
 
 
 ```{r fig.height=10, fig.width=10}
