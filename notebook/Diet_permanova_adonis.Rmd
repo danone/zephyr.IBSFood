@@ -136,4 +136,33 @@ vegan::adonis2(B  ~ Gender + SS + cazotype , data=et_grp[attr(B,"Label"),], by="
 
 
 
+## Visualisation
+
+
+```{r}
+
+B %>% 
+  broom::tidy() %>%
+  mutate(item1=item1 %>% as.character(), item2=item2%>% as.character()) %>%
+  #filter(item1==item2) %>%
+  merge(et_grp %>% select(cazotype), by.y="row.names", by.x="item1") %>%
+  merge(et_grp %>% select(cazotype), by.y="row.names", by.x="item2") %>%
+  filter(cazotype.x==cazotype.y) %>%
+  ggplot() + geom_boxplot(aes(y=distance,x=cazotype.x))
+
+
+# B %>%
+#   as.matrix %>%
+#   reshape2::melt() %>%
+#   filter(Var1!=Var2) %>%
+#   merge(et_grp %>% select(cazotype), by.y="row.names", by.x="Var1") %>%
+#   merge(et_grp %>% select(cazotype), by.y="row.names", by.x="Var2") %>%
+#   filter()
+#   ggplot() + geom_boxplot(aes(y=value,x=paste0(cazotype.x,cazotype.y)))
+#   
+  
+
+```
+
+
 
