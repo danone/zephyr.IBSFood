@@ -40,7 +40,7 @@ The aim of this notebook is to do **Dietary habit characterization and nutrient 
 library(dplyr)
 library(magrittr)
 library(reshape2)
-library(circlepackeR)
+#library(circlepackeR)
 #library(vegan)
 library(ggplot2)
 #library(DirichletMultinomial)
@@ -1167,6 +1167,42 @@ ggsave("Diet_PCoA_plot.pdf")
 
 
 ```
+
+
+incorportate the food tree
+
+```{r fig.height=20, fig.width=14}
+
+diet_plot = cowplot::plot_grid(
+  
+  cowplot::plot_grid(
+    food_tree_unifrac_pcoa_plot + cowplot::theme_cowplot(),  
+    
+    cowplot::plot_grid(
+      Gender_pcoa_plot+ cowplot::theme_cowplot(),
+      Severity_pcoa_plot+ cowplot::theme_cowplot() + xlab("Symptoms severity"), nrow=2, labels=c("E","F")),
+    rel_widths = c(4,1.2), labels=c("B","")),
+  
+  cowplot::plot_grid(
+    meat_plant_pcoa_plot+ cowplot::theme_cowplot(),
+    nutriscore_DI_plot+ ylab("FSA-NPS\nDiet Index") + cowplot::theme_cowplot(), 
+    #nutriscore_severity_plot + cowplot::theme_cowplot() + theme(axis.text.x = element_text(angle = 45, hjust = 1)), 
+    nutriscore_severity_plot + cowplot::theme_cowplot() ,
+    rel_widths = c(1,1,1.3),nrow=1, labels=c("C","D","G")), nrow = 2, rel_heights = c(2,1))
+
+
+load("food_tree_plot.rda")
+
+cowplot::plot_grid(
+  food_tree_plot,
+  diet_plot, nrow=2,labels=c("A","") )
+
+ggsave("Diet_PCoA_food_tree_plot.pdf")
+
+
+
+```
+
 
 
 
