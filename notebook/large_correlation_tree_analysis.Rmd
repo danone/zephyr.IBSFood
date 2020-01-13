@@ -17,6 +17,7 @@ devtools::load_all()
 
 ```{r, message=FALSE, warning=FALSE}
 
+
 infraspecies = readr::read_csv2(system.file("infraspecies", "infraspecies_table_full.csv", package="IBSFood"))[,-1]
 
 nutrient_taxa_cor = read.csv2(file="nutrient_taxa_cor.csv", row.names=1)
@@ -217,7 +218,7 @@ compo_taxa_melt %>% head
 
 ## correlation with nutrient
 
-```{r}
+```{r eval=FALSE, include=FALSE}
 
 
 data("nutrients_data")
@@ -335,14 +336,18 @@ compo_taxa_melt %>%
 compo_taxa_nutriscore_cor
 
 
-
-
-
-
 ```
 
 
 ```{r}
+
+
+merge(compo_taxa_nutriscore_cor,compo_taxa_meat_plant_ratio_cor, by="tax_variable") %>%
+  filter(abs(p.value.x)<0.01|abs(p.value.y)<0.01) %>% 
+  ggplot() + geom_label(aes(estimate.x,estimate.y,label=tax_variable))
+
+
+
 
 merge(
 compo_taxa_food_unifrac_permanova %>%
@@ -577,8 +582,8 @@ infraspecies %>%
   mutate(genus_R2=ifelse(any(variable=="genus"), R2[variable=="genus"], 0)) %>%
   mutate(MSP_R2=ifelse(any(variable=="MSP"), R2[variable=="MSP"], 0)) %>%
   mutate(Infraspecies_R2=ifelse(any(variable=="Infraspecies"), R2[variable=="Infraspecies"], 0)) %>%
-  mutate(Associations = ifelse(genus_R2 >= Infraspecies_R2,"MSP or higher level","Infraspecies level")) %>%
-  mutate(Associations = ifelse(MSP_R2 >= Infraspecies_R2,"MSP or higher level","Infraspecies level")) %>%
+  mutate(Associations = ifelse(genus_R2 >= Infraspecies_R2,"MSP or higher level","subspecies level")) %>%
+  mutate(Associations = ifelse(MSP_R2 >= Infraspecies_R2,"MSP or higher level","subspecies level")) %>%
   ggplot() + geom_line(aes(x=variable,y=R2,group=rowid, col=Associations), alpha=0.5)  + 
   scale_color_manual("Higher diet\nassociation at",values = c("Red","Blue")) + 
   scale_y_continuous(labels = scales::percent, limits = c(0,0.035)) +
@@ -809,6 +814,47 @@ infraspecies %>%
   #group_by(variable) %>%
   #filter(value==max(value)) %>%
   filter(msp_name_partition=="msp_0070_cl_1") %>%
+  merge(meat_plant_ratio %>% select(variable,meat_plant_ratio, A1, `Plant-based`,`Animal-based`),by="variable") %>%
+  #filter(value>0) %>%
+  #with(.,cor.test(.$`Plant-based`,.$value+10^-4, method="spearman"))
+  with(.,cor.test(.$`meat_plant_ratio`,.$value+10^-4, method="spearman"))
+
+
+
+infraspecies %>%
+  mutate_at(vars(contains("M", ignore.case = F)),function(x){x/sum(x)}) %>%
+  #filter(msp_name_partition %in% infraspecies_select) %>%
+  filter(species == "Eubacterium rectale") %>%
+  filter(msp_name_partition != "msp_0070_unassigned") %>%
+  select(msp_name_partition, contains("M", ignore.case = FALSE)) %>%
+  reshape2::melt(id.vars="msp_name_partition") %>%
+  #group_by(variable) %>%
+  #filter(value==max(value)) %>%
+  #filter(msp_name_partition=="msp_0070_cl_1") %>%
+  merge(meat_plant_ratio %>% select(variable,meat_plant_ratio, A1, `Plant-based`,`Animal-based`),by="variable") %>%
+  dplyr::rename(value_erectale="value") %>%
+  group_by(msp_name_partition) %>%
+  select(meat_plant_ratio,value_erectale) %>%
+  reshape2::melt(id.vars=c("msp_name_partition","value_erectale")) %>%
+  mutate(detected=ifelse(value_erectale>0,"yes","no")) %>%
+  ungroup() %>%
+  #select(-value) %>%
+  #ggplot() + geom_boxplot(aes(x=msp_name_partition,y=value,fill=detected))
+  filter(msp_name_partition=="msp_0070_cl_1") %>%
+  #filter(detected=="yes") %>%
+  with(., wilcox.test(.$value~ .$detected))
+
+
+infraspecies %>%
+  mutate_at(vars(contains("M", ignore.case = F)),function(x){x/sum(x)}) %>%
+  #filter(msp_name_partition %in% infraspecies_select) %>%
+  filter(species == "Eubacterium rectale") %>%
+  filter(msp_name_partition != "msp_0070_unassigned") %>%
+  select(msp_name_partition, contains("M", ignore.case = FALSE)) %>%
+  reshape2::melt(id.vars="msp_name_partition") %>%
+  #group_by(variable) %>%
+  #filter(value==max(value)) %>%
+  #filter(msp_name_partition=="msp_0070_cl_1") %>%
   merge(meat_plant_ratio %>% select(variable,meat_plant_ratio, A1, `Plant-based`),by="variable") %>%
   filter(value>0) %>%
   #with(.,wilcox.test(.$`Plant-based`~.$msp_name_partition))
@@ -816,13 +862,14 @@ infraspecies %>%
   #ggplot() + geom_boxplot(aes(x=msp_name_partition,y=meat_plant_ratio,col=msp_name_partition)) 
   #ggplot() + geom_boxplot(aes(x=msp_name_partition,y=`Plant-based`)) 
   ggplot() + 
-  geom_point(aes(x=value+10^-4,y=meat_plant_ratio)) + 
+  geom_point(aes(x=value+10^-4,y=meat_plant_ratio,col=msp_name_partition)) + 
   #geom_smooth(aes(x=value+10^-4,y=meat_plant_ratio), method = "lm") +
   annotate("text",y=-2,x=0.003, label="Rho=0.23, p<0.05") +
   scale_x_log10(label=scales::percent) + 
   ylab("Meat\\Plant based ratio (log2)") +
   xlab("Eubacterium rectale infraspecies\nwith flagelin encoded genes") -> p_Erectale_meat_plant_plot
   
+
 
 p_Erectale_meat_plant_plot
 
@@ -870,17 +917,67 @@ Erectale$binary_msp %>%
   theme(axis.ticks=element_blank()) +
   theme(axis.text=element_blank()) +
   ylab("Genes") +
-  xlab(substitute(paste("Metagenomic ", italic('E. rectale'), " infraspecies"))) -> p_erectale_infraspecies
+  xlab(substitute(paste("Metagenomic ", italic('E. rectale'), " subspecies"))) -> p_erectale_infraspecies
 
   
   
-p_erectale_infraspecies 
+save(p_erectale_infraspecies, file="p_erectale_infraspecies.rda" )
 
+p_erectale_infraspecies
 
 ggsave("p_erectale_infraspecies.pdf")
 
 
 ```
+
+extract flagelin genes
+```{r}
+
+og=vroom::vroom("../data-raw/metahit.og.csv",delim = ";")
+
+og %>% select(-1) %>%
+  merge(Erectale$test_msp, by="genes.id") %>% write.csv(file = "erectale_cog_significant_genes.csv")
+
+system.file("data-raw","erectale_flagelin.csv", package="IBSFood")
+
+
+flagelin_genes = read.csv2("../data-raw/erectale_flagelin.csv")
+
+
+
+```
+
+
+```{r}
+
+Erectale$binary_msp %>% 
+  filter(module_name  != "core") %>% 
+  select(-module_name) %>%
+  tibble::column_to_rownames("genes.id") %>%
+  as.matrix %>% .[genes_hclust$order,order(Erectale$clusters_msp$sample$partition)] %>%
+  as.data.frame() %>%
+  tibble::rownames_to_column("genes.id") %>%
+  filter(genes.id %in% flagelin_genes$genes_id) %>%
+  as.data.frame() %>%
+  #tibble::rowid_to_column() %>%
+  reshape2::melt(id.vars="genes.id") %>%
+  merge(Erectale$clusters_msp$sample$partition %>%
+   as.matrix() %>% as.data.frame, by.x="variable", by.y="row.names") %>%
+  dplyr::rename(Infraspecies = V1) %>%
+  group_by(genes.id) %>%
+  mutate(prev=sum(value)/n()) %>%
+  filter(prev>0.25) %>%
+  ggplot() + geom_tile(aes(x=variable,y=genes.id %>% as.character, fill=value %>% as.character)) + 
+  scale_fill_manual("", labels=c("Undetected","Detected"), values=c("dark grey","yellow")) +
+  facet_wrap(~Infraspecies, scales = "free_x") +
+  theme_bw() +
+  theme(axis.ticks=element_blank()) +
+  theme(axis.text=element_blank()) +
+  ylab("Flagelin encoded genes") +
+  xlab(substitute(paste("Metagenomic ", italic('E. rectale'), " subspecies"))) -> p_erectale_infraspecies_flagelin
+
+```
+
 
 
 ## final plot (Figure 2)
@@ -891,7 +988,12 @@ cowplot::plot_grid(
   cowplot::plot_grid(p_cazotypes_read_mass,p_erectale_infraspecies,nrow=2, labels = c("B","D")), 
   ncol=2, rel_widths = c(2,1))
 
-ggsave("Figure2_infraspecies_diet_cazotypes.pdf")
+cowplot::plot_grid(
+  cowplot::plot_grid(dendro,p_R2_lineage, nrow=2, rel_heights = c(2,1), labels = c("A","C")),
+  cowplot::plot_grid(p_erectale_infraspecies,p_erectale_infraspecies_flagelin,nrow=2, labels = c("B","D")), 
+  ncol=2, rel_widths = c(2,1))
+
+ggsave("Figure2_infraspecies_diet_flagelin.pdf")
 
 
 ```
