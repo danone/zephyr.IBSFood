@@ -561,7 +561,7 @@ compo_taxa_food_unifrac_permanova %>%
 ```
 
 
-
+when MSP can be splitted into subspecies, diet associations is always higher at subspecies
 
 ```{r}
 
@@ -584,6 +584,35 @@ infraspecies %>%
   mutate(Infraspecies_R2=ifelse(any(variable=="Infraspecies"), R2[variable=="Infraspecies"], 0)) %>%
   mutate(Associations = ifelse(genus_R2 >= Infraspecies_R2,"MSP or higher level","subspecies level")) %>%
   mutate(Associations = ifelse(MSP_R2 >= Infraspecies_R2,"MSP or higher level","subspecies level")) %>%
+  filter(variable=="MSP") %>%
+  group_by(value) %>%
+  filter(Infraspecies_R2 == max(Infraspecies_R2)) %>%
+  ungroup() %>%
+  group_by(Associations) %>%
+  summarise(n=n())
+  
+
+infraspecies %>%
+  select(superkingdom,phylum,class,order,family,genus, msp_name,msp_name_partition) %>%
+  ungroup() %>%
+  dplyr::rename(MSP=msp_name, Infraspecies=msp_name_partition) %>%
+  tibble::rowid_to_column() %>%
+  reshape2::melt(id.vars="rowid") %>%
+  merge(compo_taxa_food_unifrac_permanova, by.y=c("tax_variable","taxa"), by.x=c("value","variable")) %>%
+  mutate(variable = variable %>% gsub("Infraspecies","subspecies",.)) %>%
+  filter(term=="value") %>%
+  group_by(rowid) %>%
+  mutate(n_level= n()) %>%
+  filter(n_level > 6) %>%
+  filter(!any((grepl("unassigned",value)))) %>%
+  filter(any(R2>0.02)) %>%
+  mutate(family_R2=ifelse(any(variable=="family"), R2[variable=="family"], 0)) %>%
+  mutate(genus_R2=ifelse(any(variable=="genus"), R2[variable=="genus"], 0)) %>%
+  mutate(MSP_R2=ifelse(any(variable=="MSP"), R2[variable=="MSP"], 0)) %>%
+  mutate(Infraspecies_R2=ifelse(any(variable=="subspecies"), R2[variable=="subspecies"], 0)) %>%
+  mutate(Associations = ifelse(genus_R2 >= Infraspecies_R2,"MSP or higher level","subspecies level")) %>%
+  mutate(Associations = ifelse(MSP_R2 >= Infraspecies_R2,"MSP or higher level","subspecies level")) %>%
+  mutate(variable = factor(variable, levels = c("superkingdom","phylum","class","order","family","genus","MSP","subspecies"))) %>%
   ggplot() + geom_line(aes(x=variable,y=R2,group=rowid, col=Associations), alpha=0.5)  + 
   scale_color_manual("Higher diet\nassociation at",values = c("Red","Blue")) + 
   scale_y_continuous(labels = scales::percent, limits = c(0,0.035)) +
@@ -830,6 +859,72 @@ infraspecies %>%
   reshape2::melt(id.vars="msp_name_partition") %>%
   #group_by(variable) %>%
   #filter(value==max(value)) %>%
+  filter(msp_name_partition=="msp_0070_cl_1") %>%
+  merge(meat_plant_ratio , by="variable") %>%
+  dplyr::rename(patient="variable", erectale="value") %>%
+  reshape2::melt(id.vars=c("patient","msp_name_partition","erectale")) %>%
+  group_by(variable) %>%
+  do(with(.,cor.test(.$value, .$erectale, method="spearman")) %>% broom::tidy()) %>%
+  arrange(p.value)
+  
+infraspecies %>%
+  mutate_at(vars(contains("M", ignore.case = F)),function(x){x/sum(x)}) %>%
+  #filter(msp_name_partition %in% infraspecies_select) %>%
+  filter(species == "Eubacterium rectale") %>%
+  filter(msp_name_partition != "msp_0070_unassigned") %>%
+  select(msp_name_partition, contains("M", ignore.case = FALSE)) %>%
+  reshape2::melt(id.vars="msp_name_partition") %>%
+  #group_by(variable) %>%
+  #filter(value==max(value)) %>%
+  #filter(value>0) %>%
+  filter(msp_name_partition=="msp_0070_cl_2") %>%
+  merge(nutrients_data , by.x="variable", by.y="ID") %>%
+  dplyr::rename(patient="variable", erectale="value") %>%
+  reshape2::melt(id.vars=c("patient","msp_name_partition","erectale")) %>%
+  group_by(variable) %>%
+  do(with(.,cor.test(.$value, .$erectale, method="spearman")) %>% broom::tidy()) %>%
+  arrange(p.value)
+  
+
+infraspecies %>%
+  mutate_at(vars(contains("M", ignore.case = F)),function(x){x/sum(x)}) %>%
+  #filter(msp_name_partition %in% infraspecies_select) %>%
+  filter(species == "Eubacterium rectale") %>%
+  filter(msp_name_partition != "msp_0070_unassigned") %>%
+  select(msp_name_partition, contains("M", ignore.case = FALSE)) %>%
+  reshape2::melt(id.vars="msp_name_partition") %>%
+  #group_by(variable) %>%
+  #filter(value==max(value)) %>%
+  #filter(msp_name_partition=="msp_0070_cl_1") %>%
+  merge(nutrients_data , by.x="variable", by.y="ID") %>%
+  #filter(value>0) %>%
+  #with(.,wilcox.test(.$`Plant-based`~.$msp_name_partition))
+  #with(.,cor.test(.$`Plant-based`,.$value, method="spearman"))
+  #ggplot() + geom_boxplot(aes(x=msp_name_partition,y=meat_plant_ratio,col=msp_name_partition)) 
+  #ggplot() + geom_boxplot(aes(x=msp_name_partition,y=`Plant-based`)) 
+  filter(msp_name_partition=="msp_0070_cl_1") %>%
+  ggplot() + 
+  geom_point(aes(x=value+10^-4,y=`Vit B12 ug`,col=msp_name_partition)) + 
+  #geom_smooth(aes(x=value+10^-4,y=meat_plant_ratio), method = "lm") +
+  annotate("text",y=-2,x=0.003, label="Rho=0.31, p<0.05") +
+  scale_x_log10(label=scales::percent) + 
+  ylab("Vitamin B12 (ug)") +
+  xlab("Eubacterium rectale infraspecies\nwith flagelin encoded genes") -> p_Erectale_VitB12
+
+
+
+
+
+
+infraspecies %>%
+  mutate_at(vars(contains("M", ignore.case = F)),function(x){x/sum(x)}) %>%
+  #filter(msp_name_partition %in% infraspecies_select) %>%
+  filter(species == "Eubacterium rectale") %>%
+  filter(msp_name_partition != "msp_0070_unassigned") %>%
+  select(msp_name_partition, contains("M", ignore.case = FALSE)) %>%
+  reshape2::melt(id.vars="msp_name_partition") %>%
+  #group_by(variable) %>%
+  #filter(value==max(value)) %>%
   #filter(msp_name_partition=="msp_0070_cl_1") %>%
   merge(meat_plant_ratio %>% select(variable,meat_plant_ratio, A1, `Plant-based`,`Animal-based`),by="variable") %>%
   dplyr::rename(value_erectale="value") %>%
@@ -989,8 +1084,8 @@ cowplot::plot_grid(
   ncol=2, rel_widths = c(2,1))
 
 cowplot::plot_grid(
-  cowplot::plot_grid(dendro,p_R2_lineage, nrow=2, rel_heights = c(2,1), labels = c("A","C")),
-  cowplot::plot_grid(p_erectale_infraspecies,p_erectale_infraspecies_flagelin,nrow=2, labels = c("B","D")), 
+  cowplot::plot_grid(dendro,p_R2_lineage, nrow=2, rel_heights = c(2,1), labels = c("A","B")),
+  cowplot::plot_grid(p_erectale_infraspecies,p_erectale_infraspecies_flagelin,nrow=2, labels = c("C",""), rel_heights = c(2,1)), 
   ncol=2, rel_widths = c(2,1))
 
 ggsave("Figure2_infraspecies_diet_flagelin.pdf")
