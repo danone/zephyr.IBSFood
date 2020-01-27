@@ -360,8 +360,9 @@ rbind(
   #ggplot() + geom_bar(aes(x=paste(data,model),y=estimate,fill=estimate), stat="identity", position = "dodge") + 
   #facet_grid(clinical~variable) + scale_fill_gradient2("Rho") + ylim(-0.3,0.3)
   ggplot() + geom_tile(aes(x=paste0(model %>% stringr::str_sub(1,1),"\n",data %>% stringr::str_sub(1,1)),y=clinical,fill=estimate)) + 
-  scale_fill_gradient2("Rho", mid = "light grey") + scale_alpha_discrete(range = c(0.5,1)) +
-  xlab("Co-inertia principal components\n(t=train set,v=validation set,\n f=food data, m=metagenomes data)") + ylab("") + facet_wrap(~variable, nrow=1) -> p_coinertia_metadata
+  scale_fill_gradient2("Rho", mid = "lightgrey") + scale_alpha_discrete(range = c(0.5,1)) +
+  #scale_fill_gradient("Rho",low = "lightblue",  high ="lightred") + scale_alpha_discrete(range = c(0.5,1)) +
+  xlab("Co-inertia principal components\n(t=training set, v=validation set,\n f=Food data, m=Metagenome data)") + ylab("") + facet_wrap(~variable, nrow=1) + scale_y_discrete(labels= c("Age","BMI","IBS-SSS",expression(H[2]),expression(CH[4]),"FSA-NPS diet index","Meat/plant ratio","Richness",expression(paste(H[2],"/",CH[4]," ratio")))) -> p_coinertia_metadata
 
 
 p_coinertia_metadata
@@ -395,11 +396,11 @@ round(MSP_infraspecies_food_coi$eig/sum(MSP_infraspecies_food_coi$eig),2)[1:20] 
 
 rbind(
   rbind(
-    MSP_infraspecies_food_coi$lX[1:2] %>% dplyr::rename(A1=AxcX1, A2=AxcX2) %>% mutate(Set="Train set",Data="metagenomes"),
-    MSP_infraspecies_food_coi_spesup$lisup[1:2] %>% dplyr::rename(A1=AxcX1, A2=AxcX2) %>% mutate(Set="Validation set",Data="metagenomes")),
+    MSP_infraspecies_food_coi$lX[1:2] %>% dplyr::rename(A1=AxcX1, A2=AxcX2) %>% mutate(Set="Training set",Data="Metagenomes"),
+    MSP_infraspecies_food_coi_spesup$lisup[1:2] %>% dplyr::rename(A1=AxcX1, A2=AxcX2) %>% mutate(Set="Validation set",Data="Metagenomes")),
   rbind(
-    MSP_infraspecies_food_coi$lY[1:2] %>% dplyr::rename(A1=AxcY1, A2=AxcY2) %>% mutate(Set="Train set",Data="food"),
-    MSP_infraspecies_food_coi_foodsup$cosup[1:2] %>% dplyr::rename(A1=AxcY1, A2=AxcY2) %>% mutate(Set="Validation set",Data="food"))
+    MSP_infraspecies_food_coi$lY[1:2] %>% dplyr::rename(A1=AxcY1, A2=AxcY2) %>% mutate(Set="Training set",Data="Food"),
+    MSP_infraspecies_food_coi_foodsup$cosup[1:2] %>% dplyr::rename(A1=AxcY1, A2=AxcY2) %>% mutate(Set="Validation set",Data="Food"))
 ) %>% 
   ggplot() + 
   geom_segment(data= merge(MSP_infraspecies_food_coi$lX,MSP_infraspecies_food_coi$lY, by="row.names"), aes(x=AxcX1,y=AxcX2,xend=AxcY1,yend=AxcY2),col="grey") +
@@ -915,13 +916,16 @@ model_prediction_plot =
 rbind(H2_CH4_modeling,
 meat_plant_ratio_modeling,
 severity_modeling) %>%
+  mutate(target= target %>% gsub("H2_CH4", "H2/CH4 ratio",.) ) %>%
+  mutate(target= target %>% gsub("meat_plant_ratio", "Meat/plant ratio",.) ) %>%
   group_by(target) %>%
   mutate(predicted = scale(predicted)) %>%
   ggplot() + 
   geom_point(aes(x=observed, y=predicted, color=data, shape=model)) + 
-  scale_color_discrete("Validation data") +
-  scale_shape("Training data") +
-  facet_wrap(~target, nrow = 1, scales = "free") + ylab("predicted (scaled)") + xlab("observed")
+  scale_color_discrete("Validation sets", labels=c("Food","Metagenomes")) +
+  scale_shape("Training sets", labels=c("Food","Metagenomes")) +
+  facet_wrap(~target, nrow = 1, scales = "free") + 
+  ylab("predicted (scaled)") + xlab("observed") 
 
 model_prediction_plot + cowplot::theme_cowplot()
 
@@ -931,13 +935,18 @@ model_prediction_plot + cowplot::theme_cowplot()
 
 ## final plot 2
 
-```{r, fig.height=6, fig.width=14}
+```{r, fig.height=7, fig.width=14}
 
 
 cowplot::plot_grid(
-cowplot::plot_grid(p_partial_co_inertia+ cowplot::theme_cowplot(),  model_prediction_plot+ cowplot::theme_cowplot(), labels = c("A","C"), rel_widths = c(1,1.5)), 
-cowplot::plot_grid(p_coinertia_metadata+ cowplot::theme_cowplot(),NULL, labels = c("B",""), rel_widths = c(9,1)), 
-nrow=2)
+  cowplot::plot_grid(
+    p_partial_co_inertia+ cowplot::theme_cowplot(),  
+    model_prediction_plot+ cowplot::theme_cowplot(), 
+    labels = c("A","C"), rel_widths = c(1,1.5)), 
+    cowplot::plot_grid(
+      p_coinertia_metadata+ cowplot::theme_cowplot(),
+      NULL, labels = c("B",""), rel_widths = c(9,1) ), 
+nrow=2, rel_heights = c(1,1.2))
 
 ggsave("Figure3_coinertia_model.pdf")
 

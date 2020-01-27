@@ -694,7 +694,7 @@ wilcox.test(d,d_random)
 
 
 
-### JSD infraspecies
+### JSD infraspecies/subspecies
 
 ```{r}
 
