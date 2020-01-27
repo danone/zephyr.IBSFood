@@ -525,7 +525,7 @@ dendro = ggraph(gr, layout = 'dendrogram', circular = TRUE) +
     #geom_node_text(aes(label=label, filter=!unassigned)) +
     scale_radius() +
     #viridis::scale_color_viridis() +
-    coord_fixed() + theme_void() + scale_alpha("Diet associations with\ntaxonomic tree nodes\n(R2, PERMANOVA)", labels = scales::percent) + scale_size("Diet associations with\ntaxonomic tree nodes\n(R2, PERMANOVA)", labels = scales::percent)
+    coord_fixed() + theme_void() + scale_alpha(expression(atop("\nTaxonomic tree nodes\nassociated with diet",paste("PERMANOVA R"^2))), labels = scales::percent) + scale_size(expression(atop("\nTaxonomic tree nodes\nassociated with diet",paste("PERMANOVA R"^2))), labels = scales::percent)
 
 dendro=
 dendro +
@@ -617,7 +617,7 @@ infraspecies %>%
   scale_color_manual("Higher diet\nassociation at",values = c("Red","Blue")) + 
   scale_y_continuous(labels = scales::percent, limits = c(0,0.035)) +
   xlab("Taxonomic levels") +
-  ylab("R2 (Permanova)") +
+  ylab(expression(paste(R^2," (PERMANOVA)"))) +
   theme_minimal() -> p_R2_lineage
 
 
@@ -1078,10 +1078,10 @@ Erectale$binary_msp %>%
 ## final plot (Figure 2)
 ```{r, fig.height=7, fig.width=12}
 
-cowplot::plot_grid(
-  cowplot::plot_grid(dendro,p_R2_lineage, nrow=2, rel_heights = c(2,1), labels = c("A","C")),
-  cowplot::plot_grid(p_cazotypes_read_mass,p_erectale_infraspecies,nrow=2, labels = c("B","D")), 
-  ncol=2, rel_widths = c(2,1))
+# cowplot::plot_grid(
+#   cowplot::plot_grid(dendro,p_R2_lineage, nrow=2, rel_heights = c(2,1), labels = c("A","C")),
+#   cowplot::plot_grid(p_cazotypes_read_mass,p_erectale_infraspecies,nrow=2, labels = c("B","D")), 
+#   ncol=2, rel_widths = c(2,1))
 
 cowplot::plot_grid(
   cowplot::plot_grid(dendro,p_R2_lineage, nrow=2, rel_heights = c(2,1), labels = c("A","B")),
