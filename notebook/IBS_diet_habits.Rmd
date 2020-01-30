@@ -910,7 +910,7 @@ merge(nutriscore_DI,unifrac_pco$li,by.x="Patient_ID",by.y="row.names") %>%
 merge(nutriscore_DI,unifrac_pco$li,by.x="Patient_ID",by.y="row.names") %>%
   merge(.,snack_per_day,by.x="Patient_ID",by.y="Identity") %>%
     ggplot() + geom_point(aes(x=A2,y=nutriscore_DI)) + 
-  geom_smooth(aes(x=A2,y=nutriscore_DI), method = "lm") +
+  #geom_smooth(aes(x=A2,y=nutriscore_DI), method = "lm") +
   ylab("Nutriscore\nDiet index") + xlab("PCoA2") -> nutriscore_DI_plot
 
 save(nutriscore_DI, file="nutriscore_DI.rda")
@@ -1027,7 +1027,11 @@ nutriscore_DI %>%
            IBSData$metadata %>% 
                filter(Sample_type=="Stool", Visit=="V4") %>% 
                select(Patient_ID,Health,IBS.Severity.Score,SSgroup,H2,CH4), 
-           by="Patient_ID") %>% with(.,cor.test(nutriscore_DI,as.numeric(SSgroup), method="spearman"))
+           by="Patient_ID") %>% 
+  mutate(severe=ifelse(SSgroup=="severe","severe","non severe")) %>%
+  with(.,wilcox.test(nutriscore_DI~severe))
+
+
 
 
 nutriscore_DI %>%
@@ -1060,12 +1064,17 @@ nutriscore_DI %>%
   #ggplot() + geom_point(aes(y=nutriscore_DI , x=prop)) + facet_grid(Meal~res, scale="free")
   filter(res %in% c("A","E")) %>%
   filter(Meal %in% c("Breakfast","Lunch","Dinner")) %>%
-  filter(!is.na(SSgroup)) %>%
-  #mutate(Health_severe = ifelse(SSgroup == "severe","severe","non\nsevere")) %>%
-  #filter(SSgroup %in% c("control","severe")) %>%
-  #group_by(res) %>%
-  #do(with(., wilcox.test(prop ~ SSgroup, data=., method="spearman") %>% broom::tidy() ))
-  ggplot() + geom_boxplot(aes(y=prop , x=res, fill=SSgroup)) + scale_y_log10() + ylab("Food items prevalence\nper meal") + xlab("Food nutrient-based quality") + 
+  filter(!is.na(SSgroup)) -> main_meal_quality
+
+main_meal_quality %>%
+  mutate(Health_severe = ifelse(SSgroup == "severe","severe","non\nsevere")) %>%
+  filter(SSgroup %in% c("control","severe")) %>%
+  group_by(res) %>%
+  do(with(., wilcox.test(prop ~ SSgroup, data=., method="spearman") %>% broom::tidy() ))
+  
+  
+  main_meal_quality %>% 
+    ggplot() + geom_boxplot(aes(y=prop , x=res, fill=SSgroup)) + scale_y_log10() + ylab("Food items prevalence\nper meal") + xlab("Food nutrient-based quality") + 
   scale_x_discrete(label=c("A (High)","E (Low)")) +
   scale_fill_manual("", label = c("Healthy control","Mild IBS","Moderate IBS","Severe IBS"), values= c("#018571","#80cdc1","#dfc27d","#a6611a")) -> nutriscore_severity_plot
 
@@ -1169,7 +1178,7 @@ ggsave("Diet_PCoA_plot.pdf")
 ```
 
 
-incorportate the food tree
+## incorportate the food tree
 
 ```{r fig.height=20, fig.width=14}
 
@@ -1180,24 +1189,24 @@ diet_plot = cowplot::plot_grid(
     
     cowplot::plot_grid(
       Gender_pcoa_plot+ cowplot::theme_cowplot(),
-      Severity_pcoa_plot+ cowplot::theme_cowplot() + xlab("Symptoms severity"), nrow=2, labels=c("E","F")),
-    rel_widths = c(4,1.2), labels=c("B","")),
+      Severity_pcoa_plot+ cowplot::theme_cowplot() + xlab("Symptoms severity"), nrow=2, labels=c("c","d")),
+    rel_widths = c(4,1.2), labels=c("b","")),
   
   cowplot::plot_grid(
     meat_plant_pcoa_plot+ cowplot::theme_cowplot(),
     nutriscore_DI_plot+ ylab("FSA-NPS\nDiet Index") + cowplot::theme_cowplot(), 
     #nutriscore_severity_plot + cowplot::theme_cowplot() + theme(axis.text.x = element_text(angle = 45, hjust = 1)), 
     nutriscore_severity_plot + cowplot::theme_cowplot() ,
-    rel_widths = c(1,1,1.3),nrow=1, labels=c("C","D","G")), nrow = 2, rel_heights = c(2,1))
+    rel_widths = c(1,1,1.3),nrow=1, labels=c("e","f","g")), nrow = 2, rel_heights = c(2,1))
 
 
 load("food_tree_plot.rda")
 
 cowplot::plot_grid(
   food_tree_plot,
-  diet_plot, nrow=2,labels=c("A","") )
+  diet_plot, nrow=2,labels=c("a","") )
 
-ggsave("Diet_PCoA_food_tree_plot.pdf")
+ggsave("Figure1_Diet_PCoA_food_tree_plot_small.pdf")
 
 
 
