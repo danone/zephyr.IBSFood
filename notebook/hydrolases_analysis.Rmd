@@ -226,7 +226,7 @@ ade4::dudi.pca(hydrogenase_norm, scannf=F, nf=10) -> hydrogene_pca
   ade4::s.label(hydrogene_pca$co, yax=3, xax=1)
 
   
-  H = hydrogenase_normalized %>% tibble::column_to_rownames("New Class") %>% t %>% as.data.frame %>% #magrittr::add(10^-6) %>%  magrittr::add(10^-6) %>%
+  H2 = H = hydrogenase_normalized %>% tibble::column_to_rownames("New Class") %>% t %>% as.data.frame %>% #magrittr::add(10^-6) %>%  magrittr::add(10^-6) %>%
     
   merge(enterotypes %>% filter(Visit=="V4"), by.x="row.names", by.y="Patient_ID") %>%
   merge(
@@ -241,10 +241,14 @@ ade4::dudi.pca(hydrogenase_norm, scannf=F, nf=10) -> hydrogene_pca
   H %>%
      filter(SSgroup %in% c("control","severe")) %>%
      tibble::column_to_rownames("Row.names") %>%
-    select(contains("[FeFe")) -> H_select
+     select(contains("[FeFe")) -> H_select
     
     
-  
+  H2 %>% 
+    
+    tibble::column_to_rownames("Row.names") %>%
+    mutate(severe = ifelse(SSgroup=="severe","severe","non_severe") ) %>%
+    select(contains("[FeFe")) -> H2_select
   
   
   dis1 = ade4::discrimin(ade4::dudi.pca(H_select, scannf=FALSE), fac= H %>%
@@ -253,11 +257,28 @@ ade4::dudi.pca(hydrogenase_norm, scannf=F, nf=10) -> hydrogene_pca
   
   plot(dis1)
   
-  ade4::randtest(dis1)
+
+  dis2 = ade4::discrimin(ade4::dudi.pca(H2_select, scannf=FALSE), fac= H2 %>% 
+    
+    tibble::column_to_rownames("Row.names") %>%
+    mutate(severe = ifelse(SSgroup=="severe","severe","non_severe") ) %>% .$severe %>% as.character %>% as.factor, scan=FALSE)
+
+  plot(dis2)
+  
+
 
   
   
   dis1$va %>%
+    as.data.frame() %>%
+    tibble::rownames_to_column("Hydrogenase") %>%
+    ggplot() + geom_bar(aes(x=Hydrogenase, y=CS1), stat="identity") +
+    coord_flip() + 
+    ylab("LDA scores\n(Association with\nsymptom severity)") + 
+    cowplot::theme_cowplot() -> LDA_hydrogenase_plot
+  
+  
+  dis2$va %>%
     as.data.frame() %>%
     tibble::rownames_to_column("Hydrogenase") %>%
     ggplot() + geom_bar(aes(x=Hydrogenase, y=CS1), stat="identity") +
@@ -271,7 +292,7 @@ ade4::dudi.pca(hydrogenase_norm, scannf=F, nf=10) -> hydrogene_pca
     select(contains("[FeFe"), SSgroup) %>%
     na.omit() %>%
     reshape2::melt(id.vars="SSgroup") %>%
-    filter(SSgroup %in% c("control","severe")) %>%
+    #filter(SSgroup %in% c("control","severe")) %>%
     #mutate(value=10^value) %>%
     filter(variable %in% c("[FeFe] Group A3")) %>%
     ggplot() + geom_boxplot(aes(x=SSgroup,y=value)) + facet_wrap(~variable, scales = "free_y") +
@@ -280,7 +301,19 @@ ade4::dudi.pca(hydrogenase_norm, scannf=F, nf=10) -> hydrogene_pca
     xlab("Symptom severity") +
     cowplot::theme_cowplot() -> FeFe_A3_severity_plot
   
-  
+  H2 %>%
+    mutate(severe = ifelse(SSgroup=="severe","severe","non severe") ) %>%
+    select(contains("[FeFe"), severe) %>%
+    na.omit() %>%
+    reshape2::melt(id.vars="severe") %>%
+    #filter(SSgroup %in% c("control","severe")) %>%
+    #mutate(value=10^value) %>%
+    filter(variable %in% c("[FeFe] Group A3")) %>%
+    ggplot() + geom_boxplot(aes(x=severe,y=value)) + facet_wrap(~variable, scales = "free_y") +
+    #scale_y_log10() +
+    ylab("rel. abundance") +
+    xlab("Symptom severity") +
+    cowplot::theme_cowplot() -> FeFe_A3_severity_plot
   
   
 ```
