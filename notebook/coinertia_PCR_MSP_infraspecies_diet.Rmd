@@ -356,7 +356,18 @@ rbind(
     
     with(.,cor.test(.$clinical_value,.$value, method = "spearman") %>% broom::tidy())
     
-  ) %>%
+  ) -> coinertia_test
+
+coinertia_test %>%
+  select(clinical,variable,n,model,data,estimate,p.value) %>%
+  rename(`coinertia components` = variable, variable = clinical, set=model, `number of individuals`=n, rho=estimate, `uncorrected p.value`=p.value) %>% 
+  arrange(variable,`coinertia components`,set, data) %>%
+  mutate(`uncorrected p.value` = round(`uncorrected p.value`,4), rho=round(rho,3)) %>%
+  write.csv2(file="table_supp_info_coinertia_test.csv")
+  
+
+
+coinertia_test %>%
   #ggplot() + geom_bar(aes(x=paste(data,model),y=estimate,fill=estimate), stat="identity", position = "dodge") + 
   #facet_grid(clinical~variable) + scale_fill_gradient2("Rho") + ylim(-0.3,0.3)
   ggplot() + geom_tile(aes(x=paste0(model %>% stringr::str_sub(1,1),"\n",data %>% stringr::str_sub(1,1)),y=clinical,fill=estimate)) + 
