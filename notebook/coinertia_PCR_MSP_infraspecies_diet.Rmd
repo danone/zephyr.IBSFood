@@ -953,13 +953,13 @@ cowplot::plot_grid(
   cowplot::plot_grid(
     p_partial_co_inertia+ cowplot::theme_cowplot(),  
     model_prediction_plot+ cowplot::theme_cowplot(), 
-    labels = c("A","C"), rel_widths = c(1,1.5)), 
+    labels = c("a","c"), rel_widths = c(1,1.5)), 
     cowplot::plot_grid(
       p_coinertia_metadata+ cowplot::theme_cowplot(),
-      NULL, labels = c("B",""), rel_widths = c(9,1) ), 
+      NULL, labels = c("b",""), rel_widths = c(9,1) ), 
 nrow=2, rel_heights = c(1,1.2))
 
-ggsave("Figure3_coinertia_model.pdf")
+ggsave("Figure3_coinertia_model_small.pdf")
 
 
 ```

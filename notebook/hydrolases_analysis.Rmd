@@ -693,9 +693,9 @@ p_network
 ```{r, fig.height=6, fig.width=10}
 
 
-cowplot::plot_grid(p_network, cowplot::plot_grid(LDA_hydrogenase_plot, FeFe_A3_severity_plot, nrow=2, labels = c("B","C")), nrow=1, rel_widths = c(2,1), labels = c("A",NULL))
+cowplot::plot_grid(p_network, cowplot::plot_grid(LDA_hydrogenase_plot, FeFe_A3_severity_plot, nrow=2, labels = c("b","c")), nrow=1, rel_widths = c(2,1), labels = c("a",NULL))
 
-ggsave("Figure4_cazy_hydrogenase_network_LDA.pdf", h=6,w=10)
+ggsave("Figure4_cazy_hydrogenase_network_LDA_small.pdf", h=6,w=10)
 
 
 ```
