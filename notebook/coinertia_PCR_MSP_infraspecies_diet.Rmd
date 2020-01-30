@@ -161,11 +161,11 @@ rbind(MSP_infraspecies_food_coi$lX,MSP_infraspecies_food_coi_spesup$lisup) # all
 
 rbind(MSP_infraspecies_food_coi$lY,MSP_infraspecies_food_coi_foodsup$cosup) # all coordinates for food data samples
 
-
+MSP_infraspecies_food_coi$RV
 
 ```
 
-
+Coinertia RV coefficient is `MSP_infraspecies_food_coi$RV`
 
 
 ```{r, eval=FALSE, message=FALSE, warning=FALSE, include=FALSE}
