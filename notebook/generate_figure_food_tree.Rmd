@@ -34,6 +34,8 @@ edges_level3_4 <- data %>%select(`Food groups lvl3`, `Food groups lvl4`) %>% uni
 edge_list=rbind(edges_level0_1,edges_level1_2, edges_level2_3,edges_level3_4)
 
 
+edges_level1_4 <- data %>%select(`Food groups lvl1`, `Food groups lvl4`) %>% unique %>% rename(from=`Food groups lvl1`, to=`Food groups lvl4`)
+
 ```
 
 
@@ -42,21 +44,24 @@ edge_list %>%
   igraph::graph_from_data_frame() %>%
   tidygraph::as_tbl_graph() %>%
   mutate(leaf = node_is_leaf(), root = node_is_root()) %>%
+  left_join(.,edges_level1_4, by = c("name"="to")) %>%
   mutate(root=ifelse(name=="Food",TRUE,FALSE)) %>%
+  mutate(name=ifelse(name=="Food","",name)) %>%
   ggraph('dendrogram', circular = TRUE) + 
   geom_edge_elbow() + 
   coord_fixed() +
   geom_node_point(size=1) +
-  geom_node_point(aes(filter = leaf), colour = 'forestgreen', size = 5) +
-  geom_node_point(aes(filter = root), colour = 'firebrick', size = 10) +
+  geom_node_point(aes(filter = leaf, colour = from), size = 5) +
+  geom_node_point(aes(filter = root), colour = 'grey', size = 10) +
   geom_node_label(aes(label=name %>% gsub(" ","\n",.)),repel = TRUE, size=3,segment.alpha = 0.5) +
-  theme_graph() -> food_tree_plot
+  scale_color_brewer("Food group", type="qual") +
+  theme_graph(base_family = 'Helvetica') -> food_tree_plot
 
 save(food_tree_plot, file="food_tree_plot.rda")
 
 food_tree_plot
 
-ggsave("food_tree.pdf",h=10,w=10)
+ggsave("food_tree.pdf",food_tree_plot,h=10,w=10)
 
 
 # edge_list %>%
@@ -74,5 +79,7 @@ ggsave("food_tree.pdf",h=10,w=10)
 
 
 ```
+
+
 
 
