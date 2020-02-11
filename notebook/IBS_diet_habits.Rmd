@@ -1376,7 +1376,7 @@ melt(id.vars=c("ID","Health_severe","Health", "SSgroup")) %>%
   mutate(delta_Z = estimate1 - estimate2) %>%
   select(variable,p.value,delta_Z) %>%
   ggplot() + geom_bar(aes(x=variable,y=abs(delta_Z), fill=delta_Z>0, alpha=p.value<0.05 ), stat="identity") +
-  ylim(0,1) + coord_flip() + scale_fill_brewer(type="qual", palette = "Set1") +
+  ylim(0,1) + coord_flip() + scale_fill_brewer("", type="qual", palette = "Set1",labels=c("Higher in severe IBS","Lower in severe IBS")) +
   scale_alpha_discrete(range=c(0.4,1)) + theme_classic() + xlab("") + ylab("Absolute Z-score\n(mean difference)")
 
 
