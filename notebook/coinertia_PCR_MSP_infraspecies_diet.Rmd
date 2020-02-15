@@ -371,9 +371,13 @@ coinertia_test %>%
   #ggplot() + geom_bar(aes(x=paste(data,model),y=estimate,fill=estimate), stat="identity", position = "dodge") + 
   #facet_grid(clinical~variable) + scale_fill_gradient2("Rho") + ylim(-0.3,0.3)
   ggplot() + geom_tile(aes(x=paste0(model %>% stringr::str_sub(1,1),"\n",data %>% stringr::str_sub(1,1)),y=clinical,fill=estimate)) + 
-  scale_fill_gradient2("Rho", mid = "lightgrey") + scale_alpha_discrete(range = c(0.5,1)) +
+  scale_fill_gradient2("Rho", mid = "white", na.value = "yellow") + 
+  
+  scale_alpha_discrete(range = c(0.5,1)) +
   #scale_fill_gradient("Rho",low = "lightblue",  high ="lightred") + scale_alpha_discrete(range = c(0.5,1)) +
-  xlab("Co-inertia principal components\n(t=training set, v=validation set,\n f=Food data, m=Metagenome data)") + ylab("") + facet_wrap(~variable, nrow=1) + scale_y_discrete(labels= c("Age","BMI","IBS-SSS",expression(H[2]),expression(CH[4]),"FSA-NPS diet index","Meat/plant ratio","Richness",expression(paste(H[2],"/",CH[4]," ratio")))) -> p_coinertia_metadata
+  xlab("Co-inertia principal components\n(t=training set, v=validation set,\n f=Food data, m=Metagenome data)") + ylab("") + facet_wrap(~variable, nrow=1) + scale_y_discrete(labels= c("Age","BMI","IBS-SSS",expression(H[2]),expression(CH[4]),"FSA-NPS diet index","Meat/plant ratio","Richness",expression(paste(H[2],"/",CH[4]," ratio")))) +
+cowplot::theme_cowplot() +
+theme(panel.background = element_rect(fill = "#303030")) -> p_coinertia_metadata
 
 
 p_coinertia_metadata
@@ -955,7 +959,7 @@ cowplot::plot_grid(
     model_prediction_plot+ cowplot::theme_cowplot(), 
     labels = c("a","c"), rel_widths = c(1,1.5)), 
     cowplot::plot_grid(
-      p_coinertia_metadata+ cowplot::theme_cowplot(),
+      p_coinertia_metadata,
       NULL, labels = c("b",""), rel_widths = c(9,1) ), 
 nrow=2, rel_heights = c(1,1.2))
 
