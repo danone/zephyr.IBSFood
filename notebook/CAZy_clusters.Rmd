@@ -271,10 +271,10 @@ cazy_counts %>%
   #dplyr::rename(.,cazotype="V1") %>%
   #filter(Var1 %in% c("GH13","GH92","GH2","GH25","GH97","GH20","GH3","GH77","GH88")) %>%
   #filter(Var1 %in% c("GH13","GH92","GH2","GH25","GH97","GH20","GH3","GH77","GH88")) %>%
-  filter(Var1 %in% c("CBM32","GT2","CBM37","GH13","GH92","GH43","GH2","GH25","GH97","GH20")) %>%
+  filter(Var1 %in% c("CBM32","GT2","CBM37","GH13","GH92","GH43","GH2","GH97","GH20","GH97","CBM26")) %>%
   ggplot() + 
   geom_boxplot(aes(x=cazotype %>% as.character,y=value)) + 
-  facet_wrap(~Var1, scale="free_y") + scale_y_log10("rel. abundance") +
+  facet_wrap(~Var1, scale="free_y",nrow=2) + scale_y_log10("rel. abundance") +
   xlab("CAZotypes") +
   cowplot::theme_cowplot()
   
